@@ -121,13 +121,22 @@ button,select,input{font-family:var(--body)}
 /* ---------- sheet / card ---------- */
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.6);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
-  animation:back .24s var(--ease)}
+  animation:back .24s var(--ease);
+  will-change:opacity;transform:translateZ(0);
+  backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
   max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   border-radius:22px 22px 0 0;border:1px solid var(--line);
   padding:10px 20px calc(40px + env(safe-area-inset-bottom));
-  animation:sheetUp .42s var(--spring)}
+  animation:sheetUp .42s var(--spring);
+  will-change:transform,opacity;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+/* 動いている間はブラーを止めて塗り替え範囲も閉じ込める。
+   静止してから本来のフロストガラスに戻す */
+.card.moving,.spotbox.moving{
+  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
+  background:rgba(28,28,32,.97);contain:paint}
+.card.settled,.spotbox.settled{will-change:auto}
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
   transition:background .2s var(--ease)}
 .card.drag .grab{background:rgba(255,255,255,.42)}
@@ -309,9 +318,11 @@ button,select,input{font-family:var(--body)}
 @keyframes back{from{opacity:0}to{opacity:1}}
 @keyframes backOut{to{opacity:0}}
 @keyframes sweep{to{transform:translateX(100%)}}
-#app{animation:rise .3s var(--spring)}
-#app .row,#app .pcard,#app .stripitem{animation:rise .42s var(--spring) both}
-#app .row{animation-delay:calc(var(--i,0) * 16ms)}
+/* 登場アニメは画面が切り替わったときだけ。データ更新のたびに
+   全カードを再アニメさせるとチラつきの原因になる */
+#app.enter{animation:rise .3s var(--spring)}
+#app.enter .row,#app.enter .pcard,#app.enter .stripitem{animation:rise .42s var(--spring) both}
+#app.enter .row{animation-delay:calc(var(--i,0) * 16ms)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
     transition-duration:.01ms !important}
@@ -423,6 +434,16 @@ var openCo = null, tab = 'info';
 var TERM = '夏インターン';
 var TERMS = ['夏インターン','本選考'];
 var FILT = 'all', PAGE = 'list';
+var VIEWKEY = '';           /* 表示中の画面を表す鍵。変わったときだけ登場アニメを出す */
+function markEnter(){
+  var el=document.getElementById('app');
+  var key=PAGE+'|'+TERM+'|'+FILT+'|'+(window._end?1:0)+'|'+(window._skip?1:0);
+  if(key===VIEWKEY){ el.classList.remove('enter'); return; }
+  VIEWKEY=key;
+  el.classList.remove('enter');
+  void el.offsetWidth;      /* アニメを確実に再生させる */
+  el.classList.add('enter');
+}
 
 /* ============ ユーティリティ ============ */
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -866,6 +887,7 @@ function render(){
   h+='</div>';
 
   document.getElementById('app').innerHTML=h;
+  markEnter();
   requestAnimationFrame(syncPills);
   var rws=document.querySelectorAll('#app .row');
   for(var q=0;q<rws.length;q++)rws[q].style.setProperty('--i',q<10?q:10);
@@ -912,9 +934,19 @@ function markOrigin(e){
   var r=el.getBoundingClientRect();
   ORIGIN={x:r.left+r.width/2, y:r.top+r.height/2, w:r.width, h:r.height};
 }
+function settleAfter(node,ms){
+  if(!node)return;
+  node.classList.add('moving');
+  clearTimeout(node._st);
+  node._st=setTimeout(function(){
+    node.classList.remove('moving');
+    node.classList.add('settled');
+  },ms||460);
+}
 function applyMorph(node){
   if(!node)return;
   node.classList.add('morph');
+  settleAfter(node,460);
   if(!ORIGIN){node.style.setProperty('--mx','0px');node.style.setProperty('--my','40px');
     node.style.setProperty('--ms','.94');return}
   var r=node.getBoundingClientRect();
@@ -955,6 +987,8 @@ function closeOverlay(){
   if(!isWide()) openCo=null;
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
   var m=sh.querySelector('.morph');
+  var card=sh.querySelector('.card,.spotbox');
+  if(card){ card.classList.remove('settled'); card.classList.add('moving'); }
   if(m){ m.classList.add('out'); sh.style.transition='opacity .26s var(--ease)'; sh.style.opacity='0'; }
   else sh.classList.add('out');
   setTimeout(function(){
@@ -1040,13 +1074,22 @@ function gcalUrl(title,at,details,allDay){
 /* シートを開き直さず中身だけ差し替える（履歴とスクロール位置を壊さない） */
 function paintDetail(h){
   if(isWide()){
-    document.getElementById('side').innerHTML=
-      '<div class="card"><button class="sideclose" onclick="closeSide()">✕</button>'+h+'</div>';
+    var side=document.getElementById('side');
+    var sc=side.querySelector('.card');
+    if(sc&&side.dataset.co===openCo){      /* 同じ会社なら中身だけ差し替え */
+      var sy=side.scrollTop;
+      sc.innerHTML='<button class="sideclose" onclick="closeSide()">✕</button>'+h;
+      side.scrollTop=sy;
+      return;
+    }
+    side.dataset.co=openCo;
+    side.innerHTML='<div class="card"><button class="sideclose" onclick="closeSide()">✕</button>'+h+'</div>';
     return;
   }
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
   if(card){
+    /* すでに開いているシートは動かさない。中身だけ差し替える（再計算を最小化） */
     var y=card.scrollTop;
     card.innerHTML=h;
     card.scrollTop=y;
@@ -1187,6 +1230,7 @@ function renderDetail(){
 function sideEmpty(){
   var el=document.getElementById('side');
   if(!el)return;
+  el.dataset.co='';
   el.innerHTML='<div id="sideEmpty"><div style="font-size:22px;font-weight:700;letter-spacing:.2em;'+
     'color:rgba(255,255,255,.14)">就活</div><div>左の一覧から会社を選ぶと<br>ここに詳細が出ます</div></div>';
 }
@@ -1389,6 +1433,7 @@ function renderPassport(){
     '</div>';
 
   document.getElementById('app').innerHTML=h;
+  markEnter();
   requestAnimationFrame(syncPills);
   if(isWide()&&!openCo)sideEmpty();
 }
