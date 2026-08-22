@@ -39,7 +39,11 @@
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Helvetica Neue",sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.16) transparent}
+*::-webkit-scrollbar{width:6px;height:6px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}
+*::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3)}
 html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:96px}
 body{overscroll-behavior-y:none;margin:0;background:var(--ink);color:var(--text);
   font-family:var(--body);font-variant-numeric:tabular-nums;
@@ -171,7 +175,7 @@ button,select,input{font-family:var(--body)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 
 .tab-pane{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding-bottom:32px;animation:tabPaneIn .28s var(--apple-spring) both}
+  padding-bottom:32px;padding-right:4px;animation:tabPaneIn .28s var(--apple-spring) both}
 @keyframes tabPaneIn{
   from{opacity:0;transform:translate3d(6px,0,0)}
   to{opacity:1;transform:translate3d(0,0,0)}
