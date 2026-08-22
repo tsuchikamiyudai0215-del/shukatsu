@@ -186,7 +186,7 @@ button,select,input{font-family:var(--body)}
 .tabbar .pill{position:absolute;top:5px;height:calc(100% - 10px);border-radius:24px;
   background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
   transition:transform .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1)}
-.tabbar{position:fixed;overflow:hidden}
+.tabbar{position:fixed;overflow:visible}
 .tabbar button{position:relative;z-index:1}
 .seg{position:relative}
 .seg button.on{background:transparent;border-color:transparent}
@@ -270,6 +270,16 @@ button,select,input{font-family:var(--body)}
 .qempty{padding:22px;color:var(--dim);font-size:13px;text-align:center}
 
 /* ---------- toast ---------- */
+.emptyNote{color:var(--dim);font-size:13px;line-height:1.9;text-align:center;padding:36px 0}
+.setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
+.setupBox{width:100%;max-width:420px;background:var(--hi);border:1px solid var(--line);
+  border-radius:22px;padding:28px 24px 26px;box-shadow:var(--edge),var(--drop-lg);
+  animation:rise .4s var(--spring)}
+.setupMark{font-size:26px;font-weight:700;letter-spacing:.24em;padding-left:.24em;text-align:center}
+.setupLead{font-size:12px;color:var(--muted);line-height:1.9;margin-top:14px;text-align:center}
+.setupErr{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.7;
+  background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.35);color:#FFC9C4}
+.setupBox .lab{margin:18px 0 8px}
 #toast{position:fixed;left:50%;transform:translate3d(-50%,18px,0) scale(.96);
   bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;opacity:0;pointer-events:none;
   background:var(--chrome);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
@@ -776,6 +786,10 @@ function render(){
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
         esc(stage)+' '+fdate(hero.at)+((hero.kind==='due'&&it.timeUnset)?'':' '+ftime(hero.at))+'</div>'+
       '<div class="cd" id="heroCd" data-at="'+hero.at+'"></div></div>';
+  } else if(!DATA.items.length){
+    h+='<div class="emptyNote">シートからデータを取得できていません。<br>'+
+       'Sheet1 に行があるか、接続設定が正しいかを確認してください。'+
+       '<button class="gh" style="display:block;margin:14px auto 0" onclick="resetCfg()">接続設定をやり直す</button></div>';
   } else {
     h+='<div style="color:var(--dim);font-size:14px;padding:20px 0">予定も締切もありません。</div>';
   }
@@ -1372,34 +1386,54 @@ function renderPassport(){
 }
 
 /* ============ 接続設定 ============ */
-function openSetup(){
+function openSetup(msg){
   hideSplash();
-  document.getElementById('sheet').innerHTML=
-    '<div class="sheet"><div class="card" style="animation:rise .34s var(--spring)">'+
-    '<div class="grab"></div>'+
-    '<div style="font-size:19px;font-weight:700">接続設定</div>'+
-    '<div style="font-size:12px;color:var(--dim);line-height:1.9;margin-top:10px">'+
-    'Apps Script のウェブアプリURL（/exec で終わるもの）と、WebAppApi.gs に設定した鍵を入れてください。'+
+  document.getElementById('sheet').innerHTML='';
+  var dock=document.getElementById('tabbar');
+  if(dock)dock.style.display='none';
+  var side=document.getElementById('side');
+  if(side)side.innerHTML='';
+  document.getElementById('app').innerHTML=
+    '<div class="setup">'+
+    '<div class="setupBox">'+
+    '<div class="setupMark">就活</div>'+
+    '<div class="setupLead">Apps Script のウェブアプリURLと鍵を入れてください。<br>'+
     'この端末にだけ保存され、ページのソースには残りません。</div>'+
+    (msg?'<div class="setupErr">'+esc(msg)+'</div>':'')+
     '<div class="lab">ウェブアプリURL</div>'+
     '<input class="f" id="cfgEp" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(CFG.ep)+'">'+
     '<div class="lab">鍵</div>'+
-    '<input class="f" id="cfgKey" type="password" value="'+esc(CFG.key)+'">'+
+    '<input class="f" id="cfgKey" type="password" placeholder="WebAppApi.gs の WA_KEY" value="'+esc(CFG.key)+'">'+
     '<button class="big" style="background:#fff;color:#000" onclick="doSetup()">接続する</button>'+
     '</div></div>';
+  var k=document.getElementById('cfgKey');
+  if(k)k.addEventListener('keydown',function(e){if(e.key==='Enter')doSetup()});
 }
 function doSetup(){
   var ep=document.getElementById('cfgEp').value.trim();
   var key=document.getElementById('cfgKey').value.trim();
   if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(ep)){
-    toast('URLは /exec で終わる形式で入れてください'); return;
+    openSetup('URLは https://script.google.com/macros/s/.../exec の形式です'); return;
   }
-  if(!key){ toast('鍵を入れてください'); return; }
+  if(!key){ openSetup('鍵を入れてください'); return; }
   saveCfg(ep,key);
-  document.getElementById('sheet').innerHTML='';
-  document.getElementById('splash').classList.remove('gone');
-  booted=false;
-  load();
+  document.getElementById('app').innerHTML=
+    '<div class="setup"><div class="setupBox"><div class="setupMark">就活</div>'+
+    '<div class="setupLead">接続しています…</div></div></div>';
+  api('apiGetData',[]).then(function(j){
+    if(!j||!j.items){ openSetup('応答の形式が違います。WebAppApi.gs のデプロイを確認してください'); return; }
+    var dock=document.getElementById('tabbar');
+    if(dock)dock.style.display='';
+    applyData(j);
+  }).catch(function(e){
+    openSetup(e&&e.message?e.message:'接続できませんでした');
+  });
+}
+function resetCfg(){
+  if(!confirm('接続設定を消してやり直しますか。'))return;
+  try{localStorage.removeItem('sk_ep');localStorage.removeItem('sk_key');}catch(e){}
+  CFG={ep:'',key:''};
+  openSetup();
 }
 
 if(loadCfg()) load(); else openSetup();
