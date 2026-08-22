@@ -9,9 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="就活">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
-<!-- iOS ホーム画面用：角丸はシステムが切り抜くのでフルブリードの正方形を渡す -->
 <link rel="apple-touch-icon" href="icon-180.png">
-<!-- Windows / Android / ブラウザタブ用：角丸を描き込まない、端まで埋まった正方形 -->
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -21,25 +19,22 @@
   --ink:#000000;
   --surface:linear-gradient(180deg,rgba(44,44,50,.72) 0%,rgba(26,26,30,.82) 100%);
   --hi:linear-gradient(180deg,rgba(48,48,54,.86) 0%,rgba(24,24,28,.94) 100%);
-  --chrome:rgba(30,30,34,.62);
+  --chrome:rgba(30,30,34,.65);
   --line:rgba(255,255,255,.10);
   --line-soft:rgba(255,255,255,.06);
   --text:#FFFFFF; --muted:#A1A1A6; --dim:#6E6E73;
   --blue:#0A84FF; --go:#30D158; --wait:#FF9F0A; --hot:#FF453A; --fail:#6B4A54;
-  --amber:#FFFFFF;
-  /* Apple 風の薄いインナーハイライト（1.5px の白帯は厚すぎるので 0.5px に） */
   --edge:inset 0 .5px 0 0 rgba(255,255,255,.20), inset 0 -.5px 0 0 rgba(0,0,0,.45);
   --sheen:linear-gradient(180deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 42%);
   --drop:0 1px 2px rgba(0,0,0,.28), 0 8px 24px rgba(0,0,0,.42);
   --drop-lg:0 2px 6px rgba(0,0,0,.34), 0 22px 56px rgba(0,0,0,.58);
-  --glass:blur(32px) saturate(200%);
-  --spring:cubic-bezier(.32,.72,0,1);
-  --ease:cubic-bezier(.4,0,.2,1);
-  /* Apple Motion 準拠 */
-  --apple-spring:cubic-bezier(.32,.72,0,1);   /* 標準の流体スプリング */
-  --apple-morph:cubic-bezier(.22,1,.36,1);    /* 起点展開。質量感のある拡大 */
-  --apple-ease:cubic-bezier(.25,.1,.25,1);    /* 透明度の補間 */
-  --apple-press:cubic-bezier(.2,0,0,1);       /* 押し込み専用 */
+  --glass:blur(32px) saturate(190%);
+  
+  /* Apple Fluid Motion */
+  --apple-spring:cubic-bezier(.32,.72,0,1);
+  --apple-morph:cubic-bezier(.2,.9,.3,1);
+  --apple-ease:cubic-bezier(.25,.1,.25,1);
+  --apple-press:cubic-bezier(.2,0,0,1);
   --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Helvetica Neue",sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
@@ -57,33 +52,32 @@ button,select,input{font-family:var(--body)}
 /* ---------- splash ---------- */
 #splash{position:fixed;inset:0;z-index:200;background:var(--ink);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  transition:opacity .5s var(--ease),visibility .5s}
+  transition:opacity .45s var(--apple-ease),visibility .45s}
 #splash.gone{opacity:0;visibility:hidden}
-#splash .mark{font-size:29px;font-weight:700;letter-spacing:.26em;color:var(--text);
-  padding-left:.26em;animation:rise .55s var(--spring)}
+#splash .mark{font-size:28px;font-weight:700;letter-spacing:.26em;color:var(--text);
+  padding-left:.26em;animation:rise .5s var(--apple-spring)}
 #splash .rule{width:54px;height:1px;background:var(--line);position:relative;overflow:hidden}
 #splash .rule::after{content:'';position:absolute;inset:0;background:var(--text);
-  transform:translateX(-100%);animation:sweep 1.15s var(--ease) infinite}
+  transform:translateX(-100%);animation:sweep 1.1s var(--apple-ease) infinite}
 #splash .sub{font-family:var(--mono);font-size:9px;letter-spacing:.3em;color:var(--dim)}
 
 /* ---------- type ---------- */
-.lab{margin:26px 0 8px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em}
-.hero{padding-bottom:22px;border-bottom:1px solid var(--line-soft);margin-bottom:2px;cursor:pointer;
-  transition:opacity .2s var(--ease)}
-.hero:active{opacity:.72}
+.lab{margin:24px 0 8px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em}
+.hero{padding-bottom:20px;border-bottom:1px solid var(--line-soft);margin-bottom:2px;cursor:pointer;
+  transition:transform .24s var(--apple-spring),opacity .2s var(--apple-ease)}
+.hero:active{transform:scale(.985);opacity:.8}
 .hero h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
 .cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
 .cd b{font-family:var(--disp);font-size:52px;font-weight:600;letter-spacing:-.035em}
 .cd s{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 10px 0 3px;text-decoration:none}
 
-/* ---------- 受験予定ストリップ ---------- */
+/* ---------- strip ---------- */
 .strip{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);background-image:var(--sheen);
-  border:1px solid var(--line);border-radius:13px;padding:10px 13px;color:var(--text);
-  box-shadow:var(--edge);transition:transform .2s var(--spring),opacity .2s var(--ease)}
-.stripitem{transition:transform .28s var(--apple-spring),opacity .2s var(--apple-ease)}
-.stripitem:active{transform:scale(.98);transition:transform .13s var(--apple-press)}
+  border:1px solid var(--line);border-radius:14px;padding:10px 13px;color:var(--text);
+  box-shadow:var(--edge);transition:transform .28s var(--apple-spring),opacity .2s var(--apple-ease)}
+.stripitem:active{transform:scale(.98);transition:transform .12s var(--apple-press)}
 .stripitem .k{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);
   border:1px solid var(--line);border-radius:5px;padding:2px 6px;flex:0 0 auto;background:rgba(255,255,255,.04)}
 .stripitem .n{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -95,19 +89,18 @@ button,select,input{font-family:var(--body)}
   border:1px solid var(--line);border-radius:16px;box-shadow:var(--edge),var(--drop);
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 9px);
-  transition:transform .22s var(--spring),opacity .2s var(--ease)}
-.row{transition:transform .28s var(--apple-spring),opacity .2s var(--apple-ease)}
-.row:active{transform:scale(.98);transition:transform .13s var(--apple-press)}
+  opacity:calc(var(--base-op, 1) * var(--srcop, 1));
+  transition:transform .28s var(--apple-spring),opacity .24s var(--apple-ease);
+  will-change:transform,opacity}
+.row:active{transform:scale(.98);transition:transform .12s var(--apple-press)}
 .row.is-fixed{background:linear-gradient(180deg,rgba(24,58,38,.78),rgba(12,30,20,.88));
   border-color:rgba(48,209,88,.34);box-shadow:var(--edge),var(--drop),0 0 0 .5px rgba(48,209,88,.18)}
 .row.is-offer{background:linear-gradient(180deg,rgba(26,64,42,.82),rgba(12,32,21,.9));
   border-color:rgba(48,209,88,.5)}
-/* シートを開いている間、元のカードを伏せておく。
-   inline style の opacity を壊さないようクラスと変数で扱う */
-.is-source-hidden{opacity:var(--srcop,0) !important;pointer-events:none !important;
-  transition:opacity .38s var(--apple-spring)}
+.row.is-muted{--base-op:0.45}
+
+.is-source-hidden{--srcop:0 !important;pointer-events:none !important}
 .row .main{padding:14px 15px 12px;display:flex;align-items:center;gap:14px;flex:1 1 auto}
-.row .main:active{background:rgba(255,255,255,.04)}
 .day{width:60px;flex:0 0 auto;text-align:center}
 .day b{font-family:var(--disp);font-size:32px;font-weight:600;letter-spacing:-.035em;
   line-height:1;display:block}
@@ -124,7 +117,8 @@ button,select,input{font-family:var(--body)}
 .acts{display:flex;gap:8px;padding:0 15px 12px 74px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);
   border-radius:9px;padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
-  display:inline-block;transition:transform .16s var(--spring),background .18s var(--ease)}
+  display:inline-block;transition:transform .24s var(--apple-spring),background .18s var(--apple-ease)}
+.gh:active{transform:scale(.955);transition:transform .12s var(--apple-press)}
 .logo{width:28px;height:28px;border-radius:14px;flex:0 0 auto;display:flex;align-items:center;
   justify-content:center;overflow:hidden;background:#fff;
   box-shadow:0 0 0 .5px rgba(0,0,0,.4)}
@@ -136,51 +130,50 @@ button,select,input{font-family:var(--body)}
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.6);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(12px + env(safe-area-inset-bottom));
-  touch-action:none;                     /* 背景スクロールを確実に塞ぐ */
-  animation:back .24s var(--ease);
-  will-change:opacity;transform:translateZ(0);
-  backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  touch-action:none;
+  animation:backIn .28s var(--apple-ease) both;
+  will-change:opacity;transform:translateZ(0)}
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
   max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  border-radius:22px;border:1px solid var(--line);
+  border-radius:24px;border:1px solid var(--line);
   padding:10px 20px 28px;
-  animation:sheetUp .42s var(--spring);
-  will-change:transform,opacity;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-/* 動いている間はブラーを止めて塗り替え範囲も閉じ込める。
-   静止してから本来のフロストガラスに戻す */
+  animation:sheetUp .46s var(--apple-spring) both;
+  will-change:transform,opacity;transform:translate3d(0,0,0)}
+
 .card.moving,.spotbox.moving{
   backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
-  background:rgba(28,28,32,.97);contain:paint}
+  background:rgba(28,28,32,.98);contain:paint}
 .card.settled,.spotbox.settled{will-change:auto}
+
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
-  transition:background .2s var(--ease)}
-.card.drag .grab{background:rgba(255,255,255,.42)}
-.sheet.out{animation:backOut .26s var(--ease) forwards}
-.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .3s cubic-bezier(.4,0,1,1) forwards}
+  transition:background .2s var(--apple-ease)}
+.card.drag .grab{background:rgba(255,255,255,.45)}
+.sheet.out{animation:backOut .24s var(--apple-ease) forwards}
+.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .28s var(--apple-spring) forwards}
 .sheet .card.drag{animation:none;transition:none;will-change:transform}
 .sheet .card.spring{animation:none;
-  transition:transform .42s var(--apple-spring),opacity .2s var(--apple-ease)}
+  transition:transform .44s var(--apple-spring),opacity .22s var(--apple-ease)}
 .sheet .card.fly{animation:none;
-  transition:transform .34s var(--apple-spring),opacity .28s var(--apple-ease)}
+  transition:transform .32s var(--apple-spring),opacity .25s var(--apple-ease)}
 .sheet.dragging{animation:none;transition:none}
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
   background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
   display:none;align-items:center;justify-content:center;line-height:1;
-  transition:transform .16s var(--spring),background .18s var(--ease)}
+  transition:transform .2s var(--apple-spring),background .18s var(--apple-ease)}
 .sideclose:hover{background:rgba(255,255,255,.18);color:var(--text)}
 
 .tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft)}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
-  transition:color .2s var(--ease),border-color .2s var(--ease)}
+  transition:color .2s var(--apple-ease),border-color .2s var(--apple-ease)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 .kv{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .kv span:first-child{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
 .kv span:last-child{font-size:13px;text-align:right;word-break:break-all;margin-left:16px}
 .f{width:100%;background:rgba(0,0,0,.32);border:1px solid var(--line);border-radius:11px;
   padding:11px 13px;color:var(--text);font-size:14px;outline:none;
-  transition:border-color .18s var(--ease),background .18s var(--ease)}
+  transition:border-color .18s var(--apple-ease),background .18s var(--apple-ease)}
 .f:focus{border-color:var(--blue);background:rgba(0,0,0,.5)}
 .lab+.f{margin-top:0}
 .f+.f,.f+.gh{margin-top:10px}
@@ -188,14 +181,11 @@ button,select,input{font-family:var(--body)}
 .card .lab+.f{margin-top:0}
 .big{width:100%;padding:13px 0;border-radius:12px;border:none;font-size:14px;font-weight:600;
   cursor:pointer;margin-top:12px;display:block;text-align:center;text-decoration:none;
-  transition:transform .16s var(--spring),opacity .18s var(--ease)}
-.big{transition:transform .3s var(--apple-spring),opacity .2s var(--apple-ease)}
-.big:active{transform:scale(.955);transition:transform .13s var(--apple-press)}
-.gh{transition:transform .28s var(--apple-spring),background .18s var(--apple-ease)}
-.gh:active{transform:scale(.955);transition:transform .12s var(--apple-press)}
+  transition:transform .28s var(--apple-spring),opacity .2s var(--apple-ease)}
+.big:active{transform:scale(.96);transition:transform .12s var(--apple-press)}
 .big[disabled]{opacity:.4;cursor:default}
 .rail{display:flex;align-items:center}
-.rail i{flex:0 0 auto;border-radius:9px;display:block;transition:all .3s var(--spring)}
+.rail i{flex:0 0 auto;border-radius:9px;display:block;transition:all .32s var(--apple-spring)}
 .rail u{height:1px;flex:1;display:block}
 .railtxt{display:flex;justify-content:space-between;margin-top:8px}
 .railtxt span{font-size:8.5px;color:var(--dim);flex:1;text-align:center}
@@ -208,30 +198,34 @@ button,select,input{font-family:var(--body)}
   white-space:nowrap;max-width:calc(100vw - 24px);background:var(--chrome);
   border:1px solid var(--line);border-radius:30px;padding:5px;
   backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
-  box-shadow:var(--edge),var(--drop-lg)}
-.tabbar{--pw:88px;--pg:2px}
+  box-shadow:var(--edge),var(--drop-lg);--pw:88px;--pg:2px}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
-  padding:10px 0;border-radius:24px;cursor:pointer;
+  padding:10px 0;border-radius:24px;cursor:pointer;position:relative;z-index:1;
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
-  transition:color .2s var(--ease),transform .16s var(--spring)}
+  transition:color .24s var(--apple-ease)}
 .tabbar button:not(.ico){width:var(--pw)}
 .tabbar button.on{color:#000}
 .tabbar .pill{position:absolute;left:5px;top:5px;width:var(--pw);height:calc(100% - 10px);
   border-radius:24px;background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
-  transform:translate3d(0,0,0);
-  transition:transform .46s var(--apple-spring)}
+  transform:translate3d(0,0,0);transition:transform .42s var(--apple-spring)}
 .tabbar.p1 .pill{transform:translate3d(calc(var(--pw) + var(--pg)),0,0)}
-.tabbar{position:fixed;overflow:visible}
-.tabbar button{position:relative;z-index:1}
-.seg{position:relative}
-.seg button.on{background:transparent;border-color:transparent}
+
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
+  background:var(--chrome);border:1px solid var(--line);border-radius:30px;
+  padding:5px;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
+  box-shadow:var(--edge),var(--drop)}
+.seg button{background:none;border:none;color:var(--muted);position:relative;z-index:1;
+  border-radius:24px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
+  white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
+  transition:color .24s var(--apple-ease)}
+.seg button.on{color:#000}
 .seg .pill{position:absolute;left:5px;top:5px;height:calc(100% - 10px);
   width:calc((100% - 12px) / 2 - 1px);
   border-radius:24px;background:rgba(255,255,255,.95);
   z-index:0;pointer-events:none;transform:translate3d(0,0,0);
-  transition:transform .46s var(--apple-spring)}
+  transition:transform .42s var(--apple-spring)}
 .seg.i1 .pill{transform:translate3d(calc(100% + 2px),0,0)}
-.seg button{position:relative;z-index:1}
+.sgn{font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55}
 
 .tabbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex-shrink:0}
 .tabbar .ico{padding:10px 15px;font-size:18px;font-weight:400;color:var(--text);
@@ -271,44 +265,30 @@ button,select,input{font-family:var(--body)}
 /* ---------- chips ---------- */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:12px 16px 10px;
-  /* スクロール中に毎フレーム背景をぼかすと重いので、ここは不透明で処理する */
   background:#000;box-shadow:0 8px 12px -8px rgba(0,0,0,.9)}
 .chiprow{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid var(--line);
   color:var(--muted);border-radius:16px;padding:7px 14px;font-size:12px;font-weight:500;
   cursor:pointer;display:flex;align-items:center;gap:7px;
-  transition:background .24s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
+  transition:background .2s var(--apple-ease),color .2s var(--apple-ease),transform .24s var(--apple-spring)}
+.chiprow button:active{transform:scale(.95)}
 .chiprow button b{font-family:var(--disp);font-size:16px;font-weight:600;line-height:1}
 .chiprow button.on{background:rgba(255,255,255,.95);color:#000;border-color:transparent;font-weight:600}
 .chiprow button.on b{color:#000}
-
-
-/* 下のドックと完全に同じ構造・同じ動き */
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
-  position:relative;background:var(--chrome);border:1px solid var(--line);border-radius:30px;
-  padding:5px;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
-  box-shadow:var(--edge),var(--drop)}
-.seg button{min-width:0;background:none;border:none;color:var(--muted);
-  border-radius:24px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
-  white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
-  transition:color .2s var(--ease),transform .16s var(--spring)}
-.seg button.on{color:#000}
-.sgn{font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55}
-
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
 .spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:18px;overflow:hidden;
   background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);box-shadow:var(--edge),var(--drop-lg);
-  animation:rise .3s var(--spring)}
+  animation:rise .32s var(--apple-spring)}
 .spotbox input{width:100%;background:none;border:none;border-bottom:1px solid var(--line-soft);
   padding:18px 20px;color:var(--text);font-size:17px;outline:none}
 #qres{max-height:52vh;max-height:52dvh;overflow-y:auto}
 #qres button{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;
   padding:12px 18px;cursor:pointer;color:var(--text);text-align:left;
-  transition:background .16s var(--ease)}
+  transition:background .16s var(--apple-ease)}
 #qres button:hover,#qres button:active{background:rgba(255,255,255,.07)}
 #qres .qn{font-size:14px;font-weight:600}
 #qres .qs{margin-left:auto;font-size:11px;color:var(--muted)}
@@ -319,7 +299,7 @@ button,select,input{font-family:var(--body)}
 .setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
 .setupBox{width:100%;max-width:420px;background:var(--hi);border:1px solid var(--line);
   border-radius:22px;padding:28px 24px 26px;box-shadow:var(--edge),var(--drop-lg);
-  animation:rise .4s var(--spring)}
+  animation:rise .4s var(--apple-spring)}
 .setupMark{font-size:26px;font-weight:700;letter-spacing:.24em;padding-left:.24em;text-align:center}
 .setupLead{font-size:12px;color:var(--muted);line-height:1.9;margin-top:14px;text-align:center}
 .setupErr{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.7;
@@ -329,37 +309,36 @@ button,select,input{font-family:var(--body)}
   bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;opacity:0;pointer-events:none;
   background:var(--chrome);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);border-radius:15px;padding:12px 18px;font-size:13px;font-weight:500;
-  box-shadow:var(--edge),var(--drop-lg);transition:all .42s var(--spring);max-width:88vw}
+  box-shadow:var(--edge),var(--drop-lg);transition:all .38s var(--apple-spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;
   align-items:center;justify-content:center;z-index:99;
   font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.2em}
 
 /* ---------- motion ---------- */
-@keyframes rise{from{opacity:0;transform:translate3d(0,12px,0) scale(.985)}to{opacity:1;transform:none}}
-/* タップ起点から膨らむ／起点へ吸い込まれる（WWDC18 Fluid Interfaces） */
-.morph{animation:morphIn .5s var(--apple-morph) both}
-.morph.out{animation:morphOut .34s var(--apple-spring) both}
+@keyframes rise{from{opacity:0;transform:translate3d(0,10px,0) scale(.985)}to{opacity:1;transform:none}}
+.morph{animation:morphIn .46s var(--apple-morph) both}
+.morph.out{animation:morphOut .32s var(--apple-spring) both}
 @keyframes morphIn{
-  from{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.86))}
-  60%{opacity:1}
+  from{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.88))}
+  65%{opacity:1}
   to{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
 @keyframes morphOut{
   from{opacity:1;transform:none}
-  to{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.86))}
+  to{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.88))}
 }
 @keyframes sheetUp{from{transform:translate3d(0,100%,0)}to{transform:translate3d(0,0,0)}}
 @keyframes sheetDown{to{transform:translate3d(0,100%,0)}}
-@keyframes back{from{opacity:0}to{opacity:1}}
+@keyframes backIn{from{opacity:0}to{opacity:1}}
 @keyframes backOut{to{opacity:0}}
 @keyframes fadeShrink{to{opacity:0;transform:scale(.97)}}
 @keyframes sweep{to{transform:translateX(100%)}}
-/* 登場アニメは画面が切り替わったときだけ。データ更新のたびに
-   全カードを再アニメさせるとチラつきの原因になる */
-#view.enter{animation:rise .3s var(--spring)}
-#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .42s var(--spring) both}
-#view.enter .row{animation-delay:calc(var(--i,0) * 16ms)}
+
+#view.enter{animation:rise .32s var(--apple-spring)}
+#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .38s var(--apple-spring) both}
+#view.enter .row{animation-delay:calc(var(--i,0) * 14ms)}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
     transition-duration:.01ms !important}
@@ -368,15 +347,12 @@ button,select,input{font-family:var(--body)}
 #side{display:none}
 .lane{margin-bottom:6px}
 
-/* ==========================================
-   TABLET
-   ========================================== */
 @media (min-width:820px){
   body{max-width:960px;padding-left:28px;padding-right:28px}
   .sheet{align-items:center}
   .sheet .card{max-width:600px;max-height:84dvh;border-radius:22px;
     padding:10px 28px 30px;animation:rise .34s var(--apple-spring)}
-  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--ease) forwards}
+  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--apple-ease) forwards}
   .lanes{display:block}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:stretch}
   .lanes.single .rows{grid-template-columns:1fr;max-width:620px}
@@ -384,9 +360,6 @@ button,select,input{font-family:var(--body)}
   .pcol{display:flex;flex-direction:column;gap:14px}
 }
 
-/* ==========================================
-   PC / WIDE
-   ========================================== */
 @media (min-width:1000px){
   body{display:flex;align-items:flex-start;gap:28px;width:100%;max-width:none;margin:0;
     padding:28px calc(32px + env(safe-area-inset-right)) 110px calc(36px + env(safe-area-inset-left));}
@@ -406,7 +379,7 @@ button,select,input{font-family:var(--body)}
     border:1px solid var(--line);border-radius:22px;box-shadow:var(--edge),var(--drop-lg);
     padding:22px 20px 28px}
   #side .card{background:none;border:none;padding:0;max-width:none;max-height:none;
-    box-shadow:none;backdrop-filter:none;animation:rise .3s var(--spring);position:relative}
+    box-shadow:none;backdrop-filter:none;animation:rise .3s var(--apple-spring);position:relative}
   #side .grab{display:none}
   #side .sideclose{display:flex}
   .tabbar{left:36px;right:auto;transform:none;bottom:26px}
@@ -472,8 +445,8 @@ var openCo = null, tab = 'info';
 var TERM = '夏インターン';
 var TERMS = ['夏インターン','本選考'];
 var FILT = 'all', PAGE = 'list';
-var VIEWKEY = '';           /* 表示中の画面を表す鍵。変わったときだけ登場アニメを出す */
-/* 区分は作り直さない。中身（一覧）だけを差し替える */
+var VIEWKEY = '';
+
 function ensureShell(){
   var app=document.getElementById('app');
   if(document.getElementById('view')) return;
@@ -497,20 +470,25 @@ function updateSeg(){
   });
   seg.classList.toggle('i1', TERM===TERMS[1]);
 }
-function markEnter(){
+function markEnter(force){
   var el=document.getElementById('view');
   if(!el)return;
-  var key=PAGE+'|'+TERM+'|'+FILT+'|'+(window._end?1:0)+'|'+(window._skip?1:0);
-  if(key===VIEWKEY){ el.classList.remove('enter'); return; }
+  var key=PAGE+'|'+TERM;
+  if(!force && key===VIEWKEY){ el.classList.remove('enter'); return; }
   VIEWKEY=key;
   el.classList.remove('enter');
-  void el.offsetWidth;      /* アニメを確実に再生させる */
+  void el.offsetWidth;
   el.classList.add('enter');
 }
 
 /* ============ ユーティリティ ============ */
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-function D(s){return s? new Date(String(s).replace(/-/g,'/').replace('T',' ')) : null}
+function D(s){
+  if(!s)return null;
+  var str = String(s).replace(/-/g,'/').replace('T',' ');
+  var d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
 function fdate(s){var d=D(s);return d?(d.getMonth()+1)+'/'+d.getDate()+'('+WD[d.getDay()]+')':''}
 function ftime(s){var d=D(s);return d?('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2):''}
 function rem(s){var d=D(s);if(!d)return null;var ms=d-new Date();if(ms<=0)return null;
@@ -590,7 +568,7 @@ function refetchLogo(co){
     var url=u||'none';
     LOGOS[co]=url;
     api('apiSaveLogo',[co,url]).catch(function(){});
-    render();
+    render(false);
     toast(url==='none'?'ロゴが見つかりませんでした':'ロゴを取り直しました',url!=='none');
   });
 }
@@ -600,7 +578,7 @@ function setLogoUrl(co){
   if(!v){toast('画像URLを入れてください');return}
   LOGOS[co]=v; tried[co]=1;
   api('apiSaveLogo',[co,v]).catch(function(){});
-  render();
+  render(false);
   toast('ロゴを設定しました',true);
 }
 function paintLogo(co,url){
@@ -615,7 +593,7 @@ function paintLogo(co,url){
   }
 }
 
-/* ============ 通信（GAS を JSON API として叩く） ============ */
+/* ============ 通信 ============ */
 var CFG={ep:'',key:''};
 function loadCfg(){
   try{
@@ -631,7 +609,6 @@ function saveCfg(ep,key){
 function api(action,args){
   return fetch(CFG.ep,{
     method:'POST',
-    /* text/plain にすると preflight が飛ばず CORS を通せる */
     headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify({key:CFG.key,action:action,args:args||[]}),
     redirect:'follow'
@@ -647,7 +624,7 @@ function busy(on){document.getElementById('busy').style.display=on?'flex':'none'
 function applyData(j,cb){
   DATA=j;
   if(DATA.logos)for(var k in DATA.logos)if(!LOGOS[k])LOGOS[k]=DATA.logos[k];
-  render(); hydrateLogos(); if(cb)cb();
+  render(false); hydrateLogos(); if(cb)cb();
 }
 function call(fn,args,cb){
   busy(true);
@@ -665,7 +642,7 @@ var booted=false;
 function hideSplash(){
   if(booted)return; booted=true;
   var el=document.getElementById('splash');
-  if(el){el.classList.add('gone');setTimeout(function(){if(el.parentNode)el.remove()},560)}
+  if(el){el.classList.add('gone');setTimeout(function(){if(el.parentNode)el.remove()},450)}
 }
 function load(){call('apiGetData',[],hideSplash)}
 
@@ -676,18 +653,18 @@ function toast(msg,ok){
   el.style.borderColor = ok?'rgba(48,209,88,.45)':'rgba(255,69,58,.45)';
   el.classList.add('on');
   clearTimeout(window._tt);
-  window._tt=setTimeout(function(){el.classList.remove('on')},2600);
+  window._tt=setTimeout(function(){el.classList.remove('on')},2400);
 }
 function opt(mutate,fn,args,label){
   var snap=JSON.stringify(DATA.items);
   mutate();
-  render();
+  render(false);
   api(fn,args).then(function(d){
     DATA.items=d.items; DATA.events=d.events;
-    render();
+    render(false);
   }).catch(function(){
     DATA.items=JSON.parse(snap);
-    render();
+    render(false);
     toast('保存できませんでした');
   });
   if(label)toast(label,true);
@@ -778,8 +755,9 @@ function rowHtml(it){
       '<button class="gh" onclick="'+stop+'confirmFail(\''+esc(it.c)+'\')">落選</button></div>';
   }
 
-  return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+
-    '" style="opacity:'+((st==='fail'||st==='skip')?0.45:1)+'" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
+  var isMuted = (st==='fail'||st==='skip');
+  return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
+    '" data-cardco="'+esc(it.c)+'" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
     '<div class="main">'+
       '<div class="day">'+left+'</div>'+
       '<div class="body1"><div class="meta">'+logo(it)+
@@ -791,7 +769,7 @@ function rowHtml(it){
 }
 function eventRowHtml(ev){
   var it=byCo(ev.c)||{c:ev.c,dom:''}, r=rem(ev.at);
-  return '<div class="row" onclick="markOrigin(event);openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
+  return '<div class="row" data-cardco="'+esc(ev.c)+'" onclick="markOrigin(event);openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
     '<div class="day">'+(r?dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)'):'<span class="tag" style="color:var(--dim)">終了</span>')+'</div>'+
     '<div class="body1"><div class="meta">'+logo(it)+
       '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+fdate(ev.at)+' '+ftime(ev.at)+'</i></div>'+
@@ -800,28 +778,27 @@ function eventRowHtml(ev){
     '</div></div></div>';
 }
 
-function setTerm(t){TERM=t;window.scrollTo(0,0);render()}
-/* ピルの位置は CSS の幅指定だけで決まる。実測しないのでずれない */
+function setTerm(t){TERM=t;window.scrollTo(0,0);render(true)}
 function syncPills(){
   var dock=document.getElementById('tabbar');
   if(dock) dock.classList.toggle('p1', PAGE!=='list');
   updateSeg();
 }
-function setFilt(k){FILT=(FILT===k&&k!=='all')?'all':k;render()}
+function setFilt(k){FILT=(FILT===k&&k!=='all')?'all':k;render(false)}
 function setPage(p){
   PAGE=p;
   document.getElementById('tb-list').className = p==='list'?'on':'';
   document.getElementById('tb-pass').className = p==='pass'?'on':'';
   window.scrollTo(0,0);
-  render();
+  render(true);
   requestAnimationFrame(syncPills);
 }
-function toggleEnded(){window._end=!window._end;render()}
-function toggleSkip(){window._skip=!window._skip;render()}
+function toggleEnded(){window._end=!window._end;render(false)}
+function toggleSkip(){window._skip=!window._skip;render(false)}
 
-function render(){
+function render(pageChanged){
   ensureShell(); updateSeg();
-  if(PAGE==='pass'){renderPassport();return}
+  if(PAGE==='pass'){renderPassport(pageChanged);return}
   var ALL=ITEMS();
   var MGMT=ALL.filter(function(i){return !isCo(i)});
   var LIST=ALL.filter(isCo);
@@ -830,7 +807,7 @@ function render(){
     if(stOf(it)==='todo'&&it.due&&rem(it.due)) agenda.push({c:it.c,kind:'due',at:it.due,it:it});
   });
   EVENTS().forEach(function(ev){ if(rem(ev.at)) agenda.push({c:ev.c,kind:'event',at:ev.at,ev:ev,it:byCo(ev.c)}); });
-  agenda.sort(function(a,b){return D(a.at)-D(b.at)});
+  agenda.sort(function(a,b){return (D(a.at)||0)-(D(b.at)||0)});
   var hero=agenda[0];
 
   var h='';
@@ -931,27 +908,43 @@ function render(){
   h+='</div>';
 
   document.getElementById('view').innerHTML=h;
-  markEnter();
+  if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
+  
   var rws=document.querySelectorAll('#view .row');
-  for(var q=0;q<rws.length;q++)rws[q].style.setProperty('--i',q<10?q:10);
+  for(var q=0;q<rws.length;q++) rws[q].style.setProperty('--i',q<10?q:10);
   tickHero();
 
-  if(openCo){ if(byCo(openCo)) renderDetail(); else { openCo=null; if(isWide())sideEmpty(); } }
-  else if(isWide()) sideEmpty();
+  if(openCo){
+    /* 開いているカードのDOM参照を再バインド */
+    if(ORIGIN&&ORIGIN.co===openCo){
+      var activeEl = document.querySelector('[data-cardco="'+esc(openCo)+'"]');
+      if(activeEl){
+        ORIGIN.el = activeEl;
+        ORIGIN.el.classList.add('is-source-hidden');
+      }
+    }
+    if(byCo(openCo)) renderDetail();
+    else { openCo=null; if(isWide())sideEmpty(); }
+  } else if(isWide()) {
+    sideEmpty();
+  }
 }
 
 function tickHero(){
   var el=document.getElementById('heroCd');
   if(!el)return;
   var r=rem(el.dataset.at);
-  if(!r){el.innerHTML='<b style="font-size:42px;color:var(--dim)">期限切れ</b>';return}
+  if(!r){
+    el.innerHTML='<b style="font-size:42px;color:var(--dim)">期限切れ</b>';
+    return;
+  }
   var p=function(v){return ('0'+v).slice(-2)};
   el.style.color = r.ms<172800000?'var(--hot)':'var(--text)';
   el.innerHTML=(r.d>0?'<b>'+r.d+'</b><s>d</s>':'')+'<b>'+p(r.h)+'</b><s>h</s><b>'+p(r.m)+'</b><s>m</s><b>'+p(r.s)+'</b><s>s</s>';
 }
 setInterval(tickHero,1000);
-setInterval(function(){ if(!document.getElementById('sheet').innerHTML) render() },60000);
+setInterval(function(){ if(!document.getElementById('sheet').innerHTML) render(false) },60000);
 
 var wasWide=isWide();
 window.addEventListener('resize',function(){
@@ -960,7 +953,7 @@ window.addEventListener('resize',function(){
   wasWide=w;
   document.getElementById('sheet').innerHTML='';
   locked=false; lockScroll(false);
-  render();
+  render(true);
 });
 
 /* ============ 操作 ============ */
@@ -970,30 +963,41 @@ function carryOver(co){
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
 
-/* ============ モーフィングの起点 ============ */
+/* ============ モーフィング起点 ============ */
 var ORIGIN=null;
 function markOrigin(e){
   var el=(e&&(e.target||e.currentTarget))||null;
   if(el&&el.closest) el=el.closest('.row,.stripitem,.hero,.tabbar button')||el;
   if(!el||!el.getBoundingClientRect){ORIGIN=null;return}
   var r=el.getBoundingClientRect();
-  ORIGIN={x:r.left+r.width/2, y:r.top+r.height/2, w:r.width, h:r.height,
-          el:(el.classList&&el.classList.contains('row'))?el:null};
+  var co = el.getAttribute('data-cardco') || null;
+  ORIGIN={
+    x: r.left+r.width/2,
+    y: r.top+r.height/2,
+    w: r.width,
+    h: r.height,
+    co: co,
+    el: (el.classList&&el.classList.contains('row'))?el:null
+  };
 }
-/* 元カードの伏せ／復帰 */
 function hideSource(){
-  if(ORIGIN&&ORIGIN.el){ ORIGIN.el.style.setProperty('--srcop','0');
-    ORIGIN.el.classList.add('is-source-hidden'); }
+  if(ORIGIN&&ORIGIN.el){
+    ORIGIN.el.classList.add('is-source-hidden');
+  }
 }
 function fadeSource(v){
-  if(ORIGIN&&ORIGIN.el) ORIGIN.el.style.setProperty('--srcop',String(Math.max(0,Math.min(1,v))));
+  if(ORIGIN&&ORIGIN.el){
+    ORIGIN.el.style.setProperty('--srcop', String(Math.max(0,Math.min(1,v))));
+  }
 }
 function showSource(){
   if(ORIGIN&&ORIGIN.el){
     var el=ORIGIN.el;
     el.style.setProperty('--srcop','1');
-    setTimeout(function(){ el.classList.remove('is-source-hidden');
-      el.style.removeProperty('--srcop'); },400);
+    setTimeout(function(){
+      el.classList.remove('is-source-hidden');
+      el.style.removeProperty('--srcop');
+    },380);
   }
 }
 function settleAfter(node,ms){
@@ -1003,27 +1007,29 @@ function settleAfter(node,ms){
   node._st=setTimeout(function(){
     node.classList.remove('moving');
     node.classList.add('settled');
-  },ms||460);
+  },ms||440);
 }
 function applyMorph(node){
   if(!node)return;
   node.classList.add('morph');
-  settleAfter(node,460);
-  if(!ORIGIN){node.style.setProperty('--mx','0px');node.style.setProperty('--my','40px');
-    node.style.setProperty('--ms','.94');return}
+  settleAfter(node,440);
+  if(!ORIGIN){
+    node.style.setProperty('--mx','0px');
+    node.style.setProperty('--my','36px');
+    node.style.setProperty('--ms','.92');
+    return;
+  }
   var r=node.getBoundingClientRect();
   var cx=r.left+r.width/2, cy=r.top+r.height/2;
   node.style.setProperty('--mx',Math.round(ORIGIN.x-cx)+'px');
   node.style.setProperty('--my',Math.round(ORIGIN.y-cy)+'px');
-  node.style.setProperty('--ms',Math.max(.5,Math.min(.94,ORIGIN.w/Math.max(r.width,1))).toFixed(3));
+  node.style.setProperty('--ms',Math.max(.5,Math.min(.92,ORIGIN.w/Math.max(r.width,1))).toFixed(3));
   node.style.transformOrigin='50% 50%';
 }
 
 /* ============ シート制御 ============ */
 var lockY=0, pushed=false, locked=false;
 function lockScroll(on){
-  /* position:fixed だと sticky の再計算が走って画面が跳ねるので overflow で止める。
-     iOS 対策として .sheet 側に touch-action:none を併用している */
   var de=document.documentElement;
   if(on){
     lockY=window.scrollY;
@@ -1036,7 +1042,7 @@ function lockScroll(on){
   }
 }
 function sheetOpened(){
-  if(isWide()){bindSheetGesture();return}          /* PC は body を固定しない */
+  if(isWide()){bindSheetGesture();return}
   if(!locked){ locked=true; lockScroll(true); }
   if(!pushed){ pushed=true; history.pushState({sheet:1},''); }
   bindSheetGesture();
@@ -1044,7 +1050,7 @@ function sheetOpened(){
 function closeOverlay(){
   var box=document.getElementById('sheet');
   var sh=box.querySelector('.sheet');
-  if(DISMISSING){                       /* スワイプで既に消えている */
+  if(DISMISSING){
     DISMISSING=false;
     if(!isWide()) openCo=null;
     box.innerHTML='';
@@ -1053,9 +1059,6 @@ function closeOverlay(){
     return;
   }
   showSource();
-  /* スマホではシート＝詳細なので、閉じたら選択も解除する
-     （残っていると再描画のたびに詳細が復活する）。
-     PC の詳細は右パネル側なので触らない。 */
   if(!isWide()) openCo=null;
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
   var card=sh.querySelector('.card,.spotbox');
@@ -1063,18 +1066,18 @@ function closeOverlay(){
     card.classList.remove('settled','morph');
     card.classList.add('moving');
   }
-  sh.classList.add('out');   /* カードは下へスライド、背景はフェード */
+  sh.classList.add('out');
   setTimeout(function(){
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
-  },300);
+  },280);
 }
 function closeSide(){ openCo=null; sideEmpty(); }
 function closeSheet(e){
   if(e&&e.target!==e.currentTarget)return;
   var box=document.getElementById('sheet');
   if(box.innerHTML){
-    if(!isWide()&&pushed){ history.back(); return }   /* popstate 側で閉じる */
+    if(!isWide()&&pushed){ history.back(); return }
     closeOverlay();
     return;
   }
@@ -1097,11 +1100,11 @@ function bindSheetGesture(){
     raf=0;
     if(!active)return;
     var d=dy;
-    var sc=Math.max(.88,1-(d>0?d:0)/2500);
+    var sc=Math.max(.90,1-(d>0?d:0)/2400);
     card.style.transform='translate3d(0,'+d+'px,0) scale('+sc+')';
-    var a=Math.max(0,.6*(1-(d>0?d:0)/400));
+    var a=Math.max(0,.6*(1-(d>0?d:0)/380));
     sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
-    fadeSource((d-15)/220);            /* 引くほど背後の元カードが戻ってくる */
+    fadeSource((d-15)/200);
   }
   function schedule(){ if(!raf) raf=requestAnimationFrame(paint); }
   function stopRaf(){ if(raf){cancelAnimationFrame(raf);raf=0} }
@@ -1115,7 +1118,6 @@ function bindSheetGesture(){
 
   card.addEventListener('touchstart',function(e){
     if(e.touches.length!==1)return;
-    if(card.scrollTop>0)return;                    /* 中身をスクロール中は触らない */
     y0=e.touches[0].clientY; x0=e.touches[0].clientX;
     t0=Date.now(); raw=0; dy=0; active=false;
     card.classList.remove('spring','fly');
@@ -1126,20 +1128,25 @@ function bindSheetGesture(){
     var cy=e.touches[0].clientY, cx=e.touches[0].clientX;
     var vdy=cy-y0, vdx=cx-x0;
 
+    /* スクロール中に上端（<=0）へ戻ってきたら基準点を再初期化 */
+    if(card.scrollTop <= 0 && vdy > 0 && !active){
+      y0 = cy; x0 = cx; t0 = Date.now();
+      vdy = 0; vdx = 0;
+    }
+
+    if(card.scrollTop > 0) return;
+
     if(!active){
-      if(Math.abs(vdx)>Math.abs(vdy))return;       /* 横スワイプは無視 */
-      if(Math.abs(vdy)<6)return;                   /* 誤爆防止のしきい値 */
-      if(vdy<0&&card.scrollTop>0)return;
+      if(Math.abs(vdx)>Math.abs(vdy))return;
+      if(vdy < 6) return;
       active=true;
-      card.classList.add('drag');
+      card.classList.add('drag','moving');
       sheet.classList.add('dragging');
     }
-    if(vdy>0&&card.scrollTop>0){ y0=cy; t0=Date.now(); return; }  /* 基準点を追従させる */
+
     raw=vdy;
-    /* 判定に使う値は描画を待たずにここで確定させる。
-       rAF の中で計算すると、素早いフリックで指を離したときに 0 のままになる */
-    dy = raw>0 ? raw : raw*0.2;                    /* 上方向はゴムの抵抗 */
-    e.preventDefault();                            /* Android の引き下げ更新も止まる */
+    dy = raw>0 ? raw : raw*0.2;
+    e.preventDefault();
     schedule();
   },{passive:false});
 
@@ -1147,7 +1154,7 @@ function bindSheetGesture(){
     if(!active){ reset(); return }
     stopRaf();
     var dt=Math.max(1,Date.now()-t0);
-    var v=dy/dt;                                   /* px/ms。下向きが正 */
+    var v=dy/dt;
     var go = dy>120 || v>0.65;
     if(go) dismiss(); else bounce();
   }
@@ -1163,29 +1170,29 @@ function bindSheetGesture(){
     sheet.classList.remove('dragging');
     sheet.style.background='';
     active=false; raw=0; dy=0;
+    settleAfter(card,440);
   }
 
   function dismiss(){
     stopRaf();
     active=false;
     card.classList.remove('drag');
-
     card.classList.add('fly');
     if(isWide()){
-      card.style.transform='scale(.97)';           /* 中央表示は縮んで消す */
+      card.style.transform='scale(.96)';
     }else{
-      card.style.transform='translate3d(0,100%,0)'; /* スマホは下へ滑らせる */
+      card.style.transform='translate3d(0,100%,0)';
     }
     card.style.opacity='0';
-    sheet.style.transition='background .3s var(--apple-ease)';
+    sheet.style.transition='background .28s var(--apple-ease)';
     sheet.style.background='rgba(0,0,0,0)';
-    fadeSource(1);                                  /* 元カードを戻しきる */
+    fadeSource(1);
 
     setTimeout(function(){
-      DISMISSING=true;                              /* 見た目は終わっているので即撤去 */
-      if(!isWide()&&pushed){ history.back(); }      /* 履歴を必ず巻き戻す */
+      DISMISSING=true;
+      if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
-    },380);
+    },320);
   }
 }
 
@@ -1224,12 +1231,11 @@ function gcalUrl(title,at,details,allDay){
     '&dates='+dates+'&ctz=Asia/Tokyo&details='+encodeURIComponent(details||'');
 }
 
-/* シートを開き直さず中身だけ差し替える（履歴とスクロール位置を壊さない） */
 function paintDetail(h){
   if(isWide()){
     var side=document.getElementById('side');
     var sc=side.querySelector('.card');
-    if(sc&&side.dataset.co===openCo){      /* 同じ会社なら中身だけ差し替え */
+    if(sc&&side.dataset.co===openCo){
       var sy=side.scrollTop;
       sc.innerHTML='<button class="sideclose" onclick="closeSide()">✕</button>'+h;
       side.scrollTop=sy;
@@ -1242,7 +1248,6 @@ function paintDetail(h){
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
   if(card){
-    /* すでに開いているシートは動かさない。中身だけ差し替える（再計算を最小化） */
     var y=card.scrollTop;
     card.innerHTML=h;
     card.scrollTop=y;
@@ -1389,7 +1394,6 @@ function sideEmpty(){
     'color:rgba(255,255,255,.14)">就活</div><div>左の一覧から会社を選ぶと<br>ここに詳細が出ます</div></div>';
 }
 
-/* ルート編集 */
 function saveRoute(arr,stage){call('apiSetRoute',[openCo,TERM,arr,stage||''])}
 function mv(i,d){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice(),j=i+d;
   if(j<0||j>=r.length)return; var t=r[i];r[i]=r[j];r[j]=t; saveRoute(r)}
@@ -1399,7 +1403,6 @@ function setCur(i){var it=byCo(openCo);if(!it)return;var r=routeOf(it); saveRout
 function addStage(){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice();
   r.push(document.getElementById('addStage').value); saveRoute(r)}
 
-/* 予定 */
 function addEv(){
   var at=document.getElementById('evAt').value;
   if(!at){toast('日時を入れてください');return}
@@ -1438,8 +1441,8 @@ function searchRun(v){
   }).join('') : '<div class="qempty">見つかりません</div>';
 }
 function pick(co,term){
-  var jump=function(){ TERM=term; openCo=co; tab='info'; render(); renderDetail(); };
-  if(!isWide()&&pushed){ closeOverlay(); setTimeout(jump,280); }
+  var jump=function(){ TERM=term; openCo=co; tab='info'; render(true); renderDetail(); };
+  if(!isWide()&&pushed){ closeOverlay(); setTimeout(jump,260); }
   else { document.getElementById('sheet').innerHTML=''; jump(); }
 }
 document.addEventListener('keydown',function(e){
@@ -1488,7 +1491,7 @@ function tally(){
   });
   return t;
 }
-function renderPassport(){
+function renderPassport(pageChanged){
   var t=tally();
   var order=DEFAULT_ROUTE.concat(PALETTE.filter(function(p){return DEFAULT_ROUTE.indexOf(p)<0}));
   var rows=order.filter(function(s){return t[s]});
@@ -1516,7 +1519,6 @@ function renderPassport(){
     if(order.indexOf(r[i])>order.indexOf(deepest)) deepest=r[i];
   });
 
-  /* --- カードを個別に組み立て、左右の列へ独立して積む --- */
   var cA=[], cB=[];
 
   cA.push('<div class="pcard po1" style="background:linear-gradient(155deg,#2A2266 0%,#1C3A78 55%,#1E538A 100%);color:#EAF0FF">'+
@@ -1528,7 +1530,7 @@ function renderPassport(){
       '<span>進行中 <b>'+live.length+'</b></span>'+
       '<span>終了 <b>'+fails.length+'</b></span>'+
       '<span>見送り <b>'+skipped.length+'</b></span></div>'+
-    '<div class="pfoot">最も進んだ段階　'+esc(deepest)+'</div></div>');
+    '<div class="pfoot">最も進んだ段階 '+esc(deepest)+'</div></div>');
 
   if(worst&&t[worst].f>0){
     cA.push('<div class="pcard po2" style="background:linear-gradient(155deg,#7A1F2B 0%,#54141F 100%);color:#FFE9EC">'+
@@ -1579,7 +1581,7 @@ function renderPassport(){
   brk+='</div></div>';
   cA.push(brk);
 
-  var h='<div class="ptitle">'+TERM+'　記録</div>'+
+  var h='<div class="ptitle">'+TERM+' 記録</div>'+
     '<div class="pwrap">'+
       '<div class="pcol">'+cA.join('')+'</div>'+
       '<div class="pcol">'+cB.join('')+'</div>'+
@@ -1587,7 +1589,7 @@ function renderPassport(){
 
   ensureShell(); updateSeg();
   document.getElementById('view').innerHTML=h;
-  markEnter();
+  if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
   if(isWide()&&!openCo)sideEmpty();
 }
