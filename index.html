@@ -85,7 +85,7 @@ button,select,input{font-family:var(--body)}
   border:1px solid var(--line);border-radius:16px;box-shadow:var(--edge),var(--drop);
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 9px);
-  transition:transform .22s var(--spring),opacity .2s var(--ease)}
+  transition:transform .22s var(--spring),opacity .25s var(--ease)}
 .row:active{transform:scale(.982)}
 .row.is-fixed{background:linear-gradient(180deg,rgba(24,58,38,.78),rgba(12,30,20,.88));
   border-color:rgba(48,209,88,.34);box-shadow:var(--edge),var(--drop),0 0 0 .5px rgba(48,209,88,.18)}
@@ -124,7 +124,7 @@ button,select,input{font-family:var(--body)}
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,0);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(12px + env(safe-area-inset-bottom));
-  transition:background .28s var(--ease);
+  transition:background .32s var(--ease);
   will-change:background;transform:translateZ(0);isolation:isolate;
   backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .sheet.active{background:rgba(0,0,0,.6)}
@@ -148,12 +148,12 @@ button,select,input{font-family:var(--body)}
 .card.drag .grab{background:rgba(255,255,255,.42)}
 
 /* 閉じるアニメーション（スマホ：下スライド / PC・タブレット：fadeShrink） */
-.sheet.out{background:rgba(0,0,0,0) !important;animation:backOut .24s var(--ease) forwards}
-.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .28s cubic-bezier(.4,0,1,1) forwards}
+.sheet.out{background:rgba(0,0,0,0) !important;animation:backOut .28s var(--ease) forwards}
+.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .3s cubic-bezier(.4,0,1,1) forwards}
 
 .sheet .card.drag{animation:none;transition:none;will-change:transform}
 .sheet .card.spring{animation:none;
-  transition:transform .38s var(--spring)}
+  transition:transform .4s var(--spring)}
 .sheet.dragging{animation:none;transition:none}
 
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
@@ -941,7 +941,7 @@ function carryOver(co){
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
 
-/* ============ 起点モーフィング（開くとき） ============ */
+/* ============ 起点モーフィング（開くとき・上品なスプリング） ============ */
 var ORIGIN = null;
 var ORIGIN_EL = null;
 
@@ -955,14 +955,21 @@ function markOrigin(e){
   ORIGIN = { x: r.left + r.width/2, y: r.top + r.height/2, w: r.width, h: r.height, r: r };
 }
 
-function restoreOriginEl(){
-  if(ORIGIN_EL){
-    ORIGIN_EL.classList.remove('is-source-hidden');
-    ORIGIN_EL = null;
+function restoreOriginEl(animated){
+  if(!ORIGIN_EL) return;
+  var target = ORIGIN_EL;
+  ORIGIN_EL = null;
+  if(animated){
+    target.classList.remove('is-source-hidden');
+    target.style.transition = 'opacity .3s var(--ease)';
+    target.style.opacity = '0';
+    void target.offsetWidth;
+    target.style.opacity = '';
+    setTimeout(function(){ target.style.transition = ''; }, 320);
+  } else {
+    target.classList.remove('is-source-hidden');
+    target.style.opacity = '';
   }
-  document.querySelectorAll('.is-source-hidden').forEach(function(node){
-    node.classList.remove('is-source-hidden');
-  });
 }
 
 function settleAfter(node,ms){
@@ -972,12 +979,12 @@ function settleAfter(node,ms){
   node._st=setTimeout(function(){
     node.classList.remove('moving');
     node.classList.add('settled');
-  },ms||420);
+  },ms||480);
 }
 
 function applyOpenMorph(card){
   if(!card) return;
-  settleAfter(card, 420);
+  settleAfter(card, 480);
 
   if(!ORIGIN || isWide()){
     card.style.transform = '';
@@ -995,18 +1002,20 @@ function applyOpenMorph(card){
   var dx = Math.round(ORIGIN.x - cx);
   var dy = Math.round(ORIGIN.y - cy);
 
+  /* 初期状態（透明度ゼロ・起点座標） */
   card.style.transition = 'none';
   card.style.transform = 'translate3d(' + dx + 'px, ' + dy + 'px, 0) scale(' + initScale.toFixed(3) + ')';
-  card.style.opacity = '0.7';
+  card.style.opacity = '0';
 
   void card.offsetWidth;
 
-  card.style.transition = 'transform 0.4s var(--spring), opacity 0.3s var(--ease)';
+  /* 上品でしっとりとしたスプリング展開（460ms） */
+  card.style.transition = 'transform .46s cubic-bezier(.16,1,.3,1), opacity .34s var(--ease)';
   card.style.transform = 'translate3d(0,0,0) scale(1)';
   card.style.opacity = '1';
 }
 
-/* ============ シート制御（画面ガクつき防止） ============ */
+/* ============ シート制御 ============ */
 var pushed=false, DISMISSING=false;
 
 function lockScroll(on){
@@ -1033,12 +1042,12 @@ function closeOverlay(){
     DISMISSING=false;
     if(!isWide()) openCo=null;
     box.innerHTML='';
-    restoreOriginEl();
+    restoreOriginEl(false);
     lockScroll(false);
     return;
   }
   if(!isWide()) openCo=null;
-  if(!sh){ lockScroll(false); restoreOriginEl(); return; }
+  if(!sh){ lockScroll(false); restoreOriginEl(false); return; }
 
   var card=sh.querySelector('.card,.spotbox');
   if(card){
@@ -1046,9 +1055,9 @@ function closeOverlay(){
     card.classList.add('moving');
   }
   sh.classList.add('out');
+  restoreOriginEl(true); /* シートが消えるのと同時に元カードをふわりと戻す */
   setTimeout(function(){
     box.innerHTML='';
-    restoreOriginEl();
     lockScroll(false);
   }, 280);
 }
@@ -1086,6 +1095,13 @@ function bindSheetGesture(){
     card.style.transform='translate3d(0,'+d+'px,0)';
     var a=Math.max(0, 0.6 * (1 - (d>0?d:0)/360));
     sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
+
+    /* 下げる量に応じて元カードを背後でリアルタイムに復帰 */
+    if(ORIGIN_EL){
+      var srcOpacity = Math.min(1, Math.max(0, (d - 20) / 240));
+      ORIGIN_EL.classList.remove('is-source-hidden');
+      ORIGIN_EL.style.opacity = srcOpacity.toFixed(3);
+    }
   }
   function schedule(){ if(!raf) raf=requestAnimationFrame(paint); }
   function stopRaf(){ if(raf){cancelAnimationFrame(raf);raf=0;} }
@@ -1147,6 +1163,10 @@ function bindSheetGesture(){
     card.style.transform='';
     sheet.classList.remove('dragging');
     sheet.style.background='rgba(0,0,0,0.6)';
+    if(ORIGIN_EL){
+      ORIGIN_EL.classList.add('is-source-hidden');
+      ORIGIN_EL.style.opacity = '';
+    }
     active=false; raw=0; dy=0;
   }
 
@@ -1160,6 +1180,8 @@ function bindSheetGesture(){
     card.style.opacity = '0';
     sheet.style.transition = 'background .28s var(--ease)';
     sheet.style.background = 'rgba(0,0,0,0)';
+
+    restoreOriginEl(true); /* シートが落ちると同時に元カードがふわっと100%着地 */
 
     setTimeout(function(){
       DISMISSING=true;
