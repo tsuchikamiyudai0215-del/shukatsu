@@ -18,8 +18,8 @@
 :root{
   --ink:#000000;
   --surface:linear-gradient(180deg,rgba(44,44,50,.72) 0%,rgba(26,26,30,.82) 100%);
-  --hi:linear-gradient(180deg,rgba(48,48,54,.90) 0%,rgba(24,24,28,.96) 100%);
-  --chrome:rgba(30,30,34,.75);
+  --hi:linear-gradient(180deg,rgba(36,36,40,.96) 0%,rgba(20,20,24,.98) 100%);
+  --chrome:rgba(30,30,34,.82);
   --line:rgba(255,255,255,.10);
   --line-soft:rgba(255,255,255,.06);
   --text:#FFFFFF; --muted:#A1A1A6; --dim:#6E6E73;
@@ -28,7 +28,6 @@
   --sheen:linear-gradient(180deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 42%);
   --drop:0 1px 2px rgba(0,0,0,.28), 0 8px 24px rgba(0,0,0,.42);
   --drop-lg:0 2px 6px rgba(0,0,0,.34), 0 22px 56px rgba(0,0,0,.58);
-  --glass:blur(20px);
   
   /* Apple Fluid Motion */
   --apple-spring:cubic-bezier(.32,.72,0,1);
@@ -56,10 +55,10 @@ button,select,input{font-family:var(--body)}
 /* ---------- splash ---------- */
 #splash{position:fixed;inset:0;z-index:200;background:var(--ink);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  transition:opacity .4s var(--apple-ease),visibility .4s}
+  transition:opacity .35s var(--apple-ease),visibility .35s}
 #splash.gone{opacity:0;visibility:hidden}
 #splash .mark{font-size:28px;font-weight:700;letter-spacing:.26em;color:var(--text);
-  padding-left:.26em;animation:rise .45s var(--apple-spring)}
+  padding-left:.26em;animation:rise .4s var(--apple-spring)}
 #splash .rule{width:54px;height:1px;background:var(--line);position:relative;overflow:hidden}
 #splash .rule::after{content:'';position:absolute;inset:0;background:var(--text);
   transform:translateX(-100%);animation:sweep 1.1s var(--apple-ease) infinite}
@@ -129,32 +128,30 @@ button,select,input{font-family:var(--body)}
 .logo.mono span{color:#C7C7CC;font-weight:600}
 
 /* ---------- sheet / card ---------- */
-.sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.6);
+.sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.62);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(10px + env(safe-area-inset-bottom));
-  animation:backIn .24s var(--apple-ease) both}
-.card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
+  opacity:0;pointer-events:none;
+  transition:opacity .28s var(--apple-ease);
+  transform:translateZ(0)}
+.sheet.is-active{opacity:1;pointer-events:auto}
+.card{background:var(--hi);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
   height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
   border-radius:24px;border:1px solid var(--line);
   padding:10px 20px calc(14px + env(safe-area-inset-bottom));
-  animation:sheetUp .42s var(--apple-spring) both}
-
-.card.moving,.spotbox.moving{
-  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
-  background:rgba(28,28,32,.98)}
+  transform:translate3d(0,100%,0);
+  transition:transform .38s var(--apple-spring),opacity .24s var(--apple-ease)}
+.sheet.is-active .card{transform:translate3d(0,0,0)}
 
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
   transition:background .2s var(--apple-ease);flex:0 0 auto}
 .card.drag .grab{background:rgba(255,255,255,.45)}
-.sheet.out{animation:backOut .22s var(--apple-ease) forwards}
-.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .26s var(--apple-spring) forwards}
-.sheet .card.drag{animation:none;transition:none}
-.sheet .card.spring{animation:none;
-  transition:transform .4s var(--apple-spring),opacity .2s var(--apple-ease)}
-.sheet .card.fly{animation:none;
-  transition:transform .3s var(--apple-spring),opacity .22s var(--apple-ease)}
-.sheet.dragging{animation:none;transition:none}
+.sheet.out{opacity:0}
+.sheet.out .card{transform:translate3d(0,100%,0)}
+.sheet .card.drag{transition:none}
+.sheet .card.spring{transition:transform .38s var(--apple-spring)}
+.sheet .card.fly{transition:transform .28s var(--apple-spring),opacity .22s var(--apple-ease)}
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
   background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
   display:none;align-items:center;justify-content:center;line-height:1;
@@ -171,7 +168,7 @@ button,select,input{font-family:var(--body)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 
 .tab-pane{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding-bottom:32px;padding-right:4px;animation:tabPaneIn .26s var(--apple-spring) both}
+  padding-bottom:32px;padding-right:4px;animation:tabPaneIn .24s var(--apple-spring) both}
 @keyframes tabPaneIn{
   from{opacity:0;transform:translate3d(6px,0,0)}
   to{opacity:1;transform:translate3d(0,0,0)}
@@ -206,7 +203,6 @@ button,select,input{font-family:var(--body)}
   display:inline-flex;align-items:center;justify-content:center;gap:2px;
   white-space:nowrap;max-width:calc(100vw - 24px);background:var(--chrome);
   border:1px solid var(--line);border-radius:30px;padding:5px;
-  backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);--pw:88px;--pg:2px}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
   padding:10px 0;border-radius:24px;cursor:pointer;position:relative;z-index:1;
@@ -222,8 +218,7 @@ button,select,input{font-family:var(--body)}
 
 .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
   background:var(--chrome);border:1px solid var(--line);border-radius:30px;
-  padding:5px;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
-  box-shadow:var(--edge),var(--drop)}
+  padding:5px;box-shadow:var(--edge),var(--drop)}
 .seg button{background:none;border:none;color:var(--muted);position:relative;z-index:1;
   border-radius:24px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
   white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
@@ -291,8 +286,7 @@ button,select,input{font-family:var(--body)}
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
 .spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:18px;overflow:hidden;
-  background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
-  border:1px solid var(--line);box-shadow:var(--edge),var(--drop-lg);
+  background:var(--hi);border:1px solid var(--line);box-shadow:var(--edge),var(--drop-lg);
   animation:rise .3s var(--apple-spring)}
 .spotbox input{width:100%;background:none;border:none;border-bottom:1px solid var(--line-soft);
   padding:18px 20px;color:var(--text);font-size:17px;outline:none}
@@ -318,8 +312,7 @@ button,select,input{font-family:var(--body)}
 .setupBox .lab{margin:18px 0 8px}
 #toast{position:fixed;left:50%;transform:translate3d(-50%,18px,0) scale(.96);
   bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;opacity:0;pointer-events:none;
-  background:var(--chrome);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
-  border:1px solid var(--line);border-radius:15px;padding:12px 18px;font-size:13px;font-weight:500;
+  background:var(--chrome);border:1px solid var(--line);border-radius:15px;padding:12px 18px;font-size:13px;font-weight:500;
   box-shadow:var(--edge),var(--drop-lg);transition:all .34s var(--apple-spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;
@@ -328,22 +321,6 @@ button,select,input{font-family:var(--body)}
 
 /* ---------- motion ---------- */
 @keyframes rise{from{opacity:0;transform:translate3d(0,10px,0) scale(.985)}to{opacity:1;transform:none}}
-.morph{animation:morphIn .42s var(--apple-morph) both}
-.morph.out{animation:morphOut .3s var(--apple-spring) both}
-@keyframes morphIn{
-  from{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.88))}
-  65%{opacity:1}
-  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
-}
-@keyframes morphOut{
-  from{opacity:1;transform:none}
-  to{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.88))}
-}
-@keyframes sheetUp{from{transform:translate3d(0,100%,0)}to{transform:translate3d(0,0,0)}}
-@keyframes sheetDown{to{transform:translate3d(0,100%,0)}}
-@keyframes backIn{from{opacity:0}to{opacity:1}}
-@keyframes backOut{to{opacity:0}}
-@keyframes fadeShrink{to{opacity:0;transform:scale(.97)}}
 @keyframes sweep{to{transform:translateX(100%)}}
 
 #view.enter{animation:rise .3s var(--apple-spring)}
@@ -362,8 +339,11 @@ button,select,input{font-family:var(--body)}
   body{max-width:960px;padding-left:28px;padding-right:28px}
   .sheet{align-items:center}
   .sheet .card{max-width:600px;height:84vh;height:84dvh;border-radius:22px;
-    padding:10px 28px calc(24px + env(safe-area-inset-bottom));animation:rise .32s var(--apple-spring)}
-  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .2s var(--apple-ease) forwards}
+    padding:10px 28px calc(24px + env(safe-area-inset-bottom));
+    transform:scale(.94);opacity:0;
+    transition:transform .32s var(--apple-spring),opacity .24s var(--apple-ease)}
+  .sheet.is-active .card{transform:scale(1);opacity:1}
+  .sheet.out .card{transform:scale(.94);opacity:0}
   .lanes{display:block}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:stretch}
   .lanes.single .rows{grid-template-columns:1fr;max-width:620px}
@@ -386,11 +366,10 @@ button,select,input{font-family:var(--body)}
   .row:hover{background-image:var(--sheen),linear-gradient(rgba(255,255,255,.04),rgba(255,255,255,.04))}
   #side{display:block;position:sticky;top:28px;flex:0 0 380px;width:380px;
     height:calc(100vh - 138px);height:calc(100dvh - 138px);overflow:hidden;
-    background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
-    border:1px solid var(--line);border-radius:22px;box-shadow:var(--edge),var(--drop-lg);
+    background:var(--hi);border:1px solid var(--line);border-radius:22px;box-shadow:var(--edge),var(--drop-lg);
     padding:22px 20px 24px}
   #side .card{background:none;border:none;padding:0;max-width:none;height:100%;
-    box-shadow:none;backdrop-filter:none;animation:rise .28s var(--apple-spring);position:relative}
+    box-shadow:none;transform:none;opacity:1;position:relative}
   #side .grab{display:none}
   #side .sideclose{display:flex}
   .tabbar{left:36px;right:auto;transform:none;bottom:26px}
@@ -433,8 +412,8 @@ button,select,input{font-family:var(--body)}
   <button id="tb-list" class="on" onclick="setPage('list')">選考</button>
   <button id="tb-pass" onclick="setPage('pass')">記録</button>
   <span class="sep"></span>
-  <button class="ico" onclick="markOrigin(event);openSearch()" aria-label="検索">⌕</button>
-  <button class="ico" onclick="markOrigin(event);openAdd()" aria-label="追加">+</button>
+  <button class="ico" onclick="openSearch()" aria-label="検索">⌕</button>
+  <button class="ico" onclick="openAdd()" aria-label="追加">+</button>
 </nav>
 
 <div id="side"></div>
@@ -653,7 +632,7 @@ var booted=false;
 function hideSplash(){
   if(booted)return; booted=true;
   var el=document.getElementById('splash');
-  if(el){el.classList.add('gone');setTimeout(function(){if(el.parentNode)el.remove()},400)}
+  if(el){el.classList.add('gone');setTimeout(function(){if(el.parentNode)el.remove()},350)}
 }
 function load(){call('apiGetData',[],hideSplash)}
 
@@ -788,7 +767,7 @@ function rowHtml(it){
 
   var isMuted = (st==='fail'||st==='skip');
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
-    '" data-cardco="'+esc(it.c)+'" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
+    '" data-cardco="'+esc(it.c)+'" onclick="openDetail(\''+esc(it.c)+'\')">'+
     '<div class="main">'+
       '<div class="day">'+left+'</div>'+
       '<div class="body1"><div class="meta">'+logo(it)+
@@ -800,7 +779,7 @@ function rowHtml(it){
 }
 function eventRowHtml(ev){
   var it=byCo(ev.c)||{c:ev.c,dom:''}, r=rem(ev.at);
-  return '<div class="row" data-cardco="'+esc(ev.c)+'" onclick="markOrigin(event);openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
+  return '<div class="row" data-cardco="'+esc(ev.c)+'" onclick="openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
     '<div class="day">'+(r?dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)'):'<span class="tag" style="color:var(--dim)">終了</span>')+'</div>'+
     '<div class="body1"><div class="meta">'+logo(it)+
       '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+fdate(ev.at)+' '+ftime(ev.at)+'</i></div>'+
@@ -848,7 +827,7 @@ function render(pageChanged){
     MGMT.forEach(function(it){
       var r=it.due?rem(it.due):null;
       var lab=r?(r.d===0?'今日':r.d+'日後'):(it.due?'期限切れ':'日程未定');
-      h+='<button class="stripitem" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
+      h+='<button class="stripitem" onclick="openDetail(\''+esc(it.c)+'\')">'+
         '<span class="k">受験予定</span><span class="n">'+esc(it.c)+'</span>'+
         '<span class="d" style="color:'+(r&&r.d<=2?'var(--hot)':'var(--text)')+'">'+lab+'</span>'+
         (it.due?'<span class="w">'+fdate(it.due)+(it.timeUnset?'':' '+ftime(it.due))+'</span>':'')+
@@ -861,7 +840,7 @@ function render(pageChanged){
     var it=hero.it||{c:hero.c,dom:''};
     var head=hero.kind==='due'?'次の締切':'次の'+hero.ev.kind;
     var stage=hero.kind==='due'?it.stage:hero.ev.kind;
-    h+='<div class="hero" onclick="markOrigin(event);openDetail(\''+esc(hero.c)+'\')">'+
+    h+='<div class="hero" onclick="openDetail(\''+esc(hero.c)+'\')">'+
       '<div class="lab" style="margin:0">'+head+'</div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'+logo(it,36)+'<h1>'+esc(hero.c)+'</h1></div>'+
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
@@ -992,48 +971,6 @@ function carryOver(co){
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
 
-/* ============ モーフィング起点 ============ */
-var ORIGIN=null;
-function markOrigin(e){
-  var el=(e&&(e.target||e.currentTarget))||null;
-  if(el&&el.closest) el=el.closest('.row,.stripitem,.hero,.tabbar button')||el;
-  if(!el||!el.getBoundingClientRect){ORIGIN=null;return}
-  var r=el.getBoundingClientRect();
-  var co = el.getAttribute('data-cardco') || null;
-  ORIGIN={
-    x: r.left+r.width/2,
-    y: r.top+r.height/2,
-    w: r.width,
-    h: r.height,
-    co: co
-  };
-}
-function settleAfter(node,ms){
-  if(!node)return;
-  node.classList.add('moving');
-  clearTimeout(node._st);
-  node._st=setTimeout(function(){
-    node.classList.remove('moving');
-  },ms||400);
-}
-function applyMorph(node){
-  if(!node)return;
-  node.classList.add('morph');
-  settleAfter(node,400);
-  if(!ORIGIN){
-    node.style.setProperty('--mx','0px');
-    node.style.setProperty('--my','36px');
-    node.style.setProperty('--ms','.92');
-    return;
-  }
-  var r=node.getBoundingClientRect();
-  var cx=r.left+r.width/2, cy=r.top+r.height/2;
-  node.style.setProperty('--mx',Math.round(ORIGIN.x-cx)+'px');
-  node.style.setProperty('--my',Math.round(ORIGIN.y-cy)+'px');
-  node.style.setProperty('--ms',Math.max(.5,Math.min(.92,ORIGIN.w/Math.max(r.width,1))).toFixed(3));
-  node.style.transformOrigin='50% 50%';
-}
-
 /* ============ シート制御 ============ */
 var lockY=0, pushed=false, locked=false;
 function lockScroll(on){
@@ -1057,25 +994,14 @@ function sheetOpened(){
 function closeOverlay(){
   var box=document.getElementById('sheet');
   var sh=box.querySelector('.sheet');
-  if(DISMISSING){
-    DISMISSING=false;
-    if(!isWide()) openCo=null;
-    box.innerHTML='';
-    if(locked){locked=false;lockScroll(false)}
-    return;
-  }
   if(!isWide()) openCo=null;
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
-  var card=sh.querySelector('.card,.spotbox');
-  if(card){
-    card.classList.remove('settled','morph');
-    card.classList.add('moving');
-  }
+  sh.classList.remove('is-active');
   sh.classList.add('out');
   setTimeout(function(){
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
-  },260);
+  },280);
 }
 function closeSide(){ openCo=null; sideEmpty(); }
 function closeSheet(e){
@@ -1093,18 +1019,25 @@ window.addEventListener('popstate',function(){
   if(document.getElementById('sheet').innerHTML) closeOverlay();
 });
 
-var DISMISSING=false;
 function bindSheetGesture(){
   var card=document.querySelector('#sheet .card');
   if(!card||card._bound)return;
   card._bound=true;
   var sheet=card.parentNode;
 
-  var y0=0, x0=0, t0=0, dy=0, active=false, tracking=false;
+  var y0=0, x0=0, t0=0, dy=0, active=false, tracking=false, raf=0;
 
   function getScrollTop(){
     var pane = card.querySelector('.tab-pane');
     return pane ? pane.scrollTop : card.scrollTop;
+  }
+
+  function applyTransform(){
+    raf=0;
+    if(!active)return;
+    var d = Math.max(0, dy);
+    var sc = Math.max(.90, 1 - d/2400);
+    card.style.transform = 'translate3d(0,' + d + 'px,0) scale(' + sc + ')';
   }
 
   card.addEventListener('touchstart',function(e){
@@ -1130,19 +1063,15 @@ function bindSheetGesture(){
       if(Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
       if(st <= 0 && vdy > 6){
         active = true;
-        card.classList.add('drag','moving');
-        sheet.classList.add('dragging');
+        card.classList.add('drag');
       } else {
         return;
       }
     }
 
     if(active){
-      dy = Math.max(0, vdy);
-      var sc = Math.max(.90, 1 - dy/2400);
-      card.style.transform = 'translate3d(0,' + dy + 'px,0) scale(' + sc + ')';
-      var a = Math.max(0, .6 * (1 - dy/380));
-      sheet.style.background = 'rgba(0,0,0,' + a.toFixed(3) + ')';
+      dy = vdy;
+      if(!raf) raf = requestAnimationFrame(applyTransform);
       if(e.cancelable) e.preventDefault();
     }
   },{passive:false});
@@ -1150,11 +1079,12 @@ function bindSheetGesture(){
   function end(){
     if(!tracking) return;
     tracking = false;
+    if(raf){ cancelAnimationFrame(raf); raf=0; }
     if(!active) return;
     active = false;
     var dt = Math.max(1, Date.now() - t0);
     var v = dy / dt;
-    var go = dy > 100 || v > 0.55;
+    var go = dy > 90 || v > 0.45;
     if(go) dismiss(); else bounce();
   }
 
@@ -1165,25 +1095,16 @@ function bindSheetGesture(){
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform = '';
-    sheet.classList.remove('dragging');
-    sheet.style.background = '';
-    settleAfter(card, 400);
   }
 
   function dismiss(){
     card.classList.remove('drag');
     card.classList.add('fly');
-    if(isWide()){
-      card.style.transform = 'scale(.96)';
-    } else {
-      card.style.transform = 'translate3d(0,100%,0)';
-    }
-    card.style.opacity = '0';
-    sheet.style.transition = 'background .26s var(--apple-ease)';
-    sheet.style.background = 'rgba(0,0,0,0)';
+    card.style.transform = 'translate3d(0,100%,0)';
+    sheet.classList.remove('is-active');
+    sheet.classList.add('out');
 
     setTimeout(function(){
-      DISMISSING = true;
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
     }, 280);
@@ -1250,7 +1171,10 @@ function paintDetail(h){
     return;
   }
   box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+h+'</div></div>';
-  applyMorph(box.querySelector('.card'));
+  requestAnimationFrame(function(){
+    var sh=box.querySelector('.sheet');
+    if(sh) sh.classList.add('is-active');
+  });
   sheetOpened();
 }
 
@@ -1431,8 +1355,11 @@ function openSearch(){
   box.innerHTML='<div class="sheet spot" onclick="closeSheet(event)"><div class="spotbox">'+
     '<input id="q" placeholder="会社名を入力" autocomplete="off">'+
     '<div id="qres"></div></div></div>';
-  applyMorph(document.querySelector('.spotbox'));
   if(!isWide()) sheetOpened();
+  requestAnimationFrame(function(){
+    var sh=box.querySelector('.sheet');
+    if(sh) sh.classList.add('is-active');
+  });
   var q=document.getElementById('q');
   q.addEventListener('input',function(){searchRun(q.value)});
   q.addEventListener('keydown',function(e){
@@ -1474,7 +1401,10 @@ function openAdd(){
     '<div class="lab">段階</div><select class="f" id="nS">'+PALETTE.map(function(p){return '<option>'+p+'</option>'}).join('')+'</select>'+
     '<div class="lab">締切（任意）</div><input class="f" type="datetime-local" id="nDue">'+
     '<button class="big" style="background:#fff;color:#000" onclick="doAdd()">追加する</button></div></div>';
-  applyMorph(document.getElementById('addCard'));
+  requestAnimationFrame(function(){
+    var sh=document.querySelector('#sheet .sheet');
+    if(sh) sh.classList.add('is-active');
+  });
   sheetOpened();
 }
 function doAdd(){
