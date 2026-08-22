@@ -28,7 +28,7 @@
   --sheen:linear-gradient(180deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 42%);
   --drop:0 1px 2px rgba(0,0,0,.28), 0 8px 24px rgba(0,0,0,.42);
   --drop-lg:0 2px 6px rgba(0,0,0,.34), 0 22px 56px rgba(0,0,0,.58);
-  
+
   /* Apple Fluid Motion */
   --apple-spring:cubic-bezier(.32,.72,0,1);
   --apple-ease:cubic-bezier(.25,.1,.25,1);
@@ -268,7 +268,7 @@ button,select,input{font-family:var(--body)}
   border-bottom:1px solid var(--line-soft);font-size:13px}
 .brkRow:last-child{border-bottom:none;padding-bottom:0}
 
-/* ---------- chips & smooth lanes ---------- */
+/* ---------- chips & lanes ---------- */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:12px 16px 10px;
   background:#000;box-shadow:0 8px 12px -8px rgba(0,0,0,.9)}
@@ -284,7 +284,7 @@ button,select,input{font-family:var(--body)}
 .chiprow button.on b{color:#000}
 
 .lanes{transition:opacity .2s var(--apple-ease)}
-.lane{transition:opacity .22s var(--apple-ease),transform .22s var(--apple-spring)}
+.lane{transition:opacity .22s var(--apple-ease),transform .22s var(--apple-spring);margin-bottom:6px}
 .lane.is-filt-hidden{display:none !important}
 
 .accord-btn{width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted);
@@ -307,7 +307,7 @@ button,select,input{font-family:var(--body)}
 #qres .qs{margin-left:auto;font-size:11px;color:var(--muted)}
 .qempty{padding:22px;color:var(--dim);font-size:13px;text-align:center}
 
-/* ---------- toast ---------- */
+/* ---------- toast / setup ---------- */
 .emptyNote{color:var(--dim);font-size:13px;line-height:1.9;text-align:center;padding:36px 0}
 .setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
 .setupBox{width:100%;max-width:420px;background:var(--hi);border:1px solid var(--line);
@@ -341,7 +341,6 @@ button,select,input{font-family:var(--body)}
 }
 
 #side{display:none}
-.lane{margin-bottom:6px}
 
 @media (min-width:820px){
   body{max-width:960px;padding-left:28px;padding-right:28px}
@@ -483,8 +482,7 @@ function markEnter(force){
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function D(s){
   if(!s)return null;
-  var str = String(s).replace(/-/g,'/').replace('T',' ');
-  var d = new Date(str);
+  var d = new Date(String(s).replace(/-/g,'/').replace('T',' '));
   return isNaN(d.getTime()) ? null : d;
 }
 function fdate(s){var d=D(s);return d?(d.getMonth()+1)+'/'+d.getDate()+'('+WD[d.getDay()]+')':''}
@@ -685,20 +683,17 @@ function doPass(co){
     else{it.stage=r[i+1];it.status='対応中';it.due=null;it.since=null;}
   },'apiMarkPass',[co,TERM],'通過を記録しました');
 }
+/* 1段階戻す：状態・段階・結果日をまとめて巻き戻す（サーバー側も1回で処理） */
 function doPrevStage(co){
   var it=find_(co); if(!it)return;
   var r=routeOf(it), cur=it.lost||it.stage, i=r.indexOf(cur);
   if(i<=0){ toast('これ以上前の選考段階はありません'); return; }
-  var prevStage = r[i-1];
+  var prev=r[i-1];
   opt(function(){
     var x=find_(co); if(!x)return;
-    x.stage = prevStage;
-    x.status = '対応中';
-    x.lost = '';
-    x.on = null;
-    x.due = null;
-    x.since = null;
-  }, 'apiSetRoute', [co, TERM, r, prevStage], prevStage + ' に戻しました');
+    x.stage=prev; x.status='対応中';
+    x.lost=''; x.on=null; x.due=null; x.since=null;
+  },'apiPrevStage',[co,TERM,prev], prev+' に戻しました');
 }
 function doFail(co){
   opt(function(){var it=find_(co);if(!it)return;it.lost=it.stage;it.status='落選';it.on=todayStr();it.due=null;},
@@ -805,10 +800,13 @@ function syncPills(){
 
 function setFilt(k){
   FILT = (FILT===k && k!=='all') ? 'all' : k;
+  /* 終了・見送りに絞ったときは、畳んだままだと中身が見えないので開く */
+  if(FILT==='end' && !window._end){ window._end=true; render(false); return; }
+  if(FILT==='skip' && !window._skip){ window._skip=true; render(false); return; }
+
   var btns = document.querySelectorAll('.chiprow button');
-  btns.forEach(function(b){
-    var isTarget = b.getAttribute('data-filt') === FILT;
-    b.className = isTarget ? 'on' : '';
+  Array.prototype.forEach.call(btns,function(b){
+    b.className = (b.getAttribute('data-filt')===FILT) ? 'on' : '';
   });
 
   var lanesBox = document.querySelector('.lanes');
@@ -816,11 +814,11 @@ function setFilt(k){
   lanesBox.classList.toggle('single', FILT!=='all');
 
   var lanes = lanesBox.querySelectorAll('.lane');
-  lanes.forEach(function(l){
+  Array.prototype.forEach.call(lanes,function(l){
     var lk = l.getAttribute('data-lane');
     if(!lk) return;
     if(FILT==='all'){
-      if(lk==='end' || lk==='skip') return;
+      if(lk==='end' || lk==='skip'){ l.classList.remove('is-filt-hidden'); return; }
       l.classList.remove('is-filt-hidden');
     } else {
       l.classList.toggle('is-filt-hidden', lk!==FILT);
@@ -878,7 +876,7 @@ function render(pageChanged){
       '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'+logo(it,36)+'<h1>'+esc(hero.c)+'</h1></div>'+
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
         esc(stage)+' '+fdate(hero.at)+((hero.kind==='due'&&it.timeUnset)?'':' '+ftime(hero.at))+'</div>'+
-      '<div class="cd" id="heroCd" data-at="'+hero.at+'"></div></div>';
+      '<div class="cd" id="heroCd" data-at="'+esc(hero.at)+'"></div></div>';
   } else if(!DATA.items.length){
     h+='<div class="emptyNote">シートからデータを取得できていません。<br>'+
        'Sheet1 に行があるか、接続設定が正しいかを確認してください。'+
@@ -887,8 +885,11 @@ function render(pageChanged){
     h+='<div style="color:var(--dim);font-size:14px;padding:20px 0">予定も締切もありません。</div>';
   }
 
-  var events=agenda.filter(function(a){return a.kind==='event'});
-  var todo=LIST.filter(function(x){return stOf(x)==='todo'})
+  /* トップに出している1件は、下のレーンから外して重複を防ぐ */
+  var events=agenda.filter(function(a){return a.kind==='event' && a!==hero});
+  var todo=LIST.filter(function(x){
+      return stOf(x)==='todo' && !(hero && hero.kind==='due' && hero.c===x.c);
+    })
     .sort(function(a,b){return (D(a.due)||9e15)-(D(b.due)||9e15)});
   var fixed=LIST.filter(function(x){return stOf(x)==='fixed'});
   var waiting=LIST.filter(function(x){return stOf(x)==='waiting'})
@@ -937,12 +938,13 @@ function render(pageChanged){
        '<div class="rows">'+rows[g.k]()+'</div></section>';
   });
 
-  var isEndHidden = (FILT!=='all' && FILT!=='end');
-  h+='<section class="lane'+(isEndHidden?' is-filt-hidden':'')+'" data-lane="end">'+
-     '<button class="lab accord-btn" onclick="toggleEnded()">'+
-     '終了 '+ended.length+'件 '+(window._end?'▾':'▸')+'</button>'+
-     (window._end?'<div class="rows">'+rows.end()+'</div>':'')+'</section>';
-
+  if(ended.length){
+    var isEndHidden = (FILT!=='all' && FILT!=='end');
+    h+='<section class="lane'+(isEndHidden?' is-filt-hidden':'')+'" data-lane="end">'+
+       '<button class="lab accord-btn" onclick="toggleEnded()">'+
+       '終了 '+ended.length+'件 '+(window._end?'▾':'▸')+'</button>'+
+       (window._end?'<div class="rows">'+rows.end()+'</div>':'')+'</section>';
+  }
   if(skipped.length){
     var isSkipHidden = (FILT!=='all' && FILT!=='skip');
     h+='<section class="lane'+(isSkipHidden?' is-filt-hidden':'')+'" data-lane="skip">'+
@@ -955,7 +957,7 @@ function render(pageChanged){
   document.getElementById('view').innerHTML=h;
   if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
-  
+
   var rws=document.querySelectorAll('#view .row');
   for(var q=0;q<rws.length;q++) rws[q].style.setProperty('--i',q<10?q:10);
   tickHero();
@@ -1066,7 +1068,6 @@ function bindSheetGesture(){
     var pane = card.querySelector('.tab-pane');
     return pane ? pane.scrollTop : card.scrollTop;
   }
-
   function applyTransform(){
     raf=0;
     if(!active)return;
@@ -1096,14 +1097,10 @@ function bindSheetGesture(){
     var st = getScrollTop();
     if(!active){
       if(Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
-      if(st <= 0 && vdy > 6){
-        active = true;
-        card.classList.add('drag');
-      } else {
-        return;
-      }
+      if(st > 0){ y0 = cy; t0 = Date.now(); return; }   /* 内部スクロール中は基準点を追従 */
+      if(vdy > 6){ active = true; card.classList.add('drag'); }
+      else return;
     }
-
     if(active){
       dy = vdy;
       if(!raf) raf = requestAnimationFrame(applyTransform);
@@ -1122,7 +1119,6 @@ function bindSheetGesture(){
     var go = dy > 90 || v > 0.45;
     if(go) dismiss(); else bounce();
   }
-
   card.addEventListener('touchend', end);
   card.addEventListener('touchcancel', end);
 
@@ -1131,14 +1127,12 @@ function bindSheetGesture(){
     card.classList.add('spring');
     card.style.transform = '';
   }
-
   function dismiss(){
     card.classList.remove('drag');
     card.classList.add('fly');
     card.style.transform = 'translate3d(0,100%,0)';
     sheet.classList.remove('is-active');
     sheet.classList.add('out');
-
     setTimeout(function(){
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
@@ -1152,7 +1146,7 @@ function switchTab(k){
   var root = isWide() ? document.getElementById('side') : document.getElementById('sheet');
   if(!root) return;
   var tabs = root.querySelectorAll('.tabs button');
-  tabs.forEach(function(b){
+  Array.prototype.forEach.call(tabs,function(b){
     b.className = (b.getAttribute('data-tab')===k) ? 'on' : '';
   });
   var pane = root.querySelector('.tab-pane');
@@ -1197,7 +1191,7 @@ function gcalUrl(title,at,details,allDay){
 }
 
 function renderTabContent(it){
-  var st=stOf(it), rt=routeOf(it), curIdx=rt.indexOf(it.stage);
+  var st=stOf(it), rt=routeOf(it), curIdx=rt.indexOf(it.lost||it.stage);
   var last=curIdx>=rt.length-2;
   var h='';
 
@@ -1244,9 +1238,9 @@ function renderTabContent(it){
       h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--text);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'対応中\')">対応中に戻す</button>';
     if(st==='waiting')
       h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'参加決定\')">参加決定にする</button>';
-    
-    if(curIdx > 0) {
-      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrevStage(\''+esc(it.c)+'\')">1段階戻す（'+esc(it.stage)+' → '+esc(rt[curIdx-1])+'）</button>';
+
+    if(curIdx > 0){
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrevStage(\''+esc(it.c)+'\')">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
     }
 
     if(st==='todo')
@@ -1290,7 +1284,7 @@ function renderTabContent(it){
         '<div class="sub" style="margin-top:3px">'+fdate(ev.at)+' '+ftime(ev.at)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
         '<button class="gh" style="color:var(--hot);padding:6px 10px" onclick="delEv(\''+esc(ev.uid)+'\')">×</button></div>';
     });
-    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03);width:100%;box-sizing:border-box">'+
+    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03);width:100%">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
       '<select class="f" id="evKind">'+KINDS.map(function(k){return '<option>'+k+'</option>'}).join('')+'</select>'+
       '<input class="f" type="datetime-local" id="evAt">'+
@@ -1305,7 +1299,7 @@ function renderTabContent(it){
       h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft)">'+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--dim);width:16px">'+(i+1)+'</span>'+
         '<button style="flex:1;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;color:'+
-          (cur?'var(--text)':'var(--muted)')+';font-weight:'+(cur?600:400)+';transition:color .2s var(--apple-ease),transform .24s var(--apple-spring)" onclick="setCur('+i+')">'+esc(s)+
+          (cur?'var(--text)':'var(--muted)')+';font-weight:'+(cur?600:400)+'" onclick="setCur('+i+')">'+esc(s)+
           (cur?' <span style="font-family:var(--mono);font-size:9px;color:var(--blue)">現在</span>':'')+'</button>'+
         '<button class="gh" style="padding:4px 9px" onclick="mv('+i+',-1)">↑</button>'+
         '<button class="gh" style="padding:4px 9px" onclick="mv('+i+',1)">↓</button>'+
@@ -1352,10 +1346,7 @@ function paintDetail(it){
 
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
-  if(card){
-    card.innerHTML=fullHtml;
-    return;
-  }
+  if(card){ card.innerHTML=fullHtml; return; }
   box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+fullHtml+'</div></div>';
   requestAnimationFrame(function(){
     var sh=box.querySelector('.sheet');
@@ -1577,7 +1568,6 @@ function renderPassport(pageChanged){
       '<div class="pcol">'+cB.join('')+'</div>'+
     '</div>';
 
-  ensureShell(); updateSeg();
   document.getElementById('view').innerHTML=h;
   if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
