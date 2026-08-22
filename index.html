@@ -967,7 +967,6 @@ function tickHero(){
   el.innerHTML=(r.d>0?'<b>'+r.d+'</b><s>d</s>':'')+'<b>'+p(r.h)+'</b><s>h</s><b>'+p(r.m)+'</b><s>m</s><b>'+p(r.s)+'</b><s>s</s>';
 }
 setInterval(tickHero,1000);
-setInterval(function(){ if(!document.getElementById('sheet').innerHTML) render(false) },60000);
 
 var wasWide=isWide();
 window.addEventListener('resize',function(){
