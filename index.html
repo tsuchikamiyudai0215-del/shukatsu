@@ -120,20 +120,22 @@ button,select,input{font-family:var(--body)}
 /* タップ元要素の不可視化（残像防止） */
 .is-source-hidden{opacity:0 !important;pointer-events:none !important}
 
-/* ---------- sheet / card (Apple Wallet Two-way Matched Transition) ---------- */
+/* ---------- sheet / card（四隅均等のリキッドグラスカード） ---------- */
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,0);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
-  transition:background .38s var(--ease);
+  padding:0 10px calc(12px + env(safe-area-inset-bottom));
+  transition:background .28s var(--ease);
   will-change:background;transform:translateZ(0);isolation:isolate;
   backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .sheet.active{background:rgba(0,0,0,.6)}
 
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
-  max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  border-radius:22px 22px 0 0;border:1px solid var(--line);
-  padding:10px 20px calc(40px + env(safe-area-inset-bottom));
-  will-change:transform,opacity,border-radius;
+  max-height:84vh;max-height:84dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  border-radius:22px;border:1px solid var(--line);
+  padding:12px 20px 24px;
+  will-change:transform,opacity;
   backface-visibility:hidden;-webkit-backface-visibility:hidden}
 
 .card.moving,.spotbox.moving{
@@ -145,14 +147,13 @@ button,select,input{font-family:var(--body)}
   transition:background .2s var(--ease)}
 .card.drag .grab{background:rgba(255,255,255,.42)}
 
-.sheet.out{background:rgba(0,0,0,0) !important;transition:background .3s var(--ease)}
-.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .3s cubic-bezier(.4,0,1,1) forwards}
+/* 閉じるアニメーション（スマホ：下スライド / PC・タブレット：fadeShrink） */
+.sheet.out{background:rgba(0,0,0,0) !important;animation:backOut .24s var(--ease) forwards}
+.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .28s cubic-bezier(.4,0,1,1) forwards}
 
-.sheet .card.drag{animation:none;transition:none;will-change:transform,border-radius}
+.sheet .card.drag{animation:none;transition:none;will-change:transform}
 .sheet .card.spring{animation:none;
-  transition:transform .38s var(--spring),border-radius .38s var(--spring)}
-.sheet .card.fly{animation:none;
-  transition:transform .36s var(--spring),opacity .28s var(--ease),border-radius .36s var(--spring)}
+  transition:transform .38s var(--spring)}
 .sheet.dragging{animation:none;transition:none}
 
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
@@ -286,7 +287,7 @@ button,select,input{font-family:var(--body)}
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
-.spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:18px;overflow:hidden;
+.spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:22px;overflow:hidden;
   background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);box-shadow:var(--edge),var(--drop-lg);
   animation:rise .3s var(--spring)}
@@ -325,7 +326,8 @@ button,select,input{font-family:var(--body)}
 /* ---------- motion ---------- */
 @keyframes rise{from{opacity:0;transform:translate3d(0,12px,0) scale(.985)}to{opacity:1;transform:none}}
 @keyframes sheetDown{to{transform:translate3d(0,100%,0)}}
-@keyframes fadeShrink{to{opacity:0;transform:scale(.97)}}
+@keyframes backOut{to{opacity:0}}
+@keyframes fadeShrink{to{opacity:0;transform:scale(.96)}}
 @keyframes sweep{to{transform:translateX(100%)}}
 #view.enter{animation:rise .3s var(--spring)}
 #view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .42s var(--spring) both}
@@ -343,7 +345,7 @@ button,select,input{font-family:var(--body)}
    ========================================== */
 @media (min-width:820px){
   body{max-width:960px;padding-left:28px;padding-right:28px}
-  .sheet{align-items:center}
+  .sheet{align-items:center;padding:0}
   .sheet .card{max-width:600px;max-height:84dvh;border-radius:22px;
     padding:10px 28px 34px;animation:rise .34s var(--spring)}
   .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--ease) forwards}
@@ -927,7 +929,7 @@ window.addEventListener('resize',function(){
   if(w===wasWide)return;
   wasWide=w;
   document.getElementById('sheet').innerHTML='';
-  locked=false; lockScroll(false);
+  lockScroll(false);
   restoreOriginEl();
   render();
 });
@@ -939,7 +941,7 @@ function carryOver(co){
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
 
-/* ============ Apple Wallet Matched Transition（双方向モーフィング） ============ */
+/* ============ 起点モーフィング（開くとき） ============ */
 var ORIGIN = null;
 var ORIGIN_EL = null;
 
@@ -995,37 +997,31 @@ function applyOpenMorph(card){
 
   card.style.transition = 'none';
   card.style.transform = 'translate3d(' + dx + 'px, ' + dy + 'px, 0) scale(' + initScale.toFixed(3) + ')';
-  card.style.borderRadius = '16px';
   card.style.opacity = '0.7';
 
-  void card.offsetWidth; /* Reflow 強制 */
+  void card.offsetWidth;
 
-  card.style.transition = 'transform 0.4s var(--spring), opacity 0.3s var(--ease), border-radius 0.4s var(--spring)';
+  card.style.transition = 'transform 0.4s var(--spring), opacity 0.3s var(--ease)';
   card.style.transform = 'translate3d(0,0,0) scale(1)';
-  card.style.borderRadius = '22px 22px 0 0';
   card.style.opacity = '1';
 }
 
-/* ============ シート制御 ============ */
-var lockY=0, pushed=false, locked=false, DISMISSING=false;
+/* ============ シート制御（画面ガクつき防止） ============ */
+var pushed=false, DISMISSING=false;
 
 function lockScroll(on){
   if(on){
-    lockY=window.scrollY;
-    document.body.style.position='fixed';
-    document.body.style.top=(-lockY)+'px';
-    document.body.style.width='100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
   }else{
-    document.body.style.position='';
-    document.body.style.top='';
-    document.body.style.width='';
-    window.scrollTo(0,lockY);
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
   }
 }
 
 function sheetOpened(){
   if(isWide()){ bindSheetGesture(); return; }
-  if(!locked){ locked=true; lockScroll(true); }
+  lockScroll(true);
   if(!pushed){ pushed=true; history.pushState({sheet:1},''); }
   bindSheetGesture();
 }
@@ -1038,38 +1034,23 @@ function closeOverlay(){
     if(!isWide()) openCo=null;
     box.innerHTML='';
     restoreOriginEl();
-    if(locked){locked=false;lockScroll(false)}
+    lockScroll(false);
     return;
   }
   if(!isWide()) openCo=null;
-  if(!sh){ if(locked){locked=false;lockScroll(false)} restoreOriginEl(); return; }
+  if(!sh){ lockScroll(false); restoreOriginEl(); return; }
 
   var card=sh.querySelector('.card,.spotbox');
   if(card){
     card.classList.remove('settled');
     card.classList.add('moving');
-    
-    var cr = card.getBoundingClientRect();
-    var useOrigin = ORIGIN && ORIGIN.y>0 && ORIGIN.y<window.innerHeight && ORIGIN.x>0 && ORIGIN.x<window.innerWidth;
-    if(useOrigin){
-      var cx = cr.left + cr.width/2, cy = cr.top + cr.height/2;
-      var sc = Math.max(0.3, Math.min(0.96, ORIGIN.w / Math.max(cr.width, 1)));
-      card.style.transition = 'transform 0.36s var(--spring), opacity 0.28s var(--ease), border-radius 0.36s var(--spring)';
-      card.style.transform = 'translate3d(' + Math.round(ORIGIN.x - cx) + 'px, ' + Math.round(ORIGIN.y - cy) + 'px, 0) scale(' + sc.toFixed(3) + ')';
-      card.style.borderRadius = '16px';
-      card.style.opacity = '0';
-    }else{
-      card.style.transition = 'transform 0.3s cubic-bezier(0.4,0,1,1), opacity 0.25s var(--ease)';
-      card.style.transform = 'translate3d(0, 100%, 0)';
-      card.style.opacity = '0';
-    }
   }
   sh.classList.add('out');
   setTimeout(function(){
     box.innerHTML='';
     restoreOriginEl();
-    if(locked){locked=false;lockScroll(false)}
-  }, 360);
+    lockScroll(false);
+  }, 280);
 }
 
 function closeSide(){ openCo=null; sideEmpty(); }
@@ -1102,13 +1083,7 @@ function bindSheetGesture(){
     raf=0;
     if(!active)return;
     var d=dy;
-    var sc=Math.max(0.86, 1 - (d>0?d:0)/2000);
-    card.style.transform='translate3d(0,'+d+'px,0) scale('+sc+')';
-    
-    var radT = Math.max(16, 22 - (d/10));
-    var radB = Math.min(16, (d/10));
-    card.style.borderRadius = radT + 'px ' + radT + 'px ' + radB + 'px ' + radB + 'px';
-
+    card.style.transform='translate3d(0,'+d+'px,0)';
     var a=Math.max(0, 0.6 * (1 - (d>0?d:0)/360));
     sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
   }
@@ -1126,7 +1101,7 @@ function bindSheetGesture(){
     if(e.touches.length!==1)return;
     y0=e.touches[0].clientY; x0=e.touches[0].clientX;
     t0=Date.now(); raw=0; dy=0; active=false;
-    card.classList.remove('spring','fly');
+    card.classList.remove('spring');
   },{passive:true});
 
   card.addEventListener('touchmove',function(e){
@@ -1170,7 +1145,6 @@ function bindSheetGesture(){
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform='';
-    card.style.borderRadius='22px 22px 0 0';
     sheet.classList.remove('dragging');
     sheet.style.background='rgba(0,0,0,0.6)';
     active=false; raw=0; dy=0;
@@ -1180,28 +1154,18 @@ function bindSheetGesture(){
     stopRaf();
     active=false;
     card.classList.remove('drag');
-    card.classList.add('fly');
 
-    var cr=card.getBoundingClientRect();
-    var useOrigin = ORIGIN && ORIGIN.y>0 && ORIGIN.y<window.innerHeight && ORIGIN.x>0 && ORIGIN.x<window.innerWidth;
-
-    if(useOrigin){
-      var cx=cr.left+cr.width/2, cy=cr.top+cr.height/2;
-      var sc=Math.max(0.3, Math.min(0.96, ORIGIN.w/Math.max(cr.width,1)));
-      card.style.transform='translate3d('+Math.round(ORIGIN.x-cx)+'px,'+Math.round(ORIGIN.y-cy)+'px,0) scale('+sc.toFixed(3)+')';
-      card.style.borderRadius='16px';
-    }else{
-      card.style.transform='translate3d(0,'+(window.innerHeight)+'px,0) scale(.96)';
-    }
-    card.style.opacity='0';
-    sheet.style.transition='background .34s var(--ease)';
-    sheet.style.background='rgba(0,0,0,0)';
+    card.style.transition = 'transform .28s cubic-bezier(.4,0,1,1), opacity .24s var(--ease)';
+    card.style.transform = 'translate3d(0, 100%, 0)';
+    card.style.opacity = '0';
+    sheet.style.transition = 'background .28s var(--ease)';
+    sheet.style.background = 'rgba(0,0,0,0)';
 
     setTimeout(function(){
       DISMISSING=true;
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
-    }, 360);
+    }, 280);
   }
 }
 
