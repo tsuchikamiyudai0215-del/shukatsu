@@ -183,16 +183,17 @@ button,select,input{font-family:var(--body)}
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
   transition:background .28s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
 .tabbar button.on{color:#000}
-.tabbar .pill{position:absolute;left:0;top:5px;height:calc(100% - 10px);border-radius:24px;
-  background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
-  transition:transform .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1)}
+.tabbar .pill{position:absolute;left:0;top:5px;width:0;height:calc(100% - 10px);border-radius:24px;
+  background:rgba(255,255,255,.95);z-index:0;pointer-events:none;opacity:0;
+  transition:left .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1),opacity .2s ease}
 .tabbar{position:fixed;overflow:visible}
 .tabbar button{position:relative;z-index:1}
 .seg{position:relative}
 .seg button.on{background:transparent;border-color:transparent}
-.seg .pill{position:absolute;left:0;top:0;height:100%;border-radius:18px;
+.seg .pill{position:absolute;left:0;top:0;width:0;height:100%;border-radius:18px;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);z-index:0;
-  pointer-events:none;transition:transform .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1)}
+  pointer-events:none;opacity:0;
+  transition:left .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1),opacity .2s ease}
 .seg button{position:relative;z-index:1}
 .tabbar button:active{transform:scale(.94)}
 .tabbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex-shrink:0}
@@ -718,13 +719,16 @@ function eventRowHtml(ev){
 function setTerm(t){TERM=t;window.scrollTo(0,0);render()}
 function movePill(pill,btn){
   if(!pill||!btn)return;
-  /* offsetLeft は親（position 指定済み）の内側を基準にした実測値。
-     getBoundingClientRect の差分だと padding や justify-content の影響でずれる。 */
-  var x=btn.offsetLeft, w=btn.offsetWidth;
-  if(!w){ pill.style.opacity='0'; return; }
+  var host=pill.offsetParent;          /* left の基準になる要素そのもの */
+  if(!host){ pill.style.opacity='0'; return; }
+  var pr=host.getBoundingClientRect(), br=btn.getBoundingClientRect();
+  if(!br.width){ pill.style.opacity='0'; return; }
+  /* left は padding ボックス基準、getBoundingClientRect は border ボックス基準なので
+     親のボーダー分を引く */
+  var bl=parseFloat(getComputedStyle(host).borderLeftWidth)||0;
+  pill.style.left  = Math.round(br.left - pr.left - bl)+'px';
+  pill.style.width = Math.round(br.width)+'px';
   pill.style.opacity='1';
-  pill.style.width=w+'px';
-  pill.style.transform='translateX('+x+'px)';
 }
 function syncPills(){
   movePill(document.getElementById('dockPill'),
@@ -1440,7 +1444,7 @@ function resetCfg(){
   openSetup();
 }
 
-window.addEventListener('load',function(){ setTimeout(syncPills,60) });
+window.addEventListener('load',function(){ syncPills(); setTimeout(syncPills,80); setTimeout(syncPills,400); });
 window.addEventListener('resize',function(){ syncPills() });
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){syncPills()});
 
