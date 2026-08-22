@@ -142,8 +142,12 @@ button,select,input{font-family:var(--body)}
 .card.drag .grab{background:rgba(255,255,255,.42)}
 .sheet.out{animation:backOut .26s var(--ease) forwards}
 .sheet.out .card,.sheet.out .spotbox{animation:sheetDown .3s cubic-bezier(.4,0,1,1) forwards}
-.sheet .card.drag{animation:none;transition:none}
-.sheet .card.spring{animation:none;transition:transform .38s var(--spring)}
+.sheet .card.drag{animation:none;transition:none;will-change:transform}
+.sheet .card.spring{animation:none;
+  transition:transform .42s cubic-bezier(.16,1,.3,1),opacity .2s ease}
+.sheet .card.fly{animation:none;
+  transition:transform .38s cubic-bezier(.16,1,.3,1),opacity .34s cubic-bezier(.16,1,.3,1)}
+.sheet.dragging{animation:none;transition:none}
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
   background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
   display:none;align-items:center;justify-content:center;line-height:1;
@@ -1002,6 +1006,13 @@ function sheetOpened(){
 function closeOverlay(){
   var box=document.getElementById('sheet');
   var sh=box.querySelector('.sheet');
+  if(DISMISSING){                       /* スワイプで既に消えている */
+    DISMISSING=false;
+    if(!isWide()) openCo=null;
+    box.innerHTML='';
+    if(locked){locked=false;lockScroll(false)}
+    return;
+  }
   /* スマホではシート＝詳細なので、閉じたら選択も解除する
      （残っていると再描画のたびに詳細が復活する）。
      PC の詳細は右パネル側なので触らない。 */
@@ -1033,29 +1044,115 @@ window.addEventListener('popstate',function(){
   pushed=false;
   if(document.getElementById('sheet').innerHTML) closeOverlay();
 });
+var DISMISSING=false;
 function bindSheetGesture(){
   var card=document.querySelector('#sheet .card');
   if(!card||card._bound)return;
   card._bound=true;
-  var y0=0,dy=0,on=false;
-  card.addEventListener('touchstart',function(e){
-    if(card.scrollTop>0)return;
-    y0=e.touches[0].clientY;dy=0;on=true;
-    card.classList.add('drag');card.classList.remove('spring');
-  },{passive:true});
-  card.addEventListener('touchmove',function(e){
-    if(!on)return;
-    dy=e.touches[0].clientY-y0;
-    if(dy<0){dy=0;return}
-    e.preventDefault();                 /* Android Chrome の引き下げ更新を止める */
-    card.style.transform='translate3d(0,'+dy+'px,0)';
-  },{passive:false});
-  card.addEventListener('touchend',function(){
-    if(!on)return; on=false;
+  var sheet=card.parentNode;
+
+  var y0=0,x0=0,t0=0,dy=0,raw=0,active=false,raf=0;
+
+  function paint(){
+    raf=0;
+    if(!active)return;
+    var d=dy;
+    var sc=Math.max(.88,1-(d>0?d:0)/2500);
+    card.style.transform='translate3d(0,'+d+'px,0) scale('+sc+')';
+    var a=Math.max(0,.6*(1-(d>0?d:0)/400));
+    sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
+  }
+  function schedule(){ if(!raf) raf=requestAnimationFrame(paint); }
+  function stopRaf(){ if(raf){cancelAnimationFrame(raf);raf=0} }
+
+  function reset(){
+    stopRaf();
+    active=false; raw=0; dy=0;
     card.classList.remove('drag');
-    if(dy>90){ closeSheet() }
-    else { card.classList.add('spring'); card.style.transform=''; }
-  });
+    sheet.classList.remove('dragging');
+  }
+
+  card.addEventListener('touchstart',function(e){
+    if(e.touches.length!==1)return;
+    if(card.scrollTop>0)return;                    /* 中身をスクロール中は触らない */
+    y0=e.touches[0].clientY; x0=e.touches[0].clientX;
+    t0=Date.now(); raw=0; dy=0; active=false;
+    card.classList.remove('spring','fly');
+  },{passive:true});
+
+  card.addEventListener('touchmove',function(e){
+    if(e.touches.length!==1)return;
+    var cy=e.touches[0].clientY, cx=e.touches[0].clientX;
+    var vdy=cy-y0, vdx=cx-x0;
+
+    if(!active){
+      if(Math.abs(vdx)>Math.abs(vdy))return;       /* 横スワイプは無視 */
+      if(Math.abs(vdy)<6)return;                   /* 誤爆防止のしきい値 */
+      if(vdy<0&&card.scrollTop>0)return;
+      active=true;
+      card.classList.add('drag');
+      sheet.classList.add('dragging');
+    }
+    if(vdy>0&&card.scrollTop>0)return;
+    raw=vdy;
+    /* 判定に使う値は描画を待たずにここで確定させる。
+       rAF の中で計算すると、素早いフリックで指を離したときに 0 のままになる */
+    dy = raw>0 ? raw : raw*0.2;                    /* 上方向はゴムの抵抗 */
+    e.preventDefault();                            /* Android の引き下げ更新も止まる */
+    schedule();
+  },{passive:false});
+
+  function end(){
+    if(!active){ reset(); return }
+    stopRaf();
+    var dt=Math.max(1,Date.now()-t0);
+    var v=dy/dt;                                   /* px/ms。下向きが正 */
+    var go = dy>120 || v>0.65;
+    if(go) dismiss(); else bounce();
+  }
+  card.addEventListener('touchend',end);
+  card.addEventListener('touchcancel',function(){ if(active)bounce(); else reset() });
+
+  function bounce(){
+    stopRaf();
+    card.classList.remove('drag');
+    card.classList.add('spring');
+    card.style.transform='';
+    sheet.classList.remove('dragging');
+    sheet.style.background='';
+    active=false; raw=0; dy=0;
+  }
+
+  function dismiss(){
+    stopRaf();
+    active=false;
+    card.classList.remove('drag');
+
+    /* 起点が画面内にあるときだけ吸い込む。無い・見えない場合は素直に下へ */
+    var r=card.getBoundingClientRect();
+    var useOrigin = ORIGIN &&
+      ORIGIN.y>0 && ORIGIN.y<window.innerHeight &&
+      ORIGIN.x>0 && ORIGIN.x<window.innerWidth;
+
+    card.classList.add('fly');
+    if(useOrigin){
+      var cx=r.left+r.width/2, cy=r.top+r.height/2;
+      var sc=Math.max(.28,Math.min(.9,ORIGIN.w/Math.max(r.width,1)));
+      card.style.transform='translate3d('+Math.round(ORIGIN.x-cx)+'px,'+
+        Math.round(ORIGIN.y-cy)+'px,0) scale('+sc.toFixed(3)+')';
+    }else{
+      card.style.transform='translate3d(0,'+(window.innerHeight)+'px,0) scale(.96)';
+    }
+    card.style.opacity='0';
+    sheet.style.transition='background .3s var(--ease)';
+    sheet.style.background='rgba(0,0,0,0)';
+
+    setTimeout(function(){
+      DISMISSING=true;                              /* 見た目は終わっているので即撤去 */
+      if(!isWide()&&pushed){ history.back(); }      /* 履歴を必ず巻き戻す */
+      else closeOverlay();
+    },380);
+  }
 }
 
 /* ============ 詳細 ============ */
