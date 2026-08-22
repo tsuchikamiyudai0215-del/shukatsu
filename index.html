@@ -130,14 +130,13 @@ button,select,input{font-family:var(--body)}
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.6);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(12px + env(safe-area-inset-bottom));
-  touch-action:none;
   animation:backIn .28s var(--apple-ease) both;
   will-change:opacity;transform:translateZ(0)}
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
   max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   border-radius:24px;border:1px solid var(--line);
-  padding:10px 20px 28px;
+  padding:10px 20px calc(32px + env(safe-area-inset-bottom));
   animation:sheetUp .46s var(--apple-spring) both;
   will-change:transform,opacity;transform:translate3d(0,0,0)}
 
@@ -163,11 +162,19 @@ button,select,input{font-family:var(--body)}
   transition:transform .2s var(--apple-spring),background .18s var(--apple-ease)}
 .sideclose:hover{background:rgba(255,255,255,.18);color:var(--text)}
 
-.tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft)}
+/* ---------- detail tabs ---------- */
+.tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
   transition:color .2s var(--apple-ease),border-color .2s var(--apple-ease)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
+
+.tab-pane{min-height:340px;animation:tabPaneIn .32s var(--apple-spring) both}
+@keyframes tabPaneIn{
+  from{opacity:0;transform:translate3d(8px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+
 .kv{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .kv span:first-child{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
 .kv span:last-child{font-size:13px;text-align:right;word-break:break-all;margin-left:16px}
@@ -351,7 +358,7 @@ button,select,input{font-family:var(--body)}
   body{max-width:960px;padding-left:28px;padding-right:28px}
   .sheet{align-items:center}
   .sheet .card{max-width:600px;max-height:84dvh;border-radius:22px;
-    padding:10px 28px 30px;animation:rise .34s var(--apple-spring)}
+    padding:10px 28px calc(32px + env(safe-area-inset-bottom));animation:rise .34s var(--apple-spring)}
   .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--apple-ease) forwards}
   .lanes{display:block}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:stretch}
@@ -687,6 +694,21 @@ function doPass(co){
     else{it.stage=r[i+1];it.status='対応中';it.due=null;it.since=null;}
   },'apiMarkPass',[co,TERM],'通過を記録しました');
 }
+function doPrev(co){
+  var it=find_(co); if(!it)return;
+  var r=routeOf(it), i=r.indexOf(it.stage);
+  if(i<=0){ toast('これ以上前の段階はありません'); return; }
+  var prevStage = r[i-1];
+  opt(function(){
+    var x=find_(co); if(!x)return;
+    x.stage = prevStage;
+    x.status = '対応中';
+    x.lost = '';
+    x.on = null;
+    x.due = null;
+    x.since = null;
+  }, 'apiSetRoute', [co, TERM, r, prevStage], '1段階戻しました');
+}
 function doFail(co){
   opt(function(){var it=find_(co);if(!it)return;it.lost=it.stage;it.status='落選';it.on=todayStr();it.due=null;},
       'apiMarkFail',[co,TERM],'選考終了として記録しました');
@@ -916,7 +938,6 @@ function render(pageChanged){
   tickHero();
 
   if(openCo){
-    /* 開いているカードのDOM参照を再バインド */
     if(ORIGIN&&ORIGIN.co===openCo){
       var activeEl = document.querySelector('[data-cardco="'+esc(openCo)+'"]');
       if(activeEl){
@@ -1087,6 +1108,7 @@ window.addEventListener('popstate',function(){
   pushed=false;
   if(document.getElementById('sheet').innerHTML) closeOverlay();
 });
+
 var DISMISSING=false;
 function bindSheetGesture(){
   var card=document.querySelector('#sheet .card');
@@ -1094,109 +1116,98 @@ function bindSheetGesture(){
   card._bound=true;
   var sheet=card.parentNode;
 
-  var y0=0,x0=0,t0=0,dy=0,raw=0,active=false,raf=0;
-
-  function paint(){
-    raf=0;
-    if(!active)return;
-    var d=dy;
-    var sc=Math.max(.90,1-(d>0?d:0)/2400);
-    card.style.transform='translate3d(0,'+d+'px,0) scale('+sc+')';
-    var a=Math.max(0,.6*(1-(d>0?d:0)/380));
-    sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
-    fadeSource((d-15)/200);
-  }
-  function schedule(){ if(!raf) raf=requestAnimationFrame(paint); }
-  function stopRaf(){ if(raf){cancelAnimationFrame(raf);raf=0} }
-
-  function reset(){
-    stopRaf();
-    active=false; raw=0; dy=0;
-    card.classList.remove('drag');
-    sheet.classList.remove('dragging');
-  }
+  var y0=0, x0=0, t0=0, dy=0, active=false, tracking=false;
 
   card.addEventListener('touchstart',function(e){
-    if(e.touches.length!==1)return;
-    y0=e.touches[0].clientY; x0=e.touches[0].clientX;
-    t0=Date.now(); raw=0; dy=0; active=false;
+    if(e.touches.length!==1) return;
+    y0 = e.touches[0].clientY;
+    x0 = e.touches[0].clientX;
+    t0 = Date.now();
+    dy = 0;
+    active = false;
+    tracking = true;
     card.classList.remove('spring','fly');
   },{passive:true});
 
   card.addEventListener('touchmove',function(e){
-    if(e.touches.length!==1)return;
-    var cy=e.touches[0].clientY, cx=e.touches[0].clientX;
-    var vdy=cy-y0, vdx=cx-x0;
-
-    /* スクロール中に上端（<=0）へ戻ってきたら基準点を再初期化 */
-    if(card.scrollTop <= 0 && vdy > 0 && !active){
-      y0 = cy; x0 = cx; t0 = Date.now();
-      vdy = 0; vdx = 0;
-    }
-
-    if(card.scrollTop > 0) return;
+    if(!tracking || e.touches.length!==1) return;
+    var cy = e.touches[0].clientY;
+    var cx = e.touches[0].clientX;
+    var vdy = cy - y0;
+    var vdx = cx - x0;
 
     if(!active){
-      if(Math.abs(vdx)>Math.abs(vdy))return;
-      if(vdy < 6) return;
-      active=true;
-      card.classList.add('drag','moving');
-      sheet.classList.add('dragging');
+      if(Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
+      if(card.scrollTop <= 0 && vdy > 6){
+        active = true;
+        card.classList.add('drag','moving');
+        sheet.classList.add('dragging');
+      } else {
+        return;
+      }
     }
 
-    raw=vdy;
-    dy = raw>0 ? raw : raw*0.2;
-    e.preventDefault();
-    schedule();
+    if(active){
+      dy = Math.max(0, vdy);
+      var sc = Math.max(.90, 1 - dy/2400);
+      card.style.transform = 'translate3d(0,' + dy + 'px,0) scale(' + sc + ')';
+      var a = Math.max(0, .6 * (1 - dy/380));
+      sheet.style.background = 'rgba(0,0,0,' + a.toFixed(3) + ')';
+      fadeSource((dy-15)/200);
+      if(e.cancelable) e.preventDefault();
+    }
   },{passive:false});
 
   function end(){
-    if(!active){ reset(); return }
-    stopRaf();
-    var dt=Math.max(1,Date.now()-t0);
-    var v=dy/dt;
-    var go = dy>120 || v>0.65;
+    if(!tracking) return;
+    tracking = false;
+    if(!active) return;
+    active = false;
+    var dt = Math.max(1, Date.now() - t0);
+    var v = dy / dt;
+    var go = dy > 100 || v > 0.55;
     if(go) dismiss(); else bounce();
   }
-  card.addEventListener('touchend',end);
-  card.addEventListener('touchcancel',function(){ if(active)bounce(); else reset() });
+
+  card.addEventListener('touchend', end);
+  card.addEventListener('touchcancel', end);
 
   function bounce(){
-    stopRaf();
     fadeSource(0);
     card.classList.remove('drag');
     card.classList.add('spring');
-    card.style.transform='';
+    card.style.transform = '';
     sheet.classList.remove('dragging');
-    sheet.style.background='';
-    active=false; raw=0; dy=0;
-    settleAfter(card,440);
+    sheet.style.background = '';
+    settleAfter(card, 440);
   }
 
   function dismiss(){
-    stopRaf();
-    active=false;
     card.classList.remove('drag');
     card.classList.add('fly');
     if(isWide()){
-      card.style.transform='scale(.96)';
-    }else{
-      card.style.transform='translate3d(0,100%,0)';
+      card.style.transform = 'scale(.96)';
+    } else {
+      card.style.transform = 'translate3d(0,100%,0)';
     }
-    card.style.opacity='0';
-    sheet.style.transition='background .28s var(--apple-ease)';
-    sheet.style.background='rgba(0,0,0,0)';
+    card.style.opacity = '0';
+    sheet.style.transition = 'background .28s var(--apple-ease)';
+    sheet.style.background = 'rgba(0,0,0,0)';
     fadeSource(1);
 
     setTimeout(function(){
-      DISMISSING=true;
+      DISMISSING = true;
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
-    },320);
+    }, 300);
   }
 }
 
 /* ============ 詳細 ============ */
+function switchTab(k){
+  tab = k;
+  renderDetail();
+}
 function openDetail(co){ openCo=co; tab='info'; renderDetail(); }
 
 function railHtml(it){
@@ -1262,7 +1273,8 @@ function paintDetail(h){
 function renderDetail(){
   var it=byCo(openCo);
   if(!it){ openCo=null; if(isWide())sideEmpty(); else closeOverlay(); return }
-  var st=stOf(it), rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
+  var st=stOf(it), rt=routeOf(it), curIdx=rt.indexOf(it.stage);
+  var last=curIdx>=rt.length-2;
   var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
   var col=st==='waiting'?'var(--wait)':(st==='offer'||st==='fixed')?'var(--go)':'var(--muted)';
 
@@ -1274,8 +1286,10 @@ function renderDetail(){
     '<div class="tabs">'+
       ['info,概要','events,予定 '+evOf(it.c).length,'route,選考ルート'].map(function(x){
         var k=x.split(',')[0];
-        return '<button class="'+(tab===k?'on':'')+'" onclick="tab=\''+k+'\';renderDetail()">'+x.split(',')[1]+'</button>';
+        return '<button class="'+(tab===k?'on':'')+'" onclick="switchTab(\''+k+'\')">'+x.split(',')[1]+'</button>';
       }).join('')+'</div>';
+
+  h+='<div class="tab-pane">';
 
   if(tab==='info'){
     var r=it.due?rem(it.due):null;
@@ -1315,6 +1329,10 @@ function renderDetail(){
       h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'参加決定\')">参加決定にする</button>';
     if(st==='skip')
       h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'対応中\')">対応中に戻す</button>';
+    
+    if(curIdx > 0) {
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrev(\''+esc(it.c)+'\')">1つ前の段階に戻す（誤操作用）</button>';
+    }
     if(st==='todo')
       h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'見送り\')">見送りにする</button>';
 
@@ -1356,7 +1374,7 @@ function renderDetail(){
         '<div class="sub" style="margin-top:3px">'+fdate(ev.at)+' '+ftime(ev.at)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
         '<button class="gh" style="color:var(--hot);padding:6px 10px" onclick="delEv(\''+esc(ev.uid)+'\')">×</button></div>';
     });
-    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)">'+
+    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03);width:100%;box-sizing:border-box">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
       '<select class="f" id="evKind">'+KINDS.map(function(k){return '<option>'+k+'</option>'}).join('')+'</select>'+
       '<input class="f" type="datetime-local" id="evAt">'+
@@ -1383,6 +1401,7 @@ function renderDetail(){
       '<div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.8">段階名をタップすると現在地になります。↑↓で並べ替え。変更はすぐ保存されます。</div></div>';
   }
 
+  h+='</div>';
   paintDetail(h);
 }
 
