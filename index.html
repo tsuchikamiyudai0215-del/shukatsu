@@ -187,28 +187,32 @@ button,select,input{font-family:var(--body)}
   border:1px solid var(--line);border-radius:30px;padding:5px;
   backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg)}
+.tabbar{--pw:88px;--pg:2px}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
-  padding:10px 18px;min-width:86px;border-radius:24px;cursor:pointer;
+  padding:10px 0;border-radius:24px;cursor:pointer;
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
-  transition:background .28s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
+  transition:color .2s var(--ease),transform .16s var(--spring)}
+.tabbar button:not(.ico){width:var(--pw)}
 .tabbar button.on{color:#000}
-.tabbar .pill{position:absolute;left:0;top:0;width:0;height:0;border-radius:24px;
-  background:rgba(255,255,255,.95);z-index:0;pointer-events:none;opacity:0;
-  transition:left .42s cubic-bezier(.32,.72,0,1),width .42s cubic-bezier(.32,.72,0,1),
-             height .2s ease,opacity .2s ease}
+.tabbar .pill{position:absolute;left:5px;top:5px;width:var(--pw);height:calc(100% - 10px);
+  border-radius:24px;background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
+  transform:translate3d(0,0,0);
+  transition:transform .42s cubic-bezier(.32,.72,0,1)}
+.tabbar.p1 .pill{transform:translate3d(calc(var(--pw) + var(--pg)),0,0)}
 .tabbar{position:fixed;overflow:visible}
 .tabbar button{position:relative;z-index:1}
 .seg{position:relative}
 .seg button.on{background:transparent;border-color:transparent}
-.seg .pill{position:absolute;left:0;top:0;width:0;height:0;border-radius:18px;
-  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);z-index:0;
-  pointer-events:none;opacity:0;
-  transition:left .42s cubic-bezier(.32,.72,0,1),width .42s cubic-bezier(.32,.72,0,1),
-             height .2s ease,opacity .2s ease}
+.seg .pill{position:absolute;left:5px;top:5px;height:calc(100% - 10px);
+  width:calc((100% - 12px) / 2 - 1px);
+  border-radius:24px;background:rgba(255,255,255,.95);
+  z-index:0;pointer-events:none;transform:translate3d(0,0,0);
+  transition:transform .42s cubic-bezier(.32,.72,0,1)}
+.seg.i1 .pill{transform:translate3d(calc(100% + 2px),0,0)}
 .seg button{position:relative;z-index:1}
 .tabbar button:active{transform:scale(.94)}
 .tabbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex-shrink:0}
-.tabbar .ico{padding:10px 14px;min-width:0;font-size:18px;font-weight:400;color:var(--text);
+.tabbar .ico{padding:10px 15px;font-size:18px;font-weight:400;color:var(--text);
   line-height:1;white-space:nowrap;flex-shrink:0}
 
 /* ---------- passport ---------- */
@@ -258,13 +262,17 @@ button,select,input{font-family:var(--body)}
 .chiprow button.on b{color:#000}
 .chiprow button:active{transform:scale(.94)}
 
-.seg{display:flex;gap:6px;margin-bottom:14px;max-width:340px}
-.seg button{flex:1 1 0;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);
-  color:var(--muted);border-radius:18px;padding:7px 10px;font-size:12px;font-weight:500;cursor:pointer;
-  white-space:nowrap;
-  transition:background .24s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
-.seg button.on{background:rgba(255,255,255,.12);color:var(--text);border-color:rgba(255,255,255,.2);font-weight:600}
-.seg button:active{transform:scale(.95)}
+/* 下のドックと完全に同じ構造・同じ動き */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
+  position:relative;background:var(--chrome);border:1px solid var(--line);border-radius:30px;
+  padding:5px;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
+  box-shadow:var(--edge),var(--drop)}
+.seg button{min-width:0;background:none;border:none;color:var(--muted);
+  border-radius:24px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
+  white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
+  transition:color .2s var(--ease),transform .16s var(--spring)}
+.seg button.on{color:#000}
+.seg button:active{transform:scale(.94)}
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
@@ -388,13 +396,14 @@ button,select,input{font-family:var(--body)}
   .rows{gap:0 24px}
 }
 @media (max-width:360px){
-  .tabbar button{padding:10px 15px}
+  .tabbar{--pw:74px}
   .tabbar .ico{padding:10px 11px}
 }
 @media (max-height:480px) and (orientation:landscape){
   body{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
-  .tabbar{bottom:calc(10px + env(safe-area-inset-bottom));padding:4px}
-  .tabbar button{padding:7px 16px;font-size:12px}
+  .tabbar{bottom:calc(10px + env(safe-area-inset-bottom));padding:4px;--pw:78px}
+  .tabbar button{padding:7px 0;font-size:12px}
+  .tabbar .pill{left:4px;top:4px;height:calc(100% - 8px)}
   .sheet.spot{padding-top:6vh}
   .hero{padding-bottom:16px}
   .cd b{font-size:40px}
@@ -743,34 +752,18 @@ function eventRowHtml(ev){
 }
 
 function setTerm(t){TERM=t;window.scrollTo(0,0);render()}
-function movePill(pill,btn){
-  if(!pill||!btn)return;
-  var host=pill.offsetParent;          /* left の基準になる要素そのもの */
-  if(!host){ pill.style.opacity='0'; return; }
-  var pr=host.getBoundingClientRect(), br=btn.getBoundingClientRect();
-  if(!br.width){ pill.style.opacity='0'; return; }
-  /* left は padding ボックス基準、getBoundingClientRect は border ボックス基準なので
-     親のボーダー分を引く */
-  var cs=getComputedStyle(host);
-  var bl=parseFloat(cs.borderLeftWidth)||0, bt=parseFloat(cs.borderTopWidth)||0;
-  /* 位置・幅・高さをボタンからそのまま写すので、必ずぴったり重なる */
-  pill.style.left   = Math.round(br.left - pr.left - bl)+'px';
-  pill.style.top    = Math.round(br.top  - pr.top  - bt)+'px';
-  pill.style.width  = Math.round(br.width)+'px';
-  pill.style.height = Math.round(br.height)+'px';
-  pill.style.opacity='1';
-}
+/* ピルの位置は CSS の幅指定だけで決まる。実測しないのでずれない */
 function syncPills(){
-  movePill(document.getElementById('dockPill'),
-           document.getElementById(PAGE==='list'?'tb-list':'tb-pass'));
+  var dock=document.getElementById('tabbar');
+  if(dock) dock.classList.toggle('p1', PAGE!=='list');
   var seg=document.querySelector('.seg');
-  if(seg) movePill(seg.querySelector('.pill'), seg.querySelector('button.on'));
+  if(seg) seg.classList.toggle('i1', TERM===TERMS[1]);
 }
 function segHtml(){
   return '<div class="seg"><span class="pill"></span>'+TERMS.map(function(t){
     var n=DATA.items.filter(function(i){return (i.term||'夏インターン')===t}).length;
     return '<button class="'+(TERM===t?'on':'')+'" onclick="setTerm(\''+t+'\')">'+t+
-      '<span style="font-family:var(--mono);font-size:10px;margin-left:8px;opacity:.6">'+n+'</span></button>';
+      '<span style="font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55">'+n+'</span></button>';
   }).join('')+'</div>';
 }
 function setFilt(k){FILT=(FILT===k&&k!=='all')?'all':k;render()}
