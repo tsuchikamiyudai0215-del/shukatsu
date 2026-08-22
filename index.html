@@ -272,6 +272,7 @@ button,select,input{font-family:var(--body)}
   white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
   transition:color .2s var(--ease),transform .16s var(--spring)}
 .seg button.on{color:#000}
+.sgn{font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55}
 .seg button:active{transform:scale(.94)}
 
 /* ---------- spotlight ---------- */
@@ -333,9 +334,9 @@ button,select,input{font-family:var(--body)}
 @keyframes sweep{to{transform:translateX(100%)}}
 /* 登場アニメは画面が切り替わったときだけ。データ更新のたびに
    全カードを再アニメさせるとチラつきの原因になる */
-#app.enter{animation:rise .3s var(--spring)}
-#app.enter .row,#app.enter .pcard,#app.enter .stripitem{animation:rise .42s var(--spring) both}
-#app.enter .row{animation-delay:calc(var(--i,0) * 16ms)}
+#view.enter{animation:rise .3s var(--spring)}
+#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .42s var(--spring) both}
+#view.enter .row{animation-delay:calc(var(--i,0) * 16ms)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
     transition-duration:.01ms !important}
@@ -449,8 +450,33 @@ var TERM = '夏インターン';
 var TERMS = ['夏インターン','本選考'];
 var FILT = 'all', PAGE = 'list';
 var VIEWKEY = '';           /* 表示中の画面を表す鍵。変わったときだけ登場アニメを出す */
+/* 区分は作り直さない。中身（一覧）だけを差し替える */
+function ensureShell(){
+  var app=document.getElementById('app');
+  if(document.getElementById('view')) return;
+  app.innerHTML='<div id="segHost"></div><div id="view"></div>';
+  var host=document.getElementById('segHost');
+  host.innerHTML='<div class="seg" id="seg"><span class="pill"></span>'+
+    TERMS.map(function(t,i){
+      return '<button id="sg'+i+'" onclick="setTerm(\''+t+'\')">'+
+             '<span>'+t+'</span><span class="sgn"></span></button>';
+    }).join('')+'</div>';
+}
+function updateSeg(){
+  var seg=document.getElementById('seg');
+  if(!seg)return;
+  TERMS.forEach(function(t,i){
+    var b=document.getElementById('sg'+i);
+    if(!b)return;
+    b.className = (TERM===t)?'on':'';
+    b.querySelector('.sgn').textContent =
+      DATA.items.filter(function(x){return (x.term||'夏インターン')===t}).length;
+  });
+  seg.classList.toggle('i1', TERM===TERMS[1]);
+}
 function markEnter(){
-  var el=document.getElementById('app');
+  var el=document.getElementById('view');
+  if(!el)return;
   var key=PAGE+'|'+TERM+'|'+FILT+'|'+(window._end?1:0)+'|'+(window._skip?1:0);
   if(key===VIEWKEY){ el.classList.remove('enter'); return; }
   VIEWKEY=key;
@@ -756,15 +782,7 @@ function setTerm(t){TERM=t;window.scrollTo(0,0);render()}
 function syncPills(){
   var dock=document.getElementById('tabbar');
   if(dock) dock.classList.toggle('p1', PAGE!=='list');
-  var seg=document.querySelector('.seg');
-  if(seg) seg.classList.toggle('i1', TERM===TERMS[1]);
-}
-function segHtml(){
-  return '<div class="seg"><span class="pill"></span>'+TERMS.map(function(t){
-    var n=DATA.items.filter(function(i){return (i.term||'夏インターン')===t}).length;
-    return '<button class="'+(TERM===t?'on':'')+'" onclick="setTerm(\''+t+'\')">'+t+
-      '<span style="font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55">'+n+'</span></button>';
-  }).join('')+'</div>';
+  updateSeg();
 }
 function setFilt(k){FILT=(FILT===k&&k!=='all')?'all':k;render()}
 function setPage(p){
@@ -779,6 +797,7 @@ function toggleEnded(){window._end=!window._end;render()}
 function toggleSkip(){window._skip=!window._skip;render()}
 
 function render(){
+  ensureShell(); updateSeg();
   if(PAGE==='pass'){renderPassport();return}
   var ALL=ITEMS();
   var MGMT=ALL.filter(function(i){return !isCo(i)});
@@ -791,7 +810,7 @@ function render(){
   agenda.sort(function(a,b){return D(a.at)-D(b.at)});
   var hero=agenda[0];
 
-  var h=segHtml();
+  var h='';
 
   if(MGMT.length){
     h+='<div class="strip">';
@@ -888,10 +907,10 @@ function render(){
   }
   h+='</div>';
 
-  document.getElementById('app').innerHTML=h;
+  document.getElementById('view').innerHTML=h;
   markEnter();
   requestAnimationFrame(syncPills);
-  var rws=document.querySelectorAll('#app .row');
+  var rws=document.querySelectorAll('#view .row');
   for(var q=0;q<rws.length;q++)rws[q].style.setProperty('--i',q<10?q:10);
   tickHero();
 
@@ -1428,14 +1447,14 @@ function renderPassport(){
   brk+='</div></div>';
   cA.push(brk);
 
-  var h=segHtml()+
-    '<div class="ptitle">'+TERM+'　記録</div>'+
+  var h='<div class="ptitle">'+TERM+'　記録</div>'+
     '<div class="pwrap">'+
       '<div class="pcol">'+cA.join('')+'</div>'+
       '<div class="pcol">'+cB.join('')+'</div>'+
     '</div>';
 
-  document.getElementById('app').innerHTML=h;
+  ensureShell(); updateSeg();
+  document.getElementById('view').innerHTML=h;
   markEnter();
   requestAnimationFrame(syncPills);
   if(isWide()&&!openCo)sideEmpty();
