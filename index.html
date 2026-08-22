@@ -29,8 +29,13 @@
   --drop:0 1px 2px rgba(0,0,0,.28), 0 8px 24px rgba(0,0,0,.42);
   --drop-lg:0 2px 6px rgba(0,0,0,.34), 0 22px 56px rgba(0,0,0,.58);
   --glass:blur(32px) saturate(200%);
-  --spring:cubic-bezier(.16,1,.3,1);
-  --ease:cubic-bezier(.4,0,.2,1);
+
+  /* Apple Motion Engineering準拠の物理スプリング＆イージング定数 */
+  --apple-spring:cubic-bezier(0.32, 0.72, 0, 1);       /* UIKit / SwiftUI 標準 Fluid Spring */
+  --apple-morph:cubic-bezier(0.22, 1, 0.36, 1);        /* 起点モーフィング用・重みのある減速曲線 */
+  --apple-ease:cubic-bezier(0.25, 0.1, 0.25, 1);       /* 自然なフェード曲線 */
+  --apple-press:cubic-bezier(0.2, 0, 0, 1);            /* タップ時の沈み込み */
+  
   --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Helvetica Neue",sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
@@ -48,20 +53,20 @@ button,select,input{font-family:var(--body)}
 /* ---------- splash ---------- */
 #splash{position:fixed;inset:0;z-index:200;background:var(--ink);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  transition:opacity .5s var(--ease),visibility .5s}
+  transition:opacity .5s var(--apple-ease),visibility .5s}
 #splash.gone{opacity:0;visibility:hidden}
 #splash .mark{font-size:29px;font-weight:700;letter-spacing:.26em;color:var(--text);
-  padding-left:.26em;animation:rise .55s var(--spring)}
+  padding-left:.26em;animation:rise .55s var(--apple-spring)}
 #splash .rule{width:54px;height:1px;background:var(--line);position:relative;overflow:hidden}
 #splash .rule::after{content:'';position:absolute;inset:0;background:var(--text);
-  transform:translateX(-100%);animation:sweep 1.15s var(--ease) infinite}
+  transform:translateX(-100%);animation:sweep 1.15s var(--apple-ease) infinite}
 #splash .sub{font-family:var(--mono);font-size:9px;letter-spacing:.3em;color:var(--dim)}
 
 /* ---------- type ---------- */
 .lab{margin:26px 0 8px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em}
 .hero{padding-bottom:22px;border-bottom:1px solid var(--line-soft);margin-bottom:2px;cursor:pointer;
-  transition:opacity .2s var(--ease)}
-.hero:active{opacity:.72}
+  transition:opacity .24s var(--apple-ease), transform .24s var(--apple-spring)}
+.hero:active{opacity:.8;transform:scale(0.985)}
 .hero h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
 .cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
 .cd b{font-family:var(--disp);font-size:52px;font-weight:600;letter-spacing:-.035em}
@@ -72,7 +77,8 @@ button,select,input{font-family:var(--body)}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);background-image:var(--sheen);
   border:1px solid var(--line);border-radius:13px;padding:10px 13px;color:var(--text);
-  box-shadow:var(--edge);transition:transform .2s var(--spring),opacity .2s var(--ease)}
+  box-shadow:var(--edge);
+  transition:transform .28s var(--apple-spring), opacity .2s var(--apple-ease)}
 .stripitem:active{transform:scale(.975);opacity:.9}
 .stripitem .k{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);
   border:1px solid var(--line);border-radius:5px;padding:2px 6px;flex:0 0 auto;background:rgba(255,255,255,.04)}
@@ -85,8 +91,8 @@ button,select,input{font-family:var(--body)}
   border:1px solid var(--line);border-radius:16px;box-shadow:var(--edge),var(--drop);
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 9px);
-  transition:transform .22s var(--spring),opacity .25s var(--ease)}
-.row:active{transform:scale(.982)}
+  transition:transform .32s var(--apple-spring), opacity .3s var(--apple-ease)}
+.row:active{transform:scale(.98);transition:transform .14s var(--apple-press)}
 .row.is-fixed{background:linear-gradient(180deg,rgba(24,58,38,.78),rgba(12,30,20,.88));
   border-color:rgba(48,209,88,.34);box-shadow:var(--edge),var(--drop),0 0 0 .5px rgba(48,209,88,.18)}
 .row.is-offer{background:linear-gradient(180deg,rgba(26,64,42,.82),rgba(12,32,21,.9));
@@ -109,7 +115,8 @@ button,select,input{font-family:var(--body)}
 .acts{display:flex;gap:8px;padding:0 15px 12px 74px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);
   border-radius:9px;padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
-  display:inline-block;transition:transform .16s var(--spring),background .18s var(--ease)}
+  display:inline-block;
+  transition:transform .24s var(--apple-spring), background .2s var(--apple-ease)}
 .logo{width:28px;height:28px;border-radius:14px;flex:0 0 auto;display:flex;align-items:center;
   justify-content:center;overflow:hidden;background:#fff;
   box-shadow:0 0 0 .5px rgba(0,0,0,.4)}
@@ -117,17 +124,17 @@ button,select,input{font-family:var(--body)}
 .logo.mono{background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14)}
 .logo.mono span{color:#C7C7CC;font-weight:600}
 
-/* タップ元要素の不可視化（残像防止） */
+/* タップ元要素の不可視化 */
 .is-source-hidden{opacity:0 !important;pointer-events:none !important}
 
-/* ---------- sheet / card（四隅均等のリキッドグラスカード） ---------- */
+/* ---------- sheet / card（四隅均等のフローティングリキッドグラス） ---------- */
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,0);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(12px + env(safe-area-inset-bottom));
-  transition:background .32s var(--ease);
+  transition:background .38s var(--apple-ease);
   will-change:background;transform:translateZ(0);isolation:isolate;
   backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.sheet.active{background:rgba(0,0,0,.6)}
+.sheet.active{background:rgba(0,0,0,.62)}
 
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
@@ -144,35 +151,35 @@ button,select,input{font-family:var(--body)}
 .card.settled,.spotbox.settled{will-change:auto}
 
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
-  transition:background .2s var(--ease)}
+  transition:background .2s var(--apple-ease)}
 .card.drag .grab{background:rgba(255,255,255,.42)}
 
-/* 閉じるアニメーション（スマホ：下スライド / PC・タブレット：fadeShrink） */
-.sheet.out{background:rgba(0,0,0,0) !important;animation:backOut .28s var(--ease) forwards}
-.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .3s cubic-bezier(.4,0,1,1) forwards}
+/* 閉じるアニメーション */
+.sheet.out{background:rgba(0,0,0,0) !important;animation:backOut .32s var(--apple-ease) forwards}
+.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .34s cubic-bezier(0.32, 0.72, 0, 1) forwards}
 
 .sheet .card.drag{animation:none;transition:none;will-change:transform}
 .sheet .card.spring{animation:none;
-  transition:transform .4s var(--spring)}
+  transition:transform .44s var(--apple-spring)}
 .sheet.dragging{animation:none;transition:none}
 
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
   background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
   display:none;align-items:center;justify-content:center;line-height:1;
-  transition:transform .16s var(--spring),background .18s var(--ease)}
+  transition:transform .24s var(--apple-spring),background .2s var(--apple-ease)}
 .sideclose:hover{background:rgba(255,255,255,.18);color:var(--text)}
 
 .tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft)}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
-  transition:color .2s var(--ease),border-color .2s var(--ease)}
+  transition:color .24s var(--apple-ease),border-color .24s var(--apple-ease)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 .kv{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .kv span:first-child{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
 .kv span:last-child{font-size:13px;text-align:right;word-break:break-all;margin-left:16px}
 .f{width:100%;background:rgba(0,0,0,.32);border:1px solid var(--line);border-radius:11px;
   padding:11px 13px;color:var(--text);font-size:14px;outline:none;
-  transition:border-color .18s var(--ease),background .18s var(--ease)}
+  transition:border-color .2s var(--apple-ease),background .2s var(--apple-ease)}
 .f:focus{border-color:var(--blue);background:rgba(0,0,0,.5)}
 .lab+.f{margin-top:0}
 .f+.f,.f+.gh{margin-top:10px}
@@ -180,12 +187,12 @@ button,select,input{font-family:var(--body)}
 .card .lab+.f{margin-top:0}
 .big{width:100%;padding:13px 0;border-radius:12px;border:none;font-size:14px;font-weight:600;
   cursor:pointer;margin-top:12px;display:block;text-align:center;text-decoration:none;
-  transition:transform .16s var(--spring),opacity .18s var(--ease)}
-.big:active{transform:scale(.94);transition:transform .12s var(--ease)}
-.gh:active{transform:scale(.94);transition:transform .12s var(--ease)}
+  transition:transform .24s var(--apple-spring),opacity .2s var(--apple-ease)}
+.big:active{transform:scale(.955);transition:transform .12s var(--apple-press)}
+.gh:active{transform:scale(.955);transition:transform .12s var(--apple-press)}
 .big[disabled]{opacity:.4;cursor:default}
 .rail{display:flex;align-items:center}
-.rail i{flex:0 0 auto;border-radius:9px;display:block;transition:all .3s var(--spring)}
+.rail i{flex:0 0 auto;border-radius:9px;display:block;transition:all .34s var(--apple-spring)}
 .rail u{height:1px;flex:1;display:block}
 .railtxt{display:flex;justify-content:space-between;margin-top:8px}
 .railtxt span{font-size:8.5px;color:var(--dim);flex:1;text-align:center}
@@ -203,13 +210,13 @@ button,select,input{font-family:var(--body)}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
   padding:10px 0;border-radius:24px;cursor:pointer;
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
-  transition:color .2s var(--ease),transform .16s var(--spring)}
+  transition:color .24s var(--apple-ease),transform .24s var(--apple-spring)}
 .tabbar button:not(.ico){width:var(--pw)}
 .tabbar button.on{color:#000}
 .tabbar .pill{position:absolute;left:5px;top:5px;width:var(--pw);height:calc(100% - 10px);
   border-radius:24px;background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
   transform:translate3d(0,0,0);
-  transition:transform .42s cubic-bezier(.32,.72,0,1)}
+  transition:transform .46s var(--apple-spring)}
 .tabbar.p1 .pill{transform:translate3d(calc(var(--pw) + var(--pg)),0,0)}
 .tabbar{position:fixed;overflow:visible}
 .tabbar button{position:relative;z-index:1}
@@ -219,10 +226,10 @@ button,select,input{font-family:var(--body)}
   width:calc((100% - 12px) / 2 - 1px);
   border-radius:24px;background:rgba(255,255,255,.95);
   z-index:0;pointer-events:none;transform:translate3d(0,0,0);
-  transition:transform .42s cubic-bezier(.32,.72,0,1)}
+  transition:transform .46s var(--apple-spring)}
 .seg.i1 .pill{transform:translate3d(calc(100% + 2px),0,0)}
 .seg button{position:relative;z-index:1}
-.tabbar button:active{transform:scale(.94)}
+.tabbar button:active{transform:scale(.95);transition:transform .12s var(--apple-press)}
 .tabbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex-shrink:0}
 .tabbar .ico{padding:10px 15px;font-size:18px;font-weight:400;color:var(--text);
   line-height:1;white-space:nowrap;flex-shrink:0}
@@ -267,11 +274,11 @@ button,select,input{font-family:var(--body)}
 .chiprow button{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid var(--line);
   color:var(--muted);border-radius:16px;padding:7px 14px;font-size:12px;font-weight:500;
   cursor:pointer;display:flex;align-items:center;gap:7px;
-  transition:background .24s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
+  transition:background .28s var(--apple-spring),color .24s var(--apple-ease),transform .24s var(--apple-spring)}
 .chiprow button b{font-family:var(--disp);font-size:16px;font-weight:600;line-height:1}
 .chiprow button.on{background:rgba(255,255,255,.95);color:#000;border-color:transparent;font-weight:600}
 .chiprow button.on b{color:#000}
-.chiprow button:active{transform:scale(.94)}
+.chiprow button:active{transform:scale(.95);transition:transform .12s var(--apple-press)}
 
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
   position:relative;background:var(--chrome);border:1px solid var(--line);border-radius:30px;
@@ -280,23 +287,23 @@ button,select,input{font-family:var(--body)}
 .seg button{min-width:0;background:none;border:none;color:var(--muted);
   border-radius:24px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
   white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
-  transition:color .2s var(--ease),transform .16s var(--spring)}
+  transition:color .24s var(--apple-ease),transform .24s var(--apple-spring)}
 .seg button.on{color:#000}
 .sgn{font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55}
-.seg button:active{transform:scale(.94)}
+.seg button:active{transform:scale(.95);transition:transform .12s var(--apple-press)}
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
 .spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:22px;overflow:hidden;
   background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);box-shadow:var(--edge),var(--drop-lg);
-  animation:rise .3s var(--spring)}
+  animation:rise .36s var(--apple-spring)}
 .spotbox input{width:100%;background:none;border:none;border-bottom:1px solid var(--line-soft);
   padding:18px 20px;color:var(--text);font-size:17px;outline:none}
 #qres{max-height:52vh;max-height:52dvh;overflow-y:auto}
 #qres button{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;
   padding:12px 18px;cursor:pointer;color:var(--text);text-align:left;
-  transition:background .16s var(--ease)}
+  transition:background .2s var(--apple-ease)}
 #qres button:hover,#qres button:active{background:rgba(255,255,255,.07)}
 #qres .qn{font-size:14px;font-weight:600}
 #qres .qs{margin-left:auto;font-size:11px;color:var(--muted)}
@@ -307,7 +314,7 @@ button,select,input{font-family:var(--body)}
 .setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
 .setupBox{width:100%;max-width:420px;background:var(--hi);border:1px solid var(--line);
   border-radius:22px;padding:28px 24px 26px;box-shadow:var(--edge),var(--drop-lg);
-  animation:rise .4s var(--spring)}
+  animation:rise .45s var(--apple-spring)}
 .setupMark{font-size:26px;font-weight:700;letter-spacing:.24em;padding-left:.24em;text-align:center}
 .setupLead{font-size:12px;color:var(--muted);line-height:1.9;margin-top:14px;text-align:center}
 .setupErr{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.7;
@@ -317,21 +324,32 @@ button,select,input{font-family:var(--body)}
   bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;opacity:0;pointer-events:none;
   background:var(--chrome);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);border-radius:15px;padding:12px 18px;font-size:13px;font-weight:500;
-  box-shadow:var(--edge),var(--drop-lg);transition:all .42s var(--spring);max-width:88vw}
+  box-shadow:var(--edge),var(--drop-lg);transition:all .44s var(--apple-spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;
   align-items:center;justify-content:center;z-index:99;
   font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.2em}
 
-/* ---------- motion ---------- */
-@keyframes rise{from{opacity:0;transform:translate3d(0,12px,0) scale(.985)}to{opacity:1;transform:none}}
-@keyframes sheetDown{to{transform:translate3d(0,100%,0)}}
-@keyframes backOut{to{opacity:0}}
-@keyframes fadeShrink{to{opacity:0;transform:scale(.96)}}
-@keyframes sweep{to{transform:translateX(100%)}}
-#view.enter{animation:rise .3s var(--spring)}
-#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .42s var(--spring) both}
-#view.enter .row{animation-delay:calc(var(--i,0) * 16ms)}
+/* ---------- motion keyframes ---------- */
+@keyframes rise{
+  from{opacity:0;transform:translate3d(0,16px,0) scale(.98)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes sheetDown{
+  to{transform:translate3d(0,100%,0)}
+}
+@keyframes backOut{
+  to{opacity:0}
+}
+@keyframes fadeShrink{
+  to{opacity:0;transform:scale(.96)}
+}
+@keyframes sweep{
+  to{transform:translateX(100%)}
+}
+#view.enter{animation:rise .34s var(--apple-spring)}
+#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .46s var(--apple-spring) both}
+#view.enter .row{animation-delay:calc(var(--i,0) * 18ms)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
     transition-duration:.01ms !important}
@@ -347,8 +365,8 @@ button,select,input{font-family:var(--body)}
   body{max-width:960px;padding-left:28px;padding-right:28px}
   .sheet{align-items:center;padding:0}
   .sheet .card{max-width:600px;max-height:84dvh;border-radius:22px;
-    padding:10px 28px 34px;animation:rise .34s var(--spring)}
-  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--ease) forwards}
+    padding:10px 28px 34px;animation:rise .38s var(--apple-spring)}
+  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .26s var(--apple-ease) forwards}
   .lanes{display:block}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:stretch}
   .lanes.single .rows{grid-template-columns:1fr;max-width:620px}
@@ -378,7 +396,7 @@ button,select,input{font-family:var(--body)}
     border:1px solid var(--line);border-radius:22px;box-shadow:var(--edge),var(--drop-lg);
     padding:22px 20px 28px}
   #side .card{background:none;border:none;padding:0;max-width:none;max-height:none;
-    box-shadow:none;backdrop-filter:none;animation:rise .3s var(--spring);position:relative}
+    box-shadow:none;backdrop-filter:none;animation:rise .34s var(--apple-spring);position:relative}
   #side .grab{display:none}
   #side .sideclose{display:flex}
   .tabbar{left:36px;right:auto;transform:none;bottom:26px}
@@ -941,7 +959,7 @@ function carryOver(co){
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
 
-/* ============ 起点モーフィング（開くとき・上品なスプリング） ============ */
+/* ============ 起点モーフィング（Apple Motion Engineering準拠） ============ */
 var ORIGIN = null;
 var ORIGIN_EL = null;
 
@@ -961,11 +979,11 @@ function restoreOriginEl(animated){
   ORIGIN_EL = null;
   if(animated){
     target.classList.remove('is-source-hidden');
-    target.style.transition = 'opacity .3s var(--ease)';
+    target.style.transition = 'opacity .38s var(--apple-spring)';
     target.style.opacity = '0';
     void target.offsetWidth;
     target.style.opacity = '';
-    setTimeout(function(){ target.style.transition = ''; }, 320);
+    setTimeout(function(){ target.style.transition = ''; }, 400);
   } else {
     target.classList.remove('is-source-hidden');
     target.style.opacity = '';
@@ -979,12 +997,12 @@ function settleAfter(node,ms){
   node._st=setTimeout(function(){
     node.classList.remove('moving');
     node.classList.add('settled');
-  },ms||480);
+  },ms||520);
 }
 
 function applyOpenMorph(card){
   if(!card) return;
-  settleAfter(card, 480);
+  settleAfter(card, 520);
 
   if(!ORIGIN || isWide()){
     card.style.transform = '';
@@ -998,19 +1016,19 @@ function applyOpenMorph(card){
 
   var cr = card.getBoundingClientRect();
   var cx = cr.left + cr.width/2, cy = cr.top + cr.height/2;
-  var initScale = Math.max(0.3, Math.min(0.96, ORIGIN.w / Math.max(cr.width, 1)));
+  var initScale = Math.max(0.35, Math.min(0.96, ORIGIN.w / Math.max(cr.width, 1)));
   var dx = Math.round(ORIGIN.x - cx);
   var dy = Math.round(ORIGIN.y - cy);
 
-  /* 初期状態（透明度ゼロ・起点座標） */
+  /* 物理スプリング初期化：ゼロ透明度かつ自然な初期スケール */
   card.style.transition = 'none';
   card.style.transform = 'translate3d(' + dx + 'px, ' + dy + 'px, 0) scale(' + initScale.toFixed(3) + ')';
   card.style.opacity = '0';
 
   void card.offsetWidth;
 
-  /* 上品でしっとりとしたスプリング展開（460ms） */
-  card.style.transition = 'transform .46s cubic-bezier(.16,1,.3,1), opacity .34s var(--ease)';
+  /* Apple純正Fluid Spring（500msの重厚でシルキーな減速カーブ） */
+  card.style.transition = 'transform .5s var(--apple-morph), opacity .38s var(--apple-ease)';
   card.style.transform = 'translate3d(0,0,0) scale(1)';
   card.style.opacity = '1';
 }
@@ -1055,11 +1073,11 @@ function closeOverlay(){
     card.classList.add('moving');
   }
   sh.classList.add('out');
-  restoreOriginEl(true); /* シートが消えるのと同時に元カードをふわりと戻す */
+  restoreOriginEl(true);
   setTimeout(function(){
     box.innerHTML='';
     lockScroll(false);
-  }, 280);
+  }, 320);
 }
 
 function closeSide(){ openCo=null; sideEmpty(); }
@@ -1093,12 +1111,12 @@ function bindSheetGesture(){
     if(!active)return;
     var d=dy;
     card.style.transform='translate3d(0,'+d+'px,0)';
-    var a=Math.max(0, 0.6 * (1 - (d>0?d:0)/360));
+    var a=Math.max(0, 0.62 * (1 - (d>0?d:0)/380));
     sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
 
-    /* 下げる量に応じて元カードを背後でリアルタイムに復帰 */
+    /* 下げる量に応じて背後の元カードを有機的にクロスフェード復元 */
     if(ORIGIN_EL){
-      var srcOpacity = Math.min(1, Math.max(0, (d - 20) / 240));
+      var srcOpacity = Math.min(1, Math.max(0, (d - 15) / 220));
       ORIGIN_EL.classList.remove('is-source-hidden');
       ORIGIN_EL.style.opacity = srcOpacity.toFixed(3);
     }
@@ -1140,7 +1158,7 @@ function bindSheetGesture(){
     }
     if(vdy>0&&card.scrollTop>0)return;
     raw=vdy;
-    dy = raw>0 ? raw : raw*0.25;
+    dy = raw>0 ? raw : raw*0.22;
     e.preventDefault();
     schedule();
   },{passive:false});
@@ -1162,7 +1180,7 @@ function bindSheetGesture(){
     card.classList.add('spring');
     card.style.transform='';
     sheet.classList.remove('dragging');
-    sheet.style.background='rgba(0,0,0,0.6)';
+    sheet.style.background='rgba(0,0,0,0.62)';
     if(ORIGIN_EL){
       ORIGIN_EL.classList.add('is-source-hidden');
       ORIGIN_EL.style.opacity = '';
@@ -1175,19 +1193,20 @@ function bindSheetGesture(){
     active=false;
     card.classList.remove('drag');
 
-    card.style.transition = 'transform .28s cubic-bezier(.4,0,1,1), opacity .24s var(--ease)';
+    /* Apple標準の心地よいリリース減速 */
+    card.style.transition = 'transform .34s cubic-bezier(0.32, 0.72, 0, 1), opacity .28s var(--apple-ease)';
     card.style.transform = 'translate3d(0, 100%, 0)';
     card.style.opacity = '0';
-    sheet.style.transition = 'background .28s var(--ease)';
+    sheet.style.transition = 'background .34s var(--apple-ease)';
     sheet.style.background = 'rgba(0,0,0,0)';
 
-    restoreOriginEl(true); /* シートが落ちると同時に元カードがふわっと100%着地 */
+    restoreOriginEl(true);
 
     setTimeout(function(){
       DISMISSING=true;
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
-    }, 280);
+    }, 340);
   }
 }
 
