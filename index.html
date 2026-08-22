@@ -183,14 +183,14 @@ button,select,input{font-family:var(--body)}
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
   transition:background .28s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
 .tabbar button.on{color:#000}
-.tabbar .pill{position:absolute;top:5px;height:calc(100% - 10px);border-radius:24px;
+.tabbar .pill{position:absolute;left:0;top:5px;height:calc(100% - 10px);border-radius:24px;
   background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
   transition:transform .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1)}
 .tabbar{position:fixed;overflow:visible}
 .tabbar button{position:relative;z-index:1}
 .seg{position:relative}
 .seg button.on{background:transparent;border-color:transparent}
-.seg .pill{position:absolute;top:0;height:100%;border-radius:18px;
+.seg .pill{position:absolute;left:0;top:0;height:100%;border-radius:18px;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);z-index:0;
   pointer-events:none;transition:transform .46s cubic-bezier(.32,.72,0,1),width .46s cubic-bezier(.32,.72,0,1)}
 .seg button{position:relative;z-index:1}
@@ -718,9 +718,13 @@ function eventRowHtml(ev){
 function setTerm(t){TERM=t;window.scrollTo(0,0);render()}
 function movePill(pill,btn){
   if(!pill||!btn)return;
-  var p=pill.parentNode.getBoundingClientRect(), b=btn.getBoundingClientRect();
-  pill.style.width=b.width+'px';
-  pill.style.transform='translateX('+(b.left-p.left)+'px)';
+  /* offsetLeft は親（position 指定済み）の内側を基準にした実測値。
+     getBoundingClientRect の差分だと padding や justify-content の影響でずれる。 */
+  var x=btn.offsetLeft, w=btn.offsetWidth;
+  if(!w){ pill.style.opacity='0'; return; }
+  pill.style.opacity='1';
+  pill.style.width=w+'px';
+  pill.style.transform='translateX('+x+'px)';
 }
 function syncPills(){
   movePill(document.getElementById('dockPill'),
@@ -1435,6 +1439,10 @@ function resetCfg(){
   CFG={ep:'',key:''};
   openSetup();
 }
+
+window.addEventListener('load',function(){ setTimeout(syncPills,60) });
+window.addEventListener('resize',function(){ syncPills() });
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){syncPills()});
 
 if(loadCfg()) load(); else openSetup();
 </script>
