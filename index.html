@@ -19,7 +19,7 @@
   --ink:#000000;
   --surface:linear-gradient(180deg,rgba(44,44,50,.72) 0%,rgba(26,26,30,.82) 100%);
   --hi:linear-gradient(180deg,rgba(36,36,40,.96) 0%,rgba(20,20,24,.98) 100%);
-  --chrome:rgba(30,30,34,.82);
+  --chrome:rgba(30,30,34,.85);
   --line:rgba(255,255,255,.10);
   --line-soft:rgba(255,255,255,.06);
   --text:#FFFFFF; --muted:#A1A1A6; --dim:#6E6E73;
@@ -31,7 +31,6 @@
   
   /* Apple Fluid Motion */
   --apple-spring:cubic-bezier(.32,.72,0,1);
-  --apple-morph:cubic-bezier(.2,.9,.3,1);
   --apple-ease:cubic-bezier(.25,.1,.25,1);
   --apple-press:cubic-bezier(.2,0,0,1);
   --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
@@ -132,7 +131,7 @@ button,select,input{font-family:var(--body)}
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(10px + env(safe-area-inset-bottom));
   opacity:0;pointer-events:none;
-  transition:opacity .28s var(--apple-ease);
+  transition:opacity .26s var(--apple-ease);
   transform:translateZ(0)}
 .sheet.is-active{opacity:1;pointer-events:auto}
 .card{background:var(--hi);
@@ -141,7 +140,7 @@ button,select,input{font-family:var(--body)}
   border-radius:24px;border:1px solid var(--line);
   padding:10px 20px calc(14px + env(safe-area-inset-bottom));
   transform:translate3d(0,100%,0);
-  transition:transform .38s var(--apple-spring),opacity .24s var(--apple-ease)}
+  transition:transform .36s var(--apple-spring),opacity .22s var(--apple-ease)}
 .sheet.is-active .card{transform:translate3d(0,0,0)}
 
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
@@ -150,8 +149,8 @@ button,select,input{font-family:var(--body)}
 .sheet.out{opacity:0}
 .sheet.out .card{transform:translate3d(0,100%,0)}
 .sheet .card.drag{transition:none}
-.sheet .card.spring{transition:transform .38s var(--apple-spring)}
-.sheet .card.fly{transition:transform .28s var(--apple-spring),opacity .22s var(--apple-ease)}
+.sheet .card.spring{transition:transform .36s var(--apple-spring)}
+.sheet .card.fly{transition:transform .26s var(--apple-spring),opacity .2s var(--apple-ease)}
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
   background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
   display:none;align-items:center;justify-content:center;line-height:1;
@@ -168,7 +167,7 @@ button,select,input{font-family:var(--body)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 
 .tab-pane{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding-bottom:32px;padding-right:4px;animation:tabPaneIn .24s var(--apple-spring) both}
+  padding-bottom:32px;padding-right:4px;animation:tabPaneIn .22s var(--apple-spring) both}
 @keyframes tabPaneIn{
   from{opacity:0;transform:translate3d(6px,0,0)}
   to{opacity:1;transform:translate3d(0,0,0)}
@@ -213,7 +212,7 @@ button,select,input{font-family:var(--body)}
 .tabbar button.on{color:#000}
 .tabbar .pill{position:absolute;left:5px;top:5px;width:var(--pw);height:calc(100% - 10px);
   border-radius:24px;background:rgba(255,255,255,.95);z-index:0;pointer-events:none;
-  transform:translate3d(0,0,0);transition:transform .38s var(--apple-spring)}
+  transform:translate3d(0,0,0);transition:transform .36s var(--apple-spring)}
 .tabbar.p1 .pill{transform:translate3d(calc(var(--pw) + var(--pg)),0,0)}
 
 .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
@@ -229,7 +228,7 @@ button,select,input{font-family:var(--body)}
   width:calc((100% - 12px) / 2 - 1px);
   border-radius:24px;background:rgba(255,255,255,.95);
   z-index:0;pointer-events:none;transform:translate3d(0,0,0);
-  transition:transform .38s var(--apple-spring)}
+  transition:transform .36s var(--apple-spring)}
 .seg.i1 .pill{transform:translate3d(calc(100% + 2px),0,0)}
 .sgn{font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55}
 
@@ -268,7 +267,7 @@ button,select,input{font-family:var(--body)}
   border-bottom:1px solid var(--line-soft);font-size:13px}
 .brkRow:last-child{border-bottom:none;padding-bottom:0}
 
-/* ---------- chips ---------- */
+/* ---------- chips & smooth lanes ---------- */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:12px 16px 10px;
   background:#000;box-shadow:0 8px 12px -8px rgba(0,0,0,.9)}
@@ -282,6 +281,10 @@ button,select,input{font-family:var(--body)}
 .chiprow button b{font-family:var(--disp);font-size:16px;font-weight:600;line-height:1}
 .chiprow button.on{background:rgba(255,255,255,.95);color:#000;border-color:transparent;font-weight:600}
 .chiprow button.on b{color:#000}
+
+.lanes{transition:opacity .2s var(--apple-ease)}
+.lane{transition:opacity .22s var(--apple-ease),transform .22s var(--apple-spring)}
+.lane.is-filt-hidden{display:none !important}
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
@@ -794,7 +797,32 @@ function syncPills(){
   if(dock) dock.classList.toggle('p1', PAGE!=='list');
   updateSeg();
 }
-function setFilt(k){FILT=(FILT===k&&k!=='all')?'all':k;render(false)}
+
+function setFilt(k){
+  FILT = (FILT===k && k!=='all') ? 'all' : k;
+  var btns = document.querySelectorAll('.chiprow button');
+  btns.forEach(function(b){
+    var isTarget = b.getAttribute('data-filt') === FILT;
+    b.className = isTarget ? 'on' : '';
+  });
+
+  var lanesBox = document.querySelector('.lanes');
+  if(!lanesBox) return;
+  lanesBox.classList.toggle('single', FILT!=='all');
+
+  var lanes = lanesBox.querySelectorAll('.lane');
+  lanes.forEach(function(l){
+    var lk = l.getAttribute('data-lane');
+    if(!lk) return;
+    if(FILT==='all'){
+      if(lk==='end' || lk==='skip') return;
+      l.classList.remove('is-filt-hidden');
+    } else {
+      l.classList.toggle('is-filt-hidden', lk!==FILT);
+    }
+  });
+}
+
 function setPage(p){
   PAGE=p;
   document.getElementById('tb-list').className = p==='list'?'on':'';
@@ -877,10 +905,10 @@ function render(pageChanged){
   ].filter(function(g){return g.n>0});
 
   h+='<div class="chips"><div class="chiprow">';
-  h+='<button class="'+(FILT==='all'?'on':'')+'" onclick="setFilt(\'all\')">すべて'+
+  h+='<button data-filt="all" class="'+(FILT==='all'?'on':'')+'" onclick="setFilt(\'all\')">すべて'+
      '<b>'+(events.length+todo.length+offers.length+fixed.length+waiting.length)+'</b></button>';
   G.forEach(function(g){
-    h+='<button class="'+(FILT===g.k?'on':'')+'" onclick="setFilt(\''+g.k+'\')">'+
+    h+='<button data-filt="'+g.k+'" class="'+(FILT===g.k?'on':'')+'" onclick="setFilt(\''+g.k+'\')">'+
        g.lab+'<b style="color:'+(FILT===g.k?'':g.col)+'">'+g.n+'</b></button>';
   });
   h+='</div></div>';
@@ -896,24 +924,26 @@ function render(pageChanged){
   };
 
   h+='<div class="lanes'+(FILT==='all'?'':' single')+'">';
-  if(FILT==='all'){
-    G.forEach(function(g){
-      if(g.k==='end'||g.k==='skip')return;
-      h+='<section class="lane"><div class="lab" style="color:'+g.col+'">'+g.lab+'\u3000'+g.n+'件</div>'+
-         '<div class="rows">'+rows[g.k]()+'</div></section>';
-    });
-    h+='<section class="lane"><button class="lab" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted)" onclick="toggleEnded()">'+
-       '終了 '+ended.length+'件 '+(window._end?'▾':'▸')+'</button>'+
-       (window._end?'<div class="rows">'+rows.end()+'</div>':'')+'</section>';
-    if(skipped.length){
-      h+='<section class="lane"><button class="lab" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted)" onclick="toggleSkip()">'+
-         '見送り '+skipped.length+'件 '+(window._skip?'▾':'▸')+'</button>'+
-         (window._skip?'<div class="rows">'+rows.skip()+'</div>':'')+'</section>';
-    }
-  } else {
-    var got=rows[FILT]?rows[FILT]():'';
-    h+='<section class="lane">'+(got?'<div class="rows">'+got+'</div>':
-       '<div style="color:var(--dim);font-size:13px;padding:40px 0">この状態の選考はありません。</div>')+'</section>';
+  G.forEach(function(g){
+    if(g.k==='end'||g.k==='skip')return;
+    var isHidden = (FILT!=='all' && FILT!==g.k);
+    h+='<section class="lane'+(isHidden?' is-filt-hidden':'')+'" data-lane="'+g.k+'">'+
+       '<div class="lab" style="color:'+g.col+'">'+g.lab+'\u3000'+g.n+'件</div>'+
+       '<div class="rows">'+rows[g.k]()+'</div></section>';
+  });
+
+  var isEndHidden = (FILT!=='all' && FILT!=='end');
+  h+='<section class="lane'+(isEndHidden?' is-filt-hidden':'')+'" data-lane="end">'+
+     '<button class="lab" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted)" onclick="toggleEnded()">'+
+     '終了 '+ended.length+'件 '+(window._end?'▾':'▸')+'</button>'+
+     (window._end?'<div class="rows">'+rows.end()+'</div>':'')+'</section>';
+
+  if(skipped.length){
+    var isSkipHidden = (FILT!=='all' && FILT!=='skip');
+    h+='<section class="lane'+(isSkipHidden?' is-filt-hidden':'')+'" data-lane="skip">'+
+       '<button class="lab" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted)" onclick="toggleSkip()">'+
+       '見送り '+skipped.length+'件 '+(window._skip?'▾':'▸')+'</button>'+
+       (window._skip?'<div class="rows">'+rows.skip()+'</div>':'')+'</section>';
   }
   h+='</div>';
 
@@ -1001,7 +1031,7 @@ function closeOverlay(){
   setTimeout(function(){
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
-  },280);
+  },260);
 }
 function closeSide(){ openCo=null; sideEmpty(); }
 function closeSheet(e){
@@ -1107,15 +1137,26 @@ function bindSheetGesture(){
     setTimeout(function(){
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
-    }, 280);
+    }, 260);
   }
 }
 
 /* ============ 詳細 ============ */
 function switchTab(k){
   tab = k;
-  renderDetail();
+  var root = isWide() ? document.getElementById('side') : document.getElementById('sheet');
+  if(!root) return;
+  var tabs = root.querySelectorAll('.tabs button');
+  tabs.forEach(function(b){
+    b.className = (b.getAttribute('data-tab')===k) ? 'on' : '';
+  });
+  var pane = root.querySelector('.tab-pane');
+  if(pane){
+    var it = byCo(openCo);
+    if(it) pane.innerHTML = renderTabContent(it);
+  }
 }
+
 function openDetail(co){ openCo=co; tab='info'; renderDetail(); }
 
 function railHtml(it){
@@ -1150,56 +1191,10 @@ function gcalUrl(title,at,details,allDay){
     '&dates='+dates+'&ctz=Asia/Tokyo&details='+encodeURIComponent(details||'');
 }
 
-function paintDetail(h){
-  if(isWide()){
-    var side=document.getElementById('side');
-    var sc=side.querySelector('.card');
-    if(sc&&side.dataset.co===openCo){
-      var sy=side.scrollTop;
-      sc.innerHTML='<button class="sideclose" onclick="closeSide()">✕</button>'+h;
-      side.scrollTop=sy;
-      return;
-    }
-    side.dataset.co=openCo;
-    side.innerHTML='<div class="card"><button class="sideclose" onclick="closeSide()">✕</button>'+h+'</div>';
-    return;
-  }
-  var box=document.getElementById('sheet');
-  var card=box.querySelector('.sheet .card');
-  if(card){
-    card.innerHTML=h;
-    return;
-  }
-  box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+h+'</div></div>';
-  requestAnimationFrame(function(){
-    var sh=box.querySelector('.sheet');
-    if(sh) sh.classList.add('is-active');
-  });
-  sheetOpened();
-}
-
-function renderDetail(){
-  var it=byCo(openCo);
-  if(!it){ openCo=null; if(isWide())sideEmpty(); else closeOverlay(); return }
+function renderTabContent(it){
   var st=stOf(it), rt=routeOf(it), curIdx=rt.indexOf(it.stage);
   var last=curIdx>=rt.length-2;
-  var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
-  var col=st==='waiting'?'var(--wait)':(st==='offer'||st==='fixed')?'var(--go)':'var(--muted)';
-
-  var h='<div class="card-head">'+
-    '<div class="grab"></div>'+
-    '<div style="display:flex;align-items:center;gap:12px">'+logo(it,44)+
-    '<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">'+esc(it.c)+'</div>'+
-    '<div style="font-family:var(--mono);font-size:11px;color:'+col+';margin-top:3px">'+
-      esc(it.lost||it.stage)+' '+LAB[st]+'</div></div></div>'+
-    '<div class="tabs">'+
-      ['info,概要','events,予定 '+evOf(it.c).length,'route,選考ルート'].map(function(x){
-        var k=x.split(',')[0];
-        return '<button class="'+(tab===k?'on':'')+'" onclick="switchTab(\''+k+'\')">'+x.split(',')[1]+'</button>';
-      }).join('')+'</div>'+
-    '</div>';
-
-  h+='<div class="tab-pane">';
+  var h='';
 
   if(tab==='info'){
     var r=it.due?rem(it.due):null;
@@ -1316,9 +1311,58 @@ function renderDetail(){
       '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addStage()">追加</button></div>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.8">段階名をタップすると現在地になります。↑↓で並べ替え。変更はすぐ保存されます。</div></div>';
   }
+  return h;
+}
 
-  h+='</div>';
-  paintDetail(h);
+function paintDetail(it){
+  var st=stOf(it), col=st==='waiting'?'var(--wait)':(st==='offer'||st==='fixed')?'var(--go)':'var(--muted)';
+  var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
+
+  var headHtml = '<div class="grab"></div>'+
+    '<div style="display:flex;align-items:center;gap:12px">'+logo(it,44)+
+    '<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">'+esc(it.c)+'</div>'+
+    '<div style="font-family:var(--mono);font-size:11px;color:'+col+';margin-top:3px">'+
+      esc(it.lost||it.stage)+' '+LAB[st]+'</div></div></div>'+
+    '<div class="tabs">'+
+      ['info,概要','events,予定 '+evOf(it.c).length,'route,選考ルート'].map(function(x){
+        var k=x.split(',')[0];
+        return '<button data-tab="'+k+'" class="'+(tab===k?'on':'')+'" onclick="switchTab(\''+k+'\')">'+x.split(',')[1]+'</button>';
+      }).join('')+'</div>';
+
+  var fullHtml = '<div class="card-head">'+headHtml+'</div><div class="tab-pane">'+renderTabContent(it)+'</div>';
+
+  if(isWide()){
+    var side=document.getElementById('side');
+    var sc=side.querySelector('.card');
+    if(sc && side.dataset.co===openCo){
+      var sy=side.scrollTop;
+      sc.innerHTML='<button class="sideclose" onclick="closeSide()">✕</button>'+fullHtml;
+      side.scrollTop=sy;
+      return;
+    }
+    side.dataset.co=openCo;
+    side.innerHTML='<div class="card"><button class="sideclose" onclick="closeSide()">✕</button>'+fullHtml+'</div>';
+    return;
+  }
+
+  var box=document.getElementById('sheet');
+  var card=box.querySelector('.sheet .card');
+  if(card){
+    card.innerHTML=fullHtml;
+    return;
+  }
+  box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+fullHtml+'</div></div>';
+  requestAnimationFrame(function(){
+    var sh=box.querySelector('.sheet');
+    if(sh) sh.classList.add('is-active');
+  });
+  sheetOpened();
+}
+
+function renderDetail(){
+  var it=byCo(openCo);
+  if(!it){ openCo=null; if(isWide())sideEmpty(); else closeOverlay(); return }
+  paintDetail(it);
 }
 
 function sideEmpty(){
