@@ -696,8 +696,18 @@ function doPass(co){
 }
 function doPrev(co){
   var it=find_(co); if(!it)return;
-  var r=routeOf(it), i=r.indexOf(it.stage);
-  if(i<=0){ toast('これ以上前の段階はありません'); return; }
+  var r=routeOf(it), cur=it.lost||it.stage, i=r.indexOf(cur);
+  if(i<=0){
+    opt(function(){
+      var x=find_(co); if(!x)return;
+      x.status = '対応中';
+      x.lost = '';
+      x.on = null;
+      x.due = null;
+      x.since = null;
+    }, 'apiSetStatus', [co, TERM, '対応中'], '対応中に戻しました');
+    return;
+  }
   var prevStage = r[i-1];
   opt(function(){
     var x=find_(co); if(!x)return;
@@ -707,7 +717,7 @@ function doPrev(co){
     x.on = null;
     x.due = null;
     x.since = null;
-  }, 'apiSetRoute', [co, TERM, r, prevStage], '1段階戻しました');
+  }, 'apiSetRoute', [co, TERM, r, prevStage], prevStage + ' に戻しました');
 }
 function doFail(co){
   opt(function(){var it=find_(co);if(!it)return;it.lost=it.stage;it.status='落選';it.on=todayStr();it.due=null;},
@@ -1323,16 +1333,17 @@ function renderDetail(){
 
     if(st==='todo')
       h+='<button class="big" style="background:var(--blue);color:#fff" onclick="doDone(\''+esc(it.c)+'\')">完了にして結果待ちへ</button>';
+    if(st==='waiting'){
+      h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'対応中\')">対応中に戻す</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'参加決定\')">参加決定にする</button>';
+    }
     if(st==='fail'||st==='offer'||st==='fixed')
       h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'結果待ち\')">結果待ちに戻す</button>';
-    if(st==='waiting')
-      h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'参加決定\')">参加決定にする</button>';
     if(st==='skip')
       h+='<button class="big" style="background:rgba(255,255,255,.08);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'対応中\')">対応中に戻す</button>';
     
-    if(curIdx > 0) {
-      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrev(\''+esc(it.c)+'\')">1つ前の段階に戻す（誤操作用）</button>';
-    }
+    h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrev(\''+esc(it.c)+'\')">1つ前の段階に戻す（誤操作用）</button>';
+
     if(st==='todo')
       h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'見送り\')">見送りにする</button>';
 
