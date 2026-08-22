@@ -9,7 +9,10 @@
 <meta name="apple-mobile-web-app-title" content="就活">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
+<!-- iOS ホーム画面用：角丸はシステムが切り抜くのでフルブリードの正方形を渡す -->
 <link rel="apple-touch-icon" href="icon-180.png">
+<!-- Windows / Android / ブラウザタブ用：角丸を描き込まない、端まで埋まった正方形 -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
@@ -24,18 +27,19 @@
   --text:#FFFFFF; --muted:#A1A1A6; --dim:#6E6E73;
   --blue:#0A84FF; --go:#30D158; --wait:#FF9F0A; --hot:#FF453A; --fail:#6B4A54;
   --amber:#FFFFFF;
+  /* Apple 風の薄いインナーハイライト（1.5px の白帯は厚すぎるので 0.5px に） */
   --edge:inset 0 .5px 0 0 rgba(255,255,255,.20), inset 0 -.5px 0 0 rgba(0,0,0,.45);
   --sheen:linear-gradient(180deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 42%);
   --drop:0 1px 2px rgba(0,0,0,.28), 0 8px 24px rgba(0,0,0,.42);
   --drop-lg:0 2px 6px rgba(0,0,0,.34), 0 22px 56px rgba(0,0,0,.58);
   --glass:blur(32px) saturate(200%);
-
-  /* Apple Motion Engineering準拠の物理スプリング＆イージング定数 */
-  --apple-spring:cubic-bezier(0.32, 0.72, 0, 1);       /* UIKit / SwiftUI 標準 Fluid Spring */
-  --apple-morph:cubic-bezier(0.22, 1, 0.36, 1);        /* 起点モーフィング用・重みのある減速曲線 */
-  --apple-ease:cubic-bezier(0.25, 0.1, 0.25, 1);       /* 自然なフェード曲線 */
-  --apple-press:cubic-bezier(0.2, 0, 0, 1);            /* タップ時の沈み込み */
-  
+  --spring:cubic-bezier(.32,.72,0,1);
+  --ease:cubic-bezier(.4,0,.2,1);
+  /* Apple Motion 準拠 */
+  --apple-spring:cubic-bezier(.32,.72,0,1);   /* 標準の流体スプリング */
+  --apple-morph:cubic-bezier(.22,1,.36,1);    /* 起点展開。質量感のある拡大 */
+  --apple-ease:cubic-bezier(.25,.1,.25,1);    /* 透明度の補間 */
+  --apple-press:cubic-bezier(.2,0,0,1);       /* 押し込み専用 */
   --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Helvetica Neue",sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
@@ -53,20 +57,20 @@ button,select,input{font-family:var(--body)}
 /* ---------- splash ---------- */
 #splash{position:fixed;inset:0;z-index:200;background:var(--ink);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  transition:opacity .5s var(--apple-ease),visibility .5s}
+  transition:opacity .5s var(--ease),visibility .5s}
 #splash.gone{opacity:0;visibility:hidden}
 #splash .mark{font-size:29px;font-weight:700;letter-spacing:.26em;color:var(--text);
-  padding-left:.26em;animation:rise .55s var(--apple-spring)}
+  padding-left:.26em;animation:rise .55s var(--spring)}
 #splash .rule{width:54px;height:1px;background:var(--line);position:relative;overflow:hidden}
 #splash .rule::after{content:'';position:absolute;inset:0;background:var(--text);
-  transform:translateX(-100%);animation:sweep 1.15s var(--apple-ease) infinite}
+  transform:translateX(-100%);animation:sweep 1.15s var(--ease) infinite}
 #splash .sub{font-family:var(--mono);font-size:9px;letter-spacing:.3em;color:var(--dim)}
 
 /* ---------- type ---------- */
 .lab{margin:26px 0 8px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em}
 .hero{padding-bottom:22px;border-bottom:1px solid var(--line-soft);margin-bottom:2px;cursor:pointer;
-  transition:opacity .24s var(--apple-ease), transform .24s var(--apple-spring)}
-.hero:active{opacity:.8;transform:scale(0.985)}
+  transition:opacity .2s var(--ease)}
+.hero:active{opacity:.72}
 .hero h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
 .cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
 .cd b{font-family:var(--disp);font-size:52px;font-weight:600;letter-spacing:-.035em}
@@ -77,9 +81,9 @@ button,select,input{font-family:var(--body)}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);background-image:var(--sheen);
   border:1px solid var(--line);border-radius:13px;padding:10px 13px;color:var(--text);
-  box-shadow:var(--edge);
-  transition:transform .28s var(--apple-spring), opacity .2s var(--apple-ease)}
-.stripitem:active{transform:scale(.975);opacity:.9}
+  box-shadow:var(--edge);transition:transform .2s var(--spring),opacity .2s var(--ease)}
+.stripitem{transition:transform .28s var(--apple-spring),opacity .2s var(--apple-ease)}
+.stripitem:active{transform:scale(.98);transition:transform .13s var(--apple-press)}
 .stripitem .k{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);
   border:1px solid var(--line);border-radius:5px;padding:2px 6px;flex:0 0 auto;background:rgba(255,255,255,.04)}
 .stripitem .n{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -91,12 +95,17 @@ button,select,input{font-family:var(--body)}
   border:1px solid var(--line);border-radius:16px;box-shadow:var(--edge),var(--drop);
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 9px);
-  transition:transform .32s var(--apple-spring), opacity .3s var(--apple-ease)}
-.row:active{transform:scale(.98);transition:transform .14s var(--apple-press)}
+  transition:transform .22s var(--spring),opacity .2s var(--ease)}
+.row{transition:transform .28s var(--apple-spring),opacity .2s var(--apple-ease)}
+.row:active{transform:scale(.98);transition:transform .13s var(--apple-press)}
 .row.is-fixed{background:linear-gradient(180deg,rgba(24,58,38,.78),rgba(12,30,20,.88));
   border-color:rgba(48,209,88,.34);box-shadow:var(--edge),var(--drop),0 0 0 .5px rgba(48,209,88,.18)}
 .row.is-offer{background:linear-gradient(180deg,rgba(26,64,42,.82),rgba(12,32,21,.9));
   border-color:rgba(48,209,88,.5)}
+/* シートを開いている間、元のカードを伏せておく。
+   inline style の opacity を壊さないようクラスと変数で扱う */
+.is-source-hidden{opacity:var(--srcop,0) !important;pointer-events:none !important;
+  transition:opacity .38s var(--apple-spring)}
 .row .main{padding:14px 15px 12px;display:flex;align-items:center;gap:14px;flex:1 1 auto}
 .row .main:active{background:rgba(255,255,255,.04)}
 .day{width:60px;flex:0 0 auto;text-align:center}
@@ -115,8 +124,7 @@ button,select,input{font-family:var(--body)}
 .acts{display:flex;gap:8px;padding:0 15px 12px 74px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);
   border-radius:9px;padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
-  display:inline-block;
-  transition:transform .24s var(--apple-spring), background .2s var(--apple-ease)}
+  display:inline-block;transition:transform .16s var(--spring),background .18s var(--ease)}
 .logo{width:28px;height:28px;border-radius:14px;flex:0 0 auto;display:flex;align-items:center;
   justify-content:center;overflow:hidden;background:#fff;
   box-shadow:0 0 0 .5px rgba(0,0,0,.4)}
@@ -124,62 +132,55 @@ button,select,input{font-family:var(--body)}
 .logo.mono{background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14)}
 .logo.mono span{color:#C7C7CC;font-weight:600}
 
-/* タップ元要素の不可視化 */
-.is-source-hidden{opacity:0 !important;pointer-events:none !important}
-
-/* ---------- sheet / card（四隅均等のフローティングリキッドグラス） ---------- */
-.sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,0);
+/* ---------- sheet / card ---------- */
+.sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.6);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
   padding:0 10px calc(12px + env(safe-area-inset-bottom));
-  transition:background .38s var(--apple-ease);
-  will-change:background;transform:translateZ(0);isolation:isolate;
+  touch-action:none;                     /* 背景スクロールを確実に塞ぐ */
+  animation:back .24s var(--ease);
+  will-change:opacity;transform:translateZ(0);
   backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.sheet.active{background:rgba(0,0,0,.62)}
-
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
-  max-height:84vh;max-height:84dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
+  max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   border-radius:22px;border:1px solid var(--line);
-  padding:12px 20px 24px;
-  will-change:transform,opacity;
-  backface-visibility:hidden;-webkit-backface-visibility:hidden}
-
+  padding:10px 20px 28px;
+  animation:sheetUp .42s var(--spring);
+  will-change:transform,opacity;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+/* 動いている間はブラーを止めて塗り替え範囲も閉じ込める。
+   静止してから本来のフロストガラスに戻す */
 .card.moving,.spotbox.moving{
   backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
   background:rgba(28,28,32,.97);contain:paint}
 .card.settled,.spotbox.settled{will-change:auto}
-
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
-  transition:background .2s var(--apple-ease)}
+  transition:background .2s var(--ease)}
 .card.drag .grab{background:rgba(255,255,255,.42)}
-
-/* 閉じるアニメーション */
-.sheet.out{background:rgba(0,0,0,0) !important;animation:backOut .32s var(--apple-ease) forwards}
-.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .34s cubic-bezier(0.32, 0.72, 0, 1) forwards}
-
+.sheet.out{animation:backOut .26s var(--ease) forwards}
+.sheet.out .card,.sheet.out .spotbox{animation:sheetDown .3s cubic-bezier(.4,0,1,1) forwards}
 .sheet .card.drag{animation:none;transition:none;will-change:transform}
 .sheet .card.spring{animation:none;
-  transition:transform .44s var(--apple-spring)}
+  transition:transform .42s var(--apple-spring),opacity .2s var(--apple-ease)}
+.sheet .card.fly{animation:none;
+  transition:transform .34s var(--apple-spring),opacity .28s var(--apple-ease)}
 .sheet.dragging{animation:none;transition:none}
-
 .sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
   background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
   display:none;align-items:center;justify-content:center;line-height:1;
-  transition:transform .24s var(--apple-spring),background .2s var(--apple-ease)}
+  transition:transform .16s var(--spring),background .18s var(--ease)}
 .sideclose:hover{background:rgba(255,255,255,.18);color:var(--text)}
 
 .tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft)}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
-  transition:color .24s var(--apple-ease),border-color .24s var(--apple-ease)}
+  transition:color .2s var(--ease),border-color .2s var(--ease)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 .kv{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .kv span:first-child{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
 .kv span:last-child{font-size:13px;text-align:right;word-break:break-all;margin-left:16px}
 .f{width:100%;background:rgba(0,0,0,.32);border:1px solid var(--line);border-radius:11px;
   padding:11px 13px;color:var(--text);font-size:14px;outline:none;
-  transition:border-color .2s var(--apple-ease),background .2s var(--apple-ease)}
+  transition:border-color .18s var(--ease),background .18s var(--ease)}
 .f:focus{border-color:var(--blue);background:rgba(0,0,0,.5)}
 .lab+.f{margin-top:0}
 .f+.f,.f+.gh{margin-top:10px}
@@ -187,12 +188,14 @@ button,select,input{font-family:var(--body)}
 .card .lab+.f{margin-top:0}
 .big{width:100%;padding:13px 0;border-radius:12px;border:none;font-size:14px;font-weight:600;
   cursor:pointer;margin-top:12px;display:block;text-align:center;text-decoration:none;
-  transition:transform .24s var(--apple-spring),opacity .2s var(--apple-ease)}
-.big:active{transform:scale(.955);transition:transform .12s var(--apple-press)}
+  transition:transform .16s var(--spring),opacity .18s var(--ease)}
+.big{transition:transform .3s var(--apple-spring),opacity .2s var(--apple-ease)}
+.big:active{transform:scale(.955);transition:transform .13s var(--apple-press)}
+.gh{transition:transform .28s var(--apple-spring),background .18s var(--apple-ease)}
 .gh:active{transform:scale(.955);transition:transform .12s var(--apple-press)}
 .big[disabled]{opacity:.4;cursor:default}
 .rail{display:flex;align-items:center}
-.rail i{flex:0 0 auto;border-radius:9px;display:block;transition:all .34s var(--apple-spring)}
+.rail i{flex:0 0 auto;border-radius:9px;display:block;transition:all .3s var(--spring)}
 .rail u{height:1px;flex:1;display:block}
 .railtxt{display:flex;justify-content:space-between;margin-top:8px}
 .railtxt span{font-size:8.5px;color:var(--dim);flex:1;text-align:center}
@@ -210,7 +213,7 @@ button,select,input{font-family:var(--body)}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
   padding:10px 0;border-radius:24px;cursor:pointer;
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
-  transition:color .24s var(--apple-ease),transform .24s var(--apple-spring)}
+  transition:color .2s var(--ease),transform .16s var(--spring)}
 .tabbar button:not(.ico){width:var(--pw)}
 .tabbar button.on{color:#000}
 .tabbar .pill{position:absolute;left:5px;top:5px;width:var(--pw);height:calc(100% - 10px);
@@ -229,7 +232,7 @@ button,select,input{font-family:var(--body)}
   transition:transform .46s var(--apple-spring)}
 .seg.i1 .pill{transform:translate3d(calc(100% + 2px),0,0)}
 .seg button{position:relative;z-index:1}
-.tabbar button:active{transform:scale(.95);transition:transform .12s var(--apple-press)}
+
 .tabbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex-shrink:0}
 .tabbar .ico{padding:10px 15px;font-size:18px;font-weight:400;color:var(--text);
   line-height:1;white-space:nowrap;flex-shrink:0}
@@ -268,18 +271,20 @@ button,select,input{font-family:var(--body)}
 /* ---------- chips ---------- */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:12px 16px 10px;
+  /* スクロール中に毎フレーム背景をぼかすと重いので、ここは不透明で処理する */
   background:#000;box-shadow:0 8px 12px -8px rgba(0,0,0,.9)}
 .chiprow{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;background:rgba(255,255,255,.06);border:1px solid var(--line);
   color:var(--muted);border-radius:16px;padding:7px 14px;font-size:12px;font-weight:500;
   cursor:pointer;display:flex;align-items:center;gap:7px;
-  transition:background .28s var(--apple-spring),color .24s var(--apple-ease),transform .24s var(--apple-spring)}
+  transition:background .24s var(--spring),color .2s var(--ease),transform .16s var(--spring)}
 .chiprow button b{font-family:var(--disp);font-size:16px;font-weight:600;line-height:1}
 .chiprow button.on{background:rgba(255,255,255,.95);color:#000;border-color:transparent;font-weight:600}
 .chiprow button.on b{color:#000}
-.chiprow button:active{transform:scale(.95);transition:transform .12s var(--apple-press)}
 
+
+/* 下のドックと完全に同じ構造・同じ動き */
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;max-width:300px;
   position:relative;background:var(--chrome);border:1px solid var(--line);border-radius:30px;
   padding:5px;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
@@ -287,23 +292,23 @@ button,select,input{font-family:var(--body)}
 .seg button{min-width:0;background:none;border:none;color:var(--muted);
   border-radius:24px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
   white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
-  transition:color .24s var(--apple-ease),transform .24s var(--apple-spring)}
+  transition:color .2s var(--ease),transform .16s var(--spring)}
 .seg button.on{color:#000}
 .sgn{font-family:var(--mono);font-size:10px;margin-left:7px;opacity:.55}
-.seg button:active{transform:scale(.95);transition:transform .12s var(--apple-press)}
+
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
-.spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:22px;overflow:hidden;
+.spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:18px;overflow:hidden;
   background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);box-shadow:var(--edge),var(--drop-lg);
-  animation:rise .36s var(--apple-spring)}
+  animation:rise .3s var(--spring)}
 .spotbox input{width:100%;background:none;border:none;border-bottom:1px solid var(--line-soft);
   padding:18px 20px;color:var(--text);font-size:17px;outline:none}
 #qres{max-height:52vh;max-height:52dvh;overflow-y:auto}
 #qres button{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;
   padding:12px 18px;cursor:pointer;color:var(--text);text-align:left;
-  transition:background .2s var(--apple-ease)}
+  transition:background .16s var(--ease)}
 #qres button:hover,#qres button:active{background:rgba(255,255,255,.07)}
 #qres .qn{font-size:14px;font-weight:600}
 #qres .qs{margin-left:auto;font-size:11px;color:var(--muted)}
@@ -314,7 +319,7 @@ button,select,input{font-family:var(--body)}
 .setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
 .setupBox{width:100%;max-width:420px;background:var(--hi);border:1px solid var(--line);
   border-radius:22px;padding:28px 24px 26px;box-shadow:var(--edge),var(--drop-lg);
-  animation:rise .45s var(--apple-spring)}
+  animation:rise .4s var(--spring)}
 .setupMark{font-size:26px;font-weight:700;letter-spacing:.24em;padding-left:.24em;text-align:center}
 .setupLead{font-size:12px;color:var(--muted);line-height:1.9;margin-top:14px;text-align:center}
 .setupErr{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.7;
@@ -324,32 +329,37 @@ button,select,input{font-family:var(--body)}
   bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;opacity:0;pointer-events:none;
   background:var(--chrome);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   border:1px solid var(--line);border-radius:15px;padding:12px 18px;font-size:13px;font-weight:500;
-  box-shadow:var(--edge),var(--drop-lg);transition:all .44s var(--apple-spring);max-width:88vw}
+  box-shadow:var(--edge),var(--drop-lg);transition:all .42s var(--spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;
   align-items:center;justify-content:center;z-index:99;
   font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.2em}
 
-/* ---------- motion keyframes ---------- */
-@keyframes rise{
-  from{opacity:0;transform:translate3d(0,16px,0) scale(.98)}
+/* ---------- motion ---------- */
+@keyframes rise{from{opacity:0;transform:translate3d(0,12px,0) scale(.985)}to{opacity:1;transform:none}}
+/* タップ起点から膨らむ／起点へ吸い込まれる（WWDC18 Fluid Interfaces） */
+.morph{animation:morphIn .5s var(--apple-morph) both}
+.morph.out{animation:morphOut .34s var(--apple-spring) both}
+@keyframes morphIn{
+  from{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.86))}
+  60%{opacity:1}
   to{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
-@keyframes sheetDown{
-  to{transform:translate3d(0,100%,0)}
+@keyframes morphOut{
+  from{opacity:1;transform:none}
+  to{opacity:0;transform:translate3d(var(--mx,0),var(--my,0),0) scale(var(--ms,.86))}
 }
-@keyframes backOut{
-  to{opacity:0}
-}
-@keyframes fadeShrink{
-  to{opacity:0;transform:scale(.96)}
-}
-@keyframes sweep{
-  to{transform:translateX(100%)}
-}
-#view.enter{animation:rise .34s var(--apple-spring)}
-#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .46s var(--apple-spring) both}
-#view.enter .row{animation-delay:calc(var(--i,0) * 18ms)}
+@keyframes sheetUp{from{transform:translate3d(0,100%,0)}to{transform:translate3d(0,0,0)}}
+@keyframes sheetDown{to{transform:translate3d(0,100%,0)}}
+@keyframes back{from{opacity:0}to{opacity:1}}
+@keyframes backOut{to{opacity:0}}
+@keyframes fadeShrink{to{opacity:0;transform:scale(.97)}}
+@keyframes sweep{to{transform:translateX(100%)}}
+/* 登場アニメは画面が切り替わったときだけ。データ更新のたびに
+   全カードを再アニメさせるとチラつきの原因になる */
+#view.enter{animation:rise .3s var(--spring)}
+#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .42s var(--spring) both}
+#view.enter .row{animation-delay:calc(var(--i,0) * 16ms)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
     transition-duration:.01ms !important}
@@ -363,10 +373,10 @@ button,select,input{font-family:var(--body)}
    ========================================== */
 @media (min-width:820px){
   body{max-width:960px;padding-left:28px;padding-right:28px}
-  .sheet{align-items:center;padding:0}
+  .sheet{align-items:center}
   .sheet .card{max-width:600px;max-height:84dvh;border-radius:22px;
-    padding:10px 28px 34px;animation:rise .38s var(--apple-spring)}
-  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .26s var(--apple-ease) forwards}
+    padding:10px 28px 30px;animation:rise .34s var(--apple-spring)}
+  .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--ease) forwards}
   .lanes{display:block}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:stretch}
   .lanes.single .rows{grid-template-columns:1fr;max-width:620px}
@@ -396,7 +406,7 @@ button,select,input{font-family:var(--body)}
     border:1px solid var(--line);border-radius:22px;box-shadow:var(--edge),var(--drop-lg);
     padding:22px 20px 28px}
   #side .card{background:none;border:none;padding:0;max-width:none;max-height:none;
-    box-shadow:none;backdrop-filter:none;animation:rise .34s var(--apple-spring);position:relative}
+    box-shadow:none;backdrop-filter:none;animation:rise .3s var(--spring);position:relative}
   #side .grab{display:none}
   #side .sideclose{display:flex}
   .tabbar{left:36px;right:auto;transform:none;bottom:26px}
@@ -462,8 +472,8 @@ var openCo = null, tab = 'info';
 var TERM = '夏インターン';
 var TERMS = ['夏インターン','本選考'];
 var FILT = 'all', PAGE = 'list';
-var VIEWKEY = '';
-
+var VIEWKEY = '';           /* 表示中の画面を表す鍵。変わったときだけ登場アニメを出す */
+/* 区分は作り直さない。中身（一覧）だけを差し替える */
 function ensureShell(){
   var app=document.getElementById('app');
   if(document.getElementById('view')) return;
@@ -494,7 +504,7 @@ function markEnter(){
   if(key===VIEWKEY){ el.classList.remove('enter'); return; }
   VIEWKEY=key;
   el.classList.remove('enter');
-  void el.offsetWidth;
+  void el.offsetWidth;      /* アニメを確実に再生させる */
   el.classList.add('enter');
 }
 
@@ -605,7 +615,7 @@ function paintLogo(co,url){
   }
 }
 
-/* ============ 通信 ============ */
+/* ============ 通信（GAS を JSON API として叩く） ============ */
 var CFG={ep:'',key:''};
 function loadCfg(){
   try{
@@ -621,6 +631,7 @@ function saveCfg(ep,key){
 function api(action,args){
   return fetch(CFG.ep,{
     method:'POST',
+    /* text/plain にすると preflight が飛ばず CORS を通せる */
     headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify({key:CFG.key,action:action,args:args||[]}),
     redirect:'follow'
@@ -768,7 +779,7 @@ function rowHtml(it){
   }
 
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+
-    '" data-rowco="'+esc(it.c)+'" style="opacity:'+((st==='fail'||st==='skip')?0.45:1)+'" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
+    '" style="opacity:'+((st==='fail'||st==='skip')?0.45:1)+'" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
     '<div class="main">'+
       '<div class="day">'+left+'</div>'+
       '<div class="body1"><div class="meta">'+logo(it)+
@@ -780,7 +791,7 @@ function rowHtml(it){
 }
 function eventRowHtml(ev){
   var it=byCo(ev.c)||{c:ev.c,dom:''}, r=rem(ev.at);
-  return '<div class="row" data-rowco="'+esc(ev.c)+'" onclick="markOrigin(event);openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
+  return '<div class="row" onclick="markOrigin(event);openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
     '<div class="day">'+(r?dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)'):'<span class="tag" style="color:var(--dim)">終了</span>')+'</div>'+
     '<div class="body1"><div class="meta">'+logo(it)+
       '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+fdate(ev.at)+' '+ftime(ev.at)+'</i></div>'+
@@ -790,6 +801,7 @@ function eventRowHtml(ev){
 }
 
 function setTerm(t){TERM=t;window.scrollTo(0,0);render()}
+/* ピルの位置は CSS の幅指定だけで決まる。実測しないのでずれない */
 function syncPills(){
   var dock=document.getElementById('tabbar');
   if(dock) dock.classList.toggle('p1', PAGE!=='list');
@@ -828,7 +840,7 @@ function render(){
     MGMT.forEach(function(it){
       var r=it.due?rem(it.due):null;
       var lab=r?(r.d===0?'今日':r.d+'日後'):(it.due?'期限切れ':'日程未定');
-      h+='<button class="stripitem" data-rowco="'+esc(it.c)+'" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
+      h+='<button class="stripitem" onclick="markOrigin(event);openDetail(\''+esc(it.c)+'\')">'+
         '<span class="k">受験予定</span><span class="n">'+esc(it.c)+'</span>'+
         '<span class="d" style="color:'+(r&&r.d<=2?'var(--hot)':'var(--text)')+'">'+lab+'</span>'+
         (it.due?'<span class="w">'+fdate(it.due)+(it.timeUnset?'':' '+ftime(it.due))+'</span>':'')+
@@ -841,12 +853,12 @@ function render(){
     var it=hero.it||{c:hero.c,dom:''};
     var head=hero.kind==='due'?'次の締切':'次の'+hero.ev.kind;
     var stage=hero.kind==='due'?it.stage:hero.ev.kind;
-    h+='<div class="hero" data-rowco="'+esc(hero.c)+'" onclick="markOrigin(event);openDetail(\''+esc(hero.c)+'\')">'+
+    h+='<div class="hero" onclick="markOrigin(event);openDetail(\''+esc(hero.c)+'\')">'+
       '<div class="lab" style="margin:0">'+head+'</div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'+logo(it,36)+'<h1>'+esc(hero.c)+'</h1></div>'+
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
         esc(stage)+' '+fdate(hero.at)+((hero.kind==='due'&&it.timeUnset)?'':' '+ftime(hero.at))+'</div>'+
-      '<div class="cd" id="heroCd" data-at="'+esc(hero.at)+'"></div></div>';
+      '<div class="cd" id="heroCd" data-at="'+hero.at+'"></div></div>';
   } else if(!DATA.items.length){
     h+='<div class="emptyNote">シートからデータを取得できていません。<br>'+
        'Sheet1 に行があるか、接続設定が正しいかを確認してください。'+
@@ -931,7 +943,7 @@ function render(){
 
 function tickHero(){
   var el=document.getElementById('heroCd');
-  if(!el||!el.dataset.at)return;
+  if(!el)return;
   var r=rem(el.dataset.at);
   if(!r){el.innerHTML='<b style="font-size:42px;color:var(--dim)">期限切れ</b>';return}
   var p=function(v){return ('0'+v).slice(-2)};
@@ -947,8 +959,7 @@ window.addEventListener('resize',function(){
   if(w===wasWide)return;
   wasWide=w;
   document.getElementById('sheet').innerHTML='';
-  lockScroll(false);
-  restoreOriginEl();
+  locked=false; lockScroll(false);
   render();
 });
 
@@ -959,37 +970,32 @@ function carryOver(co){
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
 
-/* ============ 起点モーフィング（Apple Motion Engineering準拠） ============ */
-var ORIGIN = null;
-var ORIGIN_EL = null;
-
+/* ============ モーフィングの起点 ============ */
+var ORIGIN=null;
 function markOrigin(e){
-  var el = (e && (e.currentTarget || e.target)) || null;
-  if(!el) { ORIGIN = null; ORIGIN_EL = null; return; }
-  var target = el.closest ? el.closest('.row, .stripitem, .hero, .ico, button') : el;
-  if(target) el = target;
-  ORIGIN_EL = el;
-  var r = el.getBoundingClientRect();
-  ORIGIN = { x: r.left + r.width/2, y: r.top + r.height/2, w: r.width, h: r.height, r: r };
+  var el=(e&&(e.target||e.currentTarget))||null;
+  if(el&&el.closest) el=el.closest('.row,.stripitem,.hero,.tabbar button')||el;
+  if(!el||!el.getBoundingClientRect){ORIGIN=null;return}
+  var r=el.getBoundingClientRect();
+  ORIGIN={x:r.left+r.width/2, y:r.top+r.height/2, w:r.width, h:r.height,
+          el:(el.classList&&el.classList.contains('row'))?el:null};
 }
-
-function restoreOriginEl(animated){
-  if(!ORIGIN_EL) return;
-  var target = ORIGIN_EL;
-  ORIGIN_EL = null;
-  if(animated){
-    target.classList.remove('is-source-hidden');
-    target.style.transition = 'opacity .38s var(--apple-spring)';
-    target.style.opacity = '0';
-    void target.offsetWidth;
-    target.style.opacity = '';
-    setTimeout(function(){ target.style.transition = ''; }, 400);
-  } else {
-    target.classList.remove('is-source-hidden');
-    target.style.opacity = '';
+/* 元カードの伏せ／復帰 */
+function hideSource(){
+  if(ORIGIN&&ORIGIN.el){ ORIGIN.el.style.setProperty('--srcop','0');
+    ORIGIN.el.classList.add('is-source-hidden'); }
+}
+function fadeSource(v){
+  if(ORIGIN&&ORIGIN.el) ORIGIN.el.style.setProperty('--srcop',String(Math.max(0,Math.min(1,v))));
+}
+function showSource(){
+  if(ORIGIN&&ORIGIN.el){
+    var el=ORIGIN.el;
+    el.style.setProperty('--srcop','1');
+    setTimeout(function(){ el.classList.remove('is-source-hidden');
+      el.style.removeProperty('--srcop'); },400);
   }
 }
-
 function settleAfter(node,ms){
   if(!node)return;
   node.classList.add('moving');
@@ -997,107 +1003,88 @@ function settleAfter(node,ms){
   node._st=setTimeout(function(){
     node.classList.remove('moving');
     node.classList.add('settled');
-  },ms||520);
+  },ms||460);
 }
-
-function applyOpenMorph(card){
-  if(!card) return;
-  settleAfter(card, 520);
-
-  if(!ORIGIN || isWide()){
-    card.style.transform = '';
-    card.style.opacity = '1';
-    return;
-  }
-
-  if(ORIGIN_EL){
-    ORIGIN_EL.classList.add('is-source-hidden');
-  }
-
-  var cr = card.getBoundingClientRect();
-  var cx = cr.left + cr.width/2, cy = cr.top + cr.height/2;
-  var initScale = Math.max(0.35, Math.min(0.96, ORIGIN.w / Math.max(cr.width, 1)));
-  var dx = Math.round(ORIGIN.x - cx);
-  var dy = Math.round(ORIGIN.y - cy);
-
-  /* 物理スプリング初期化：ゼロ透明度かつ自然な初期スケール */
-  card.style.transition = 'none';
-  card.style.transform = 'translate3d(' + dx + 'px, ' + dy + 'px, 0) scale(' + initScale.toFixed(3) + ')';
-  card.style.opacity = '0';
-
-  void card.offsetWidth;
-
-  /* Apple純正Fluid Spring（500msの重厚でシルキーな減速カーブ） */
-  card.style.transition = 'transform .5s var(--apple-morph), opacity .38s var(--apple-ease)';
-  card.style.transform = 'translate3d(0,0,0) scale(1)';
-  card.style.opacity = '1';
+function applyMorph(node){
+  if(!node)return;
+  node.classList.add('morph');
+  settleAfter(node,460);
+  if(!ORIGIN){node.style.setProperty('--mx','0px');node.style.setProperty('--my','40px');
+    node.style.setProperty('--ms','.94');return}
+  var r=node.getBoundingClientRect();
+  var cx=r.left+r.width/2, cy=r.top+r.height/2;
+  node.style.setProperty('--mx',Math.round(ORIGIN.x-cx)+'px');
+  node.style.setProperty('--my',Math.round(ORIGIN.y-cy)+'px');
+  node.style.setProperty('--ms',Math.max(.5,Math.min(.94,ORIGIN.w/Math.max(r.width,1))).toFixed(3));
+  node.style.transformOrigin='50% 50%';
 }
 
 /* ============ シート制御 ============ */
-var pushed=false, DISMISSING=false;
-
+var lockY=0, pushed=false, locked=false;
 function lockScroll(on){
+  /* position:fixed だと sticky の再計算が走って画面が跳ねるので overflow で止める。
+     iOS 対策として .sheet 側に touch-action:none を併用している */
+  var de=document.documentElement;
   if(on){
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
+    lockY=window.scrollY;
+    de.style.overflow='hidden';
+    document.body.style.overflow='hidden';
   }else{
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    de.style.overflow='';
+    document.body.style.overflow='';
+    window.scrollTo(0,lockY);
   }
 }
-
 function sheetOpened(){
-  if(isWide()){ bindSheetGesture(); return; }
-  lockScroll(true);
+  if(isWide()){bindSheetGesture();return}          /* PC は body を固定しない */
+  if(!locked){ locked=true; lockScroll(true); }
   if(!pushed){ pushed=true; history.pushState({sheet:1},''); }
   bindSheetGesture();
 }
-
 function closeOverlay(){
   var box=document.getElementById('sheet');
   var sh=box.querySelector('.sheet');
-  if(DISMISSING){
+  if(DISMISSING){                       /* スワイプで既に消えている */
     DISMISSING=false;
     if(!isWide()) openCo=null;
     box.innerHTML='';
-    restoreOriginEl(false);
-    lockScroll(false);
+    if(locked){locked=false;lockScroll(false)}
+    showSource();
     return;
   }
+  showSource();
+  /* スマホではシート＝詳細なので、閉じたら選択も解除する
+     （残っていると再描画のたびに詳細が復活する）。
+     PC の詳細は右パネル側なので触らない。 */
   if(!isWide()) openCo=null;
-  if(!sh){ lockScroll(false); restoreOriginEl(false); return; }
-
+  if(!sh){ if(locked){locked=false;lockScroll(false)} return }
   var card=sh.querySelector('.card,.spotbox');
   if(card){
-    card.classList.remove('settled');
+    card.classList.remove('settled','morph');
     card.classList.add('moving');
   }
-  sh.classList.add('out');
-  restoreOriginEl(true);
+  sh.classList.add('out');   /* カードは下へスライド、背景はフェード */
   setTimeout(function(){
     box.innerHTML='';
-    lockScroll(false);
-  }, 320);
+    if(locked){locked=false;lockScroll(false)}
+  },300);
 }
-
 function closeSide(){ openCo=null; sideEmpty(); }
-
 function closeSheet(e){
-  if(e && e.target !== e.currentTarget) return;
-  var box = document.getElementById('sheet');
+  if(e&&e.target!==e.currentTarget)return;
+  var box=document.getElementById('sheet');
   if(box.innerHTML){
-    if(!isWide() && pushed){ history.back(); return; }
+    if(!isWide()&&pushed){ history.back(); return }   /* popstate 側で閉じる */
     closeOverlay();
     return;
   }
   if(isWide()) closeSide();
 }
-
 window.addEventListener('popstate',function(){
   pushed=false;
   if(document.getElementById('sheet').innerHTML) closeOverlay();
 });
-
+var DISMISSING=false;
 function bindSheetGesture(){
   var card=document.querySelector('#sheet .card');
   if(!card||card._bound)return;
@@ -1110,19 +1097,14 @@ function bindSheetGesture(){
     raf=0;
     if(!active)return;
     var d=dy;
-    card.style.transform='translate3d(0,'+d+'px,0)';
-    var a=Math.max(0, 0.62 * (1 - (d>0?d:0)/380));
+    var sc=Math.max(.88,1-(d>0?d:0)/2500);
+    card.style.transform='translate3d(0,'+d+'px,0) scale('+sc+')';
+    var a=Math.max(0,.6*(1-(d>0?d:0)/400));
     sheet.style.background='rgba(0,0,0,'+a.toFixed(3)+')';
-
-    /* 下げる量に応じて背後の元カードを有機的にクロスフェード復元 */
-    if(ORIGIN_EL){
-      var srcOpacity = Math.min(1, Math.max(0, (d - 15) / 220));
-      ORIGIN_EL.classList.remove('is-source-hidden');
-      ORIGIN_EL.style.opacity = srcOpacity.toFixed(3);
-    }
+    fadeSource((d-15)/220);            /* 引くほど背後の元カードが戻ってくる */
   }
   function schedule(){ if(!raf) raf=requestAnimationFrame(paint); }
-  function stopRaf(){ if(raf){cancelAnimationFrame(raf);raf=0;} }
+  function stopRaf(){ if(raf){cancelAnimationFrame(raf);raf=0} }
 
   function reset(){
     stopRaf();
@@ -1133,9 +1115,10 @@ function bindSheetGesture(){
 
   card.addEventListener('touchstart',function(e){
     if(e.touches.length!==1)return;
+    if(card.scrollTop>0)return;                    /* 中身をスクロール中は触らない */
     y0=e.touches[0].clientY; x0=e.touches[0].clientX;
     t0=Date.now(); raw=0; dy=0; active=false;
-    card.classList.remove('spring');
+    card.classList.remove('spring','fly');
   },{passive:true});
 
   card.addEventListener('touchmove',function(e){
@@ -1143,48 +1126,42 @@ function bindSheetGesture(){
     var cy=e.touches[0].clientY, cx=e.touches[0].clientX;
     var vdy=cy-y0, vdx=cx-x0;
 
-    if(card.scrollTop>0){
-      y0 = cy;
-      return;
-    }
-
     if(!active){
-      if(Math.abs(vdx)>Math.abs(vdy))return;
-      if(Math.abs(vdy)<6)return;
+      if(Math.abs(vdx)>Math.abs(vdy))return;       /* 横スワイプは無視 */
+      if(Math.abs(vdy)<6)return;                   /* 誤爆防止のしきい値 */
       if(vdy<0&&card.scrollTop>0)return;
       active=true;
       card.classList.add('drag');
       sheet.classList.add('dragging');
     }
-    if(vdy>0&&card.scrollTop>0)return;
+    if(vdy>0&&card.scrollTop>0){ y0=cy; t0=Date.now(); return; }  /* 基準点を追従させる */
     raw=vdy;
-    dy = raw>0 ? raw : raw*0.22;
-    e.preventDefault();
+    /* 判定に使う値は描画を待たずにここで確定させる。
+       rAF の中で計算すると、素早いフリックで指を離したときに 0 のままになる */
+    dy = raw>0 ? raw : raw*0.2;                    /* 上方向はゴムの抵抗 */
+    e.preventDefault();                            /* Android の引き下げ更新も止まる */
     schedule();
   },{passive:false});
 
   function end(){
-    if(!active){ reset(); return; }
+    if(!active){ reset(); return }
     stopRaf();
     var dt=Math.max(1,Date.now()-t0);
-    var v=dy/dt;
-    var go = dy>100 || v>0.55;
+    var v=dy/dt;                                   /* px/ms。下向きが正 */
+    var go = dy>120 || v>0.65;
     if(go) dismiss(); else bounce();
   }
   card.addEventListener('touchend',end);
-  card.addEventListener('touchcancel',function(){ if(active)bounce(); else reset(); });
+  card.addEventListener('touchcancel',function(){ if(active)bounce(); else reset() });
 
   function bounce(){
     stopRaf();
+    fadeSource(0);
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform='';
     sheet.classList.remove('dragging');
-    sheet.style.background='rgba(0,0,0,0.62)';
-    if(ORIGIN_EL){
-      ORIGIN_EL.classList.add('is-source-hidden');
-      ORIGIN_EL.style.opacity = '';
-    }
+    sheet.style.background='';
     active=false; raw=0; dy=0;
   }
 
@@ -1193,20 +1170,22 @@ function bindSheetGesture(){
     active=false;
     card.classList.remove('drag');
 
-    /* Apple標準の心地よいリリース減速 */
-    card.style.transition = 'transform .34s cubic-bezier(0.32, 0.72, 0, 1), opacity .28s var(--apple-ease)';
-    card.style.transform = 'translate3d(0, 100%, 0)';
-    card.style.opacity = '0';
-    sheet.style.transition = 'background .34s var(--apple-ease)';
-    sheet.style.background = 'rgba(0,0,0,0)';
-
-    restoreOriginEl(true);
+    card.classList.add('fly');
+    if(isWide()){
+      card.style.transform='scale(.97)';           /* 中央表示は縮んで消す */
+    }else{
+      card.style.transform='translate3d(0,100%,0)'; /* スマホは下へ滑らせる */
+    }
+    card.style.opacity='0';
+    sheet.style.transition='background .3s var(--apple-ease)';
+    sheet.style.background='rgba(0,0,0,0)';
+    fadeSource(1);                                  /* 元カードを戻しきる */
 
     setTimeout(function(){
-      DISMISSING=true;
-      if(!isWide()&&pushed){ history.back(); }
+      DISMISSING=true;                              /* 見た目は終わっているので即撤去 */
+      if(!isWide()&&pushed){ history.back(); }      /* 履歴を必ず巻き戻す */
       else closeOverlay();
-    }, 340);
+    },380);
   }
 }
 
@@ -1245,11 +1224,12 @@ function gcalUrl(title,at,details,allDay){
     '&dates='+dates+'&ctz=Asia/Tokyo&details='+encodeURIComponent(details||'');
 }
 
+/* シートを開き直さず中身だけ差し替える（履歴とスクロール位置を壊さない） */
 function paintDetail(h){
   if(isWide()){
     var side=document.getElementById('side');
     var sc=side.querySelector('.card');
-    if(sc&&side.dataset.co===openCo){
+    if(sc&&side.dataset.co===openCo){      /* 同じ会社なら中身だけ差し替え */
       var sy=side.scrollTop;
       sc.innerHTML='<button class="sideclose" onclick="closeSide()">✕</button>'+h;
       side.scrollTop=sy;
@@ -1262,20 +1242,21 @@ function paintDetail(h){
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
   if(card){
+    /* すでに開いているシートは動かさない。中身だけ差し替える（再計算を最小化） */
     var y=card.scrollTop;
     card.innerHTML=h;
     card.scrollTop=y;
     return;
   }
-  box.innerHTML='<div class="sheet active" onclick="closeSheet(event)"><div class="card">'+h+'</div></div>';
-  var newCard = box.querySelector('.card');
-  applyOpenMorph(newCard);
+  box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+h+'</div></div>';
+  applyMorph(box.querySelector('.card'));
+  hideSource();
   sheetOpened();
 }
 
 function renderDetail(){
   var it=byCo(openCo);
-  if(!it){ openCo=null; if(isWide())sideEmpty(); else closeOverlay(); return; }
+  if(!it){ openCo=null; if(isWide())sideEmpty(); else closeOverlay(); return }
   var st=stOf(it), rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
   var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
   var col=st==='waiting'?'var(--wait)':(st==='offer'||st==='fixed')?'var(--go)':'var(--muted)';
@@ -1433,11 +1414,10 @@ function delEv(uid){
 /* ============ 検索 ============ */
 function openSearch(){
   var box=document.getElementById('sheet');
-  box.innerHTML='<div class="sheet spot active" onclick="closeSheet(event)"><div class="spotbox">'+
+  box.innerHTML='<div class="sheet spot" onclick="closeSheet(event)"><div class="spotbox">'+
     '<input id="q" placeholder="会社名を入力" autocomplete="off">'+
     '<div id="qres"></div></div></div>';
-  var boxEl = box.querySelector('.spotbox');
-  applyOpenMorph(boxEl);
+  applyMorph(document.querySelector('.spotbox'));
   if(!isWide()) sheetOpened();
   var q=document.getElementById('q');
   q.addEventListener('input',function(){searchRun(q.value)});
@@ -1471,7 +1451,7 @@ document.addEventListener('keydown',function(e){
 function openAdd(){
   openCo=null;
   document.getElementById('sheet').innerHTML=
-    '<div class="sheet active" onclick="closeSheet(event)"><div class="card" id="addCard">'+
+    '<div class="sheet" onclick="closeSheet(event)"><div class="card" id="addCard">'+
     '<div class="grab"></div><div style="font-size:18px;font-weight:700">選考を追加</div>'+
     '<div class="lab">会社名</div><input class="f" id="nC" placeholder="例：三菱商事">'+
     '<div class="lab">マイページURL（任意）</div><input class="f" id="nU">'+
@@ -1480,7 +1460,7 @@ function openAdd(){
     '<div class="lab">段階</div><select class="f" id="nS">'+PALETTE.map(function(p){return '<option>'+p+'</option>'}).join('')+'</select>'+
     '<div class="lab">締切（任意）</div><input class="f" type="datetime-local" id="nDue">'+
     '<button class="big" style="background:#fff;color:#000" onclick="doAdd()">追加する</button></div></div>';
-  applyOpenMorph(document.getElementById('addCard'));
+  applyMorph(document.getElementById('addCard'));
   sheetOpened();
 }
 function doAdd(){
@@ -1536,6 +1516,7 @@ function renderPassport(){
     if(order.indexOf(r[i])>order.indexOf(deepest)) deepest=r[i];
   });
 
+  /* --- カードを個別に組み立て、左右の列へ独立して積む --- */
   var cA=[], cB=[];
 
   cA.push('<div class="pcard po1" style="background:linear-gradient(155deg,#2A2266 0%,#1C3A78 55%,#1E538A 100%);color:#EAF0FF">'+
@@ -1547,7 +1528,7 @@ function renderPassport(){
       '<span>進行中 <b>'+live.length+'</b></span>'+
       '<span>終了 <b>'+fails.length+'</b></span>'+
       '<span>見送り <b>'+skipped.length+'</b></span></div>'+
-    '<div class="pfoot">最も進んだ段階 '+esc(deepest)+'</div></div>');
+    '<div class="pfoot">最も進んだ段階　'+esc(deepest)+'</div></div>');
 
   if(worst&&t[worst].f>0){
     cA.push('<div class="pcard po2" style="background:linear-gradient(155deg,#7A1F2B 0%,#54141F 100%);color:#FFE9EC">'+
@@ -1598,7 +1579,7 @@ function renderPassport(){
   brk+='</div></div>';
   cA.push(brk);
 
-  var h='<div class="ptitle">'+TERM+' 記録</div>'+
+  var h='<div class="ptitle">'+TERM+'　記録</div>'+
     '<div class="pwrap">'+
       '<div class="pcol">'+cA.join('')+'</div>'+
       '<div class="pcol">'+cB.join('')+'</div>'+
