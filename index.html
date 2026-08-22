@@ -89,7 +89,7 @@ button,select,input{font-family:var(--body)}
   border:1px solid var(--line);border-radius:16px;box-shadow:var(--edge),var(--drop);
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 9px);
-  opacity:calc(var(--base-op, 1) * var(--srcop, 1));
+  opacity:var(--base-op, 1);
   transition:transform .28s var(--apple-spring),opacity .24s var(--apple-ease);
   will-change:transform,opacity}
 .row:active{transform:scale(.98);transition:transform .12s var(--apple-press)}
@@ -99,7 +99,6 @@ button,select,input{font-family:var(--body)}
   border-color:rgba(48,209,88,.5)}
 .row.is-muted{--base-op:0.45}
 
-.is-source-hidden{--srcop:0 !important;pointer-events:none !important}
 .row .main{padding:14px 15px 12px;display:flex;align-items:center;gap:14px;flex:1 1 auto}
 .day{width:60px;flex:0 0 auto;text-align:center}
 .day b{font-family:var(--disp);font-size:32px;font-weight:600;letter-spacing:-.035em;
@@ -129,14 +128,14 @@ button,select,input{font-family:var(--body)}
 /* ---------- sheet / card ---------- */
 .sheet{position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.6);
   display:flex;align-items:flex-end;justify-content:center;z-index:50;
-  padding:0 10px calc(12px + env(safe-area-inset-bottom));
+  padding:0 10px calc(10px + env(safe-area-inset-bottom));
   animation:backIn .28s var(--apple-ease) both;
   will-change:opacity;transform:translateZ(0)}
 .card{background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
-  max-height:88vh;max-height:88dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
   border-radius:24px;border:1px solid var(--line);
-  padding:10px 20px calc(36px + env(safe-area-inset-bottom));
+  padding:10px 20px calc(14px + env(safe-area-inset-bottom));
   animation:sheetUp .46s var(--apple-spring) both;
   will-change:transform,opacity;transform:translate3d(0,0,0)}
 
@@ -146,7 +145,7 @@ button,select,input{font-family:var(--body)}
 .card.settled,.spotbox.settled{will-change:auto}
 
 .grab{width:36px;height:5px;background:rgba(255,255,255,.22);border-radius:3px;margin:0 auto 16px;
-  transition:background .2s var(--apple-ease)}
+  transition:background .2s var(--apple-ease);flex:0 0 auto}
 .card.drag .grab{background:rgba(255,255,255,.45)}
 .sheet.out{animation:backOut .24s var(--apple-ease) forwards}
 .sheet.out .card,.sheet.out .spotbox{animation:sheetDown .28s var(--apple-spring) forwards}
@@ -162,7 +161,8 @@ button,select,input{font-family:var(--body)}
   transition:transform .2s var(--apple-spring),background .18s var(--apple-ease)}
 .sideclose:hover{background:rgba(255,255,255,.18);color:var(--text)}
 
-/* ---------- detail tabs ---------- */
+/* ---------- detail header & tab content ---------- */
+.card-head{flex:0 0 auto}
 .tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
@@ -170,9 +170,10 @@ button,select,input{font-family:var(--body)}
 .tabs button:active{transform:scale(.96);transition:transform .12s var(--apple-press)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
 
-.tab-pane{min-height:360px;animation:tabPaneIn .32s var(--apple-spring) both}
+.tab-pane{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-bottom:32px;animation:tabPaneIn .28s var(--apple-spring) both}
 @keyframes tabPaneIn{
-  from{opacity:0;transform:translate3d(8px,0,0)}
+  from{opacity:0;transform:translate3d(6px,0,0)}
   to{opacity:1;transform:translate3d(0,0,0)}
 }
 
@@ -360,8 +361,8 @@ button,select,input{font-family:var(--body)}
 @media (min-width:820px){
   body{max-width:960px;padding-left:28px;padding-right:28px}
   .sheet{align-items:center}
-  .sheet .card{max-width:600px;max-height:84dvh;border-radius:22px;
-    padding:10px 28px calc(36px + env(safe-area-inset-bottom));animation:rise .34s var(--apple-spring)}
+  .sheet .card{max-width:600px;height:84vh;height:84dvh;border-radius:22px;
+    padding:10px 28px calc(24px + env(safe-area-inset-bottom));animation:rise .34s var(--apple-spring)}
   .sheet.out .card,.sheet.out .spotbox{animation:fadeShrink .22s var(--apple-ease) forwards}
   .lanes{display:block}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:stretch}
@@ -384,11 +385,11 @@ button,select,input{font-family:var(--body)}
   .chips{margin:16px 0 10px;padding:10px 0 8px}
   .row:hover{background-image:var(--sheen),linear-gradient(rgba(255,255,255,.04),rgba(255,255,255,.04))}
   #side{display:block;position:sticky;top:28px;flex:0 0 380px;width:380px;
-    height:calc(100vh - 138px);height:calc(100dvh - 138px);overflow-y:auto;
+    height:calc(100vh - 138px);height:calc(100dvh - 138px);overflow:hidden;
     background:var(--hi);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);
     border:1px solid var(--line);border-radius:22px;box-shadow:var(--edge),var(--drop-lg);
-    padding:22px 20px 28px}
-  #side .card{background:none;border:none;padding:0;max-width:none;max-height:none;
+    padding:22px 20px 24px}
+  #side .card{background:none;border:none;padding:0;max-width:none;height:100%;
     box-shadow:none;backdrop-filter:none;animation:rise .3s var(--apple-spring);position:relative}
   #side .grab{display:none}
   #side .sideclose{display:flex}
@@ -724,6 +725,11 @@ function doStatus(co,st){
     if(st==='対応中'){it.lost='';it.on=null;}
   },'apiSetStatus',[co,TERM,st],st+'にしました');
 }
+function setDue(co){
+  var el=document.getElementById('coDue');
+  var v=el?el.value:'';
+  call('apiSetDue',[co,TERM,v],function(){toast(v?'締切を更新しました':'締切を未定にしました',true)});
+}
 
 /* ============ 状態 ============ */
 function stOf(it){
@@ -869,8 +875,8 @@ function render(pageChanged){
     h+='<div style="color:var(--dim);font-size:14px;padding:20px 0">予定も締切もありません。</div>';
   }
 
-  var events=agenda.filter(function(a){return a.kind==='event'&&a!==hero});
-  var todo=LIST.filter(function(x){return stOf(x)==='todo'&&!(hero&&hero.kind==='due'&&hero.c===x.c)})
+  var events=agenda.filter(function(a){return a.kind==='event'});
+  var todo=LIST.filter(function(x){return stOf(x)==='todo'})
     .sort(function(a,b){return (D(a.due)||9e15)-(D(b.due)||9e15)});
   var fixed=LIST.filter(function(x){return stOf(x)==='fixed'});
   var waiting=LIST.filter(function(x){return stOf(x)==='waiting'})
@@ -941,13 +947,6 @@ function render(pageChanged){
   tickHero();
 
   if(openCo){
-    if(ORIGIN&&ORIGIN.co===openCo){
-      var activeEl = document.querySelector('[data-cardco="'+esc(openCo)+'"]');
-      if(activeEl){
-        ORIGIN.el = activeEl;
-        ORIGIN.el.classList.add('is-source-hidden');
-      }
-    }
     if(byCo(openCo)) renderDetail();
     else { openCo=null; if(isWide())sideEmpty(); }
   } else if(isWide()) {
@@ -1000,29 +999,8 @@ function markOrigin(e){
     y: r.top+r.height/2,
     w: r.width,
     h: r.height,
-    co: co,
-    el: (el.classList&&el.classList.contains('row'))?el:null
+    co: co
   };
-}
-function hideSource(){
-  if(ORIGIN&&ORIGIN.el){
-    ORIGIN.el.classList.add('is-source-hidden');
-  }
-}
-function fadeSource(v){
-  if(ORIGIN&&ORIGIN.el){
-    ORIGIN.el.style.setProperty('--srcop', String(Math.max(0,Math.min(1,v))));
-  }
-}
-function showSource(){
-  if(ORIGIN&&ORIGIN.el){
-    var el=ORIGIN.el;
-    el.style.setProperty('--srcop','1');
-    setTimeout(function(){
-      el.classList.remove('is-source-hidden');
-      el.style.removeProperty('--srcop');
-    },380);
-  }
 }
 function settleAfter(node,ms){
   if(!node)return;
@@ -1079,10 +1057,8 @@ function closeOverlay(){
     if(!isWide()) openCo=null;
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
-    showSource();
     return;
   }
-  showSource();
   if(!isWide()) openCo=null;
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
   var card=sh.querySelector('.card,.spotbox');
@@ -1121,6 +1097,11 @@ function bindSheetGesture(){
 
   var y0=0, x0=0, t0=0, dy=0, active=false, tracking=false;
 
+  function getScrollTop(){
+    var pane = card.querySelector('.tab-pane');
+    return pane ? pane.scrollTop : card.scrollTop;
+  }
+
   card.addEventListener('touchstart',function(e){
     if(e.touches.length!==1) return;
     y0 = e.touches[0].clientY;
@@ -1139,9 +1120,10 @@ function bindSheetGesture(){
     var vdy = cy - y0;
     var vdx = cx - x0;
 
+    var st = getScrollTop();
     if(!active){
       if(Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
-      if(card.scrollTop <= 0 && vdy > 6){
+      if(st <= 0 && vdy > 6){
         active = true;
         card.classList.add('drag','moving');
         sheet.classList.add('dragging');
@@ -1156,7 +1138,6 @@ function bindSheetGesture(){
       card.style.transform = 'translate3d(0,' + dy + 'px,0) scale(' + sc + ')';
       var a = Math.max(0, .6 * (1 - dy/380));
       sheet.style.background = 'rgba(0,0,0,' + a.toFixed(3) + ')';
-      fadeSource((dy-15)/200);
       if(e.cancelable) e.preventDefault();
     }
   },{passive:false});
@@ -1176,7 +1157,6 @@ function bindSheetGesture(){
   card.addEventListener('touchcancel', end);
 
   function bounce(){
-    fadeSource(0);
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform = '';
@@ -1196,7 +1176,6 @@ function bindSheetGesture(){
     card.style.opacity = '0';
     sheet.style.transition = 'background .28s var(--apple-ease)';
     sheet.style.background = 'rgba(0,0,0,0)';
-    fadeSource(1);
 
     setTimeout(function(){
       DISMISSING = true;
@@ -1262,14 +1241,11 @@ function paintDetail(h){
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
   if(card){
-    var y=card.scrollTop;
     card.innerHTML=h;
-    card.scrollTop=y;
     return;
   }
   box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+h+'</div></div>';
   applyMorph(box.querySelector('.card'));
-  hideSource();
   sheetOpened();
 }
 
@@ -1281,7 +1257,8 @@ function renderDetail(){
   var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
   var col=st==='waiting'?'var(--wait)':(st==='offer'||st==='fixed')?'var(--go)':'var(--muted)';
 
-  var h='<div class="grab"></div>'+
+  var h='<div class="card-head">'+
+    '<div class="grab"></div>'+
     '<div style="display:flex;align-items:center;gap:12px">'+logo(it,44)+
     '<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">'+esc(it.c)+'</div>'+
     '<div style="font-family:var(--mono);font-size:11px;color:'+col+';margin-top:3px">'+
@@ -1290,19 +1267,27 @@ function renderDetail(){
       ['info,概要','events,予定 '+evOf(it.c).length,'route,選考ルート'].map(function(x){
         var k=x.split(',')[0];
         return '<button class="'+(tab===k?'on':'')+'" onclick="switchTab(\''+k+'\')">'+x.split(',')[1]+'</button>';
-      }).join('')+'</div>';
+      }).join('')+'</div>'+
+    '</div>';
 
   h+='<div class="tab-pane">';
 
   if(tab==='info'){
     var r=it.due?rem(it.due):null;
-    if(st==='todo'&&r){
+    if(st==='todo'){
       h+='<div style="margin-top:18px;padding-bottom:16px;border-bottom:1px solid var(--line-soft)">'+
-        '<div class="lab" style="margin:0 0 8px">締切まで</div>'+
-        '<div class="cd" style="margin-top:0;color:'+(r.ms<172800000?'var(--hot)':'var(--text)')+'">'+
-        '<b style="font-size:50px">'+r.d+'</b><s>d</s><b style="font-size:50px">'+('0'+r.h).slice(-2)+'</b><s>h</s>'+
-        '<b style="font-size:50px">'+('0'+r.m).slice(-2)+'</b><s>m</s></div>'+
-        '<div class="sub">'+fdate(it.due)+(it.timeUnset?' 時刻未設定':' '+ftime(it.due))+'</div></div>';
+        '<div class="lab" style="margin:0 0 8px">締切まで</div>';
+      if(r){
+        h+='<div class="cd" style="margin-top:0;color:'+(r.ms<172800000?'var(--hot)':'var(--text)')+'">'+
+          '<b style="font-size:50px">'+r.d+'</b><s>d</s><b style="font-size:50px">'+('0'+r.h).slice(-2)+'</b><s>h</s>'+
+          '<b style="font-size:50px">'+('0'+r.m).slice(-2)+'</b><s>m</s></div>'+
+          '<div class="sub">'+fdate(it.due)+(it.timeUnset?' 時刻未設定':' '+ftime(it.due))+'</div>';
+      } else {
+        h+='<div style="font-size:13px;color:var(--dim);margin:8px 0 12px">締切が未設定です</div>';
+      }
+      h+='<div style="display:flex;gap:8px;margin-top:10px">'+
+        '<input class="f" type="datetime-local" id="coDue" style="flex:1;margin:0" value="'+esc(it.due||'')+'">'+
+        '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setDue(\''+esc(it.c)+'\')">保存</button></div></div>';
     }
     if(st==='waiting'){
       var d=since(it.since||(it.due?it.due.slice(0,10):null));
@@ -1475,7 +1460,7 @@ document.addEventListener('keydown',function(e){
 function openAdd(){
   openCo=null;
   document.getElementById('sheet').innerHTML=
-    '<div class="sheet" onclick="closeSheet(event)"><div class="card" id="addCard">'+
+    '<div class="sheet" onclick="closeSheet(event)"><div class="card" id="addCard" style="height:auto;max-height:88dvh;overflow-y:auto">'+
     '<div class="grab"></div><div style="font-size:18px;font-weight:700">選考を追加</div>'+
     '<div class="lab">会社名</div><input class="f" id="nC" placeholder="例：三菱商事">'+
     '<div class="lab">マイページURL（任意）</div><input class="f" id="nU">'+
