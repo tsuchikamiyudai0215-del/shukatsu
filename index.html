@@ -295,6 +295,13 @@ button,select,input{font-family:var(--body)}
 .chiprow button.on b{color:#000}
 
 .lanes{transition:opacity .2s var(--apple-ease)}
+/* チップで絞り込んだ瞬間に、表示されたレーンだけを立ち上げ直す */
+.lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
+.lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{
+  animation:rise .4s var(--apple-spring) both}
+.lanes.filt-in .lane:not(.is-filt-hidden) .row{
+  animation:rise .5s var(--apple-pop) both;
+  animation-delay:calc(var(--fi,0) * 28ms)}
 .lane{transition:opacity .22s var(--apple-ease),transform .22s var(--apple-spring);margin-bottom:6px}
 .lane.is-filt-hidden{display:none !important}
 
@@ -843,11 +850,21 @@ function syncPills(){
   updateSeg();
 }
 
+function replayFilterMotion(){
+  var box=document.querySelector('.lanes');
+  if(!box)return;
+  /* 見えている行だけに順番を振り直す（隠れた行の分だけ遅れないように） */
+  var vis=box.querySelectorAll('.lane:not(.is-filt-hidden) .row');
+  for(var i=0;i<vis.length;i++) vis[i].style.setProperty('--fi', i<12?i:12);
+  box.classList.remove('filt-in');
+  void box.offsetWidth;                 /* 再生し直すために一度リセット */
+  box.classList.add('filt-in');
+}
 function setFilt(k){
   FILT = (FILT===k && k!=='all') ? 'all' : k;
   /* 終了・見送りに絞ったときは、畳んだままだと中身が見えないので開く */
-  if(FILT==='end' && !window._end){ window._end=true; render(false); return; }
-  if(FILT==='skip' && !window._skip){ window._skip=true; render(false); return; }
+  if(FILT==='end' && !window._end){ window._end=true; render(false); replayFilterMotion(); return; }
+  if(FILT==='skip' && !window._skip){ window._skip=true; render(false); replayFilterMotion(); return; }
 
   var btns = document.querySelectorAll('.chiprow button');
   Array.prototype.forEach.call(btns,function(b){
@@ -869,6 +886,8 @@ function setFilt(k){
       l.classList.toggle('is-filt-hidden', lk!==FILT);
     }
   });
+
+  replayFilterMotion();
 }
 
 function setPage(p){
