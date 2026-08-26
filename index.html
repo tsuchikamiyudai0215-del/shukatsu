@@ -140,7 +140,7 @@ button,select,input{font-family:var(--body)}
   transition:opacity .26s var(--apple-ease);
   transform:translateZ(0)}
 .sheet.is-active{opacity:1;pointer-events:auto}
-.card{background:var(--hi);
+.card{position:relative;background:var(--hi);
   box-shadow:var(--edge),var(--drop-lg);width:100%;max-width:480px;
   height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
   border-radius:24px;border:1px solid var(--line);
@@ -157,15 +157,15 @@ button,select,input{font-family:var(--body)}
 .sheet .card.drag{transition:none}
 .sheet .card.spring{transition:transform .5s var(--apple-bounce)}
 .sheet .card.fly{transition:transform .26s var(--apple-spring),opacity .2s var(--apple-ease)}
-.sideclose{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:14px;
-  background:rgba(255,255,255,.1);border:none;color:var(--muted);font-size:15px;cursor:pointer;
-  display:none;align-items:center;justify-content:center;line-height:1;
+.sideclose{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:15px;
+  background:rgba(255,255,255,.12);border:none;color:var(--muted);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;line-height:1;z-index:5;
   transition:transform .24s var(--apple-spring),background .18s var(--apple-ease),color .18s var(--apple-ease)}
 .sideclose:active{transform:scale(.92);transition:transform .12s var(--apple-press)}
 .sideclose:hover{background:rgba(255,255,255,.18);color:var(--text)}
 
 /* ---------- detail header & tab content ---------- */
-.card-head{flex:0 0 auto}
+.card-head{flex:0 0 auto;padding-right:40px}
 .tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
@@ -484,6 +484,19 @@ body.sheet-open .tabbar{transform:translateX(-50%) translateY(120%) scale(.9);op
 /* ============ 定数 ============ */
 var DEFAULT_ROUTE = ['エントリー','ES','適性検査','GD','面接','最終面接','内定'];
 var PALETTE = ['エントリー','ES','適性検査','Webテスト','GD','面談','一次面接','二次面接','三次面接','面接','最終面接','インターン','内定'];
+/* 自分で足した段階名は端末に覚えさせて、次からは一覧に出す */
+try{
+  var _cs=JSON.parse(localStorage.getItem('sk_stages')||'[]');
+  _cs.forEach(function(x){ if(PALETTE.indexOf(x)<0) PALETTE.push(x) });
+}catch(e){}
+function rememberStage(name){
+  if(!name)return;
+  if(PALETTE.indexOf(name)<0) PALETTE.push(name);
+  try{
+    var a=JSON.parse(localStorage.getItem('sk_stages')||'[]');
+    if(a.indexOf(name)<0){ a.push(name); localStorage.setItem('sk_stages',JSON.stringify(a)); }
+  }catch(e){}
+}
 var KINDS = ['面接','説明会','GD','面談','インターン','適性検査'];
 var WD = ['日','月','火','水','木','金','土'];
 var NONCO = ['テストセンター','テストセンター受験','Webテスト'];
@@ -1112,6 +1125,11 @@ function closeOverlay(){
   },300);
 }
 function closeSide(){ openCo=null; sideEmpty(); }
+/* 画面幅を問わず詳細を閉じる */
+function closeDetail(){
+  if(isWide()){ closeSide(); return; }
+  closeSheet();
+}
 function closeSheet(e){
   if(e&&e.target!==e.currentTarget)return;
   var box=document.getElementById('sheet');
@@ -1381,10 +1399,19 @@ function renderTabContent(it){
         '<button class="gh" style="padding:4px 9px" onclick="mv('+i+',1)">↓</button>'+
         '<button class="gh" style="padding:4px 9px;color:var(--hot)" onclick="rm('+i+')">×</button></div>';
     });
-    h+='</div><div style="display:flex;gap:8px;margin-top:12px">'+
-      '<select class="f" style="flex:1;margin:0" id="addStage">'+PALETTE.map(function(p){return '<option>'+p+'</option>'}).join('')+'</select>'+
-      '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addStage()">追加</button></div>'+
-      '<div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.8">段階名をタップすると現在地になります。↑↓で並べ替え。変更はすぐ保存されます。</div></div>';
+    h+='</div>'+
+      '<div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<select class="f" style="flex:1;margin:0" id="addStage">'+
+          PALETTE.map(function(p){return '<option>'+p+'</option>'}).join('')+'</select>'+
+        '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addStage()">追加</button></div>'+
+      '<div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div>'+
+      '<div style="display:flex;gap:8px">'+
+        '<input class="f" style="flex:1;margin:0" id="newStage" placeholder="例：リクルーター面談"'+
+          ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();addCustomStage()}">'+
+        '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addCustomStage()">追加</button></div>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">'+
+      '段階名をタップすると現在地になります。↑↓で並べ替え、×で削除。変更はすぐ保存されます。</div></div>';
   }
   return h;
 }
@@ -1394,6 +1421,7 @@ function paintDetail(it){
   var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
 
   var headHtml = '<div class="grab"></div>'+
+    (isWide()?'':'<button class="sideclose" onclick="event.stopPropagation();closeDetail()" aria-label="閉じる">✕</button>')+
     '<div style="display:flex;align-items:center;gap:12px">'+logo(it,44)+
     '<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">'+esc(it.c)+'</div>'+
     '<div style="font-family:var(--mono);font-size:11px;color:'+col+';margin-top:3px">'+
@@ -1411,12 +1439,12 @@ function paintDetail(it){
     var sc=side.querySelector('.card');
     if(sc && side.dataset.co===openCo){
       var sy=side.scrollTop;
-      sc.innerHTML='<button class="sideclose" onclick="closeSide()">✕</button>'+fullHtml;
+      sc.innerHTML='<button class="sideclose" onclick="event.stopPropagation();closeDetail()">✕</button>'+fullHtml;
       side.scrollTop=sy;
       return;
     }
     side.dataset.co=openCo;
-    side.innerHTML='<div class="card"><button class="sideclose" onclick="closeSide()">✕</button>'+fullHtml+'</div>';
+    side.innerHTML='<div class="card"><button class="sideclose" onclick="event.stopPropagation();closeDetail()">✕</button>'+fullHtml+'</div>';
     return;
   }
 
@@ -1451,8 +1479,26 @@ function mv(i,d){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice(),j=i
 function rm(i){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice();
   if(r.length<=2)return; r.splice(i,1); saveRoute(r)}
 function setCur(i){var it=byCo(openCo);if(!it)return;var r=routeOf(it); saveRoute(r.slice(),r[i])}
-function addStage(){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice();
-  r.push(document.getElementById('addStage').value); saveRoute(r)}
+function addStage(){
+  var it=byCo(openCo); if(!it)return;
+  var v=document.getElementById('addStage').value;
+  var r=routeOf(it).slice();
+  if(r.indexOf(v)>=0){ toast('すでにその段階があります'); return; }
+  r.push(v); saveRoute(r);
+}
+function addCustomStage(){
+  var it=byCo(openCo); if(!it)return;
+  var el=document.getElementById('newStage');
+  var v=el?el.value.trim():'';
+  if(!v){ toast('段階の名前を入れてください'); return; }
+  if(v.indexOf('>')>=0){ toast('「>」は使えません'); return; }   /* 保存形式の区切り文字 */
+  var r=routeOf(it).slice();
+  if(r.indexOf(v)>=0){ toast('すでにその段階があります'); return; }
+  r.push(v);
+  if(el) el.value='';
+  saveRoute(r);
+  toast(v+' を追加しました',true);
+}
 
 function addEv(){
   var at=document.getElementById('evAt').value;
@@ -1501,7 +1547,19 @@ function pick(co,term){
 }
 document.addEventListener('keydown',function(e){
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openSearch()}
-  if(e.key==='Escape'&&document.getElementById('sheet').innerHTML)closeSheet();
+  if(e.key==='Escape'){
+    if(document.getElementById('sheet').innerHTML) closeSheet();
+    else if(isWide()&&openCo) closeSide();
+  }
+});
+/* PC：一覧の余白をクリックしても詳細を閉じる */
+document.addEventListener('click',function(e){
+  if(!isWide()||!openCo)return;
+  if(document.getElementById('sheet').innerHTML)return;
+  var t=e.target;
+  if(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
+     t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg'))return;
+  closeSide();
 });
 
 /* ============ 追加 ============ */
