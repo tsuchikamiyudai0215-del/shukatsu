@@ -341,6 +341,12 @@ button,select,input{font-family:var(--body)}
   background:var(--chrome);border:1px solid var(--line);border-radius:15px;padding:12px 18px;font-size:13px;font-weight:500;
   box-shadow:var(--edge),var(--drop-lg);transition:all .5s var(--apple-bounce);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
+#stale{position:fixed;top:calc(8px + env(safe-area-inset-top));left:50%;
+  transform:translate3d(-50%,-14px,0);opacity:0;pointer-events:none;z-index:70;
+  background:var(--chrome);border:1px solid var(--line);border-radius:999px;
+  padding:5px 14px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);
+  transition:opacity .3s var(--apple-ease),transform .4s var(--apple-spring)}
+#stale.on{opacity:1;transform:translate3d(-50%,0,0)}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;
   align-items:center;justify-content:center;z-index:99;
   font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.2em}
@@ -477,6 +483,7 @@ body.sheet-open .tabbar{transform:translateX(-50%) translateY(120%) scale(.9);op
 
 <div id="side"></div>
 <div id="sheet"></div>
+<div id="stale">更新中…</div>
 <div id="toast"></div>
 <div id="busy">SAVING…</div>
 
@@ -684,6 +691,7 @@ function api(action,args){
 function busy(on){document.getElementById('busy').style.display=on?'flex':'none'}
 function applyData(j,cb){
   DATA=j;
+  if(j&&j.items&&j.items.length) cacheSave(j);
   if(DATA.logos)for(var k in DATA.logos)if(!LOGOS[k])LOGOS[k]=DATA.logos[k];
   render(false); hydrateLogos(); if(cb)cb();
 }
@@ -692,6 +700,7 @@ function call(fn,args,cb){
   api(fn,args).then(function(j){ busy(false); applyData(j,cb); })
   .catch(function(e){
     busy(false); hideSplash();
+    resetUi();                       /* 開いているシート等を必ず片付ける */
     document.getElementById('app').innerHTML=
       '<div style="color:var(--dim);font-size:13px;line-height:1.9;padding:40px 0">'+
       '読み込めませんでした。<br>'+esc(e&&e.message?e.message:'')+
@@ -699,13 +708,55 @@ function call(fn,args,cb){
       '<button class="gh" style="margin-left:8px" onclick="openSetup()">接続設定</button></div>';
   });
 }
+/* 何かに失敗したとき、操作不能にならないよう画面を素に戻す */
+function resetUi(){
+  var box=document.getElementById('sheet');
+  if(box) box.innerHTML='';
+  if(typeof bgPush==='function') bgPush(false);
+  if(locked){ locked=false; lockScroll(false); }
+  pushed=false;
+  openCo=null;
+  document.body.classList.remove('sheet-open');
+  var dock=document.getElementById('tabbar');
+  if(dock) dock.style.display='';
+  var side=document.getElementById('side');
+  if(side){ side.dataset.co=''; side.innerHTML=''; }
+}
 var booted=false;
 function hideSplash(){
   if(booted)return; booted=true;
   var el=document.getElementById('splash');
   if(el){el.classList.add('gone');setTimeout(function(){if(el.parentNode)el.remove()},350)}
 }
-function load(){call('apiGetData',[],hideSplash)}
+/* 前回の内容を端末に持っておき、起動直後に即描画する。
+   最新はその裏で取りに行き、届いたら静かに差し替える */
+function cacheSave(j){
+  try{ localStorage.setItem('sk_cache', JSON.stringify(
+    {items:j.items, events:j.events, logos:j.logos, at:Date.now()})); }catch(e){}
+}
+function cacheLoad(){
+  try{ return JSON.parse(localStorage.getItem('sk_cache')||'null'); }catch(e){ return null }
+}
+function load(){
+  var c=cacheLoad();
+  if(c && c.items && c.items.length){
+    applyData(c, hideSplash);              /* まず前回の内容で描く */
+    var st=document.getElementById('stale');
+    if(st) st.classList.add('on');
+    api('apiGetData',[]).then(function(j){
+      if(!j||!j.items) return;
+      cacheSave(j);
+      applyData(j);
+      var e=document.getElementById('stale'); if(e) e.classList.remove('on');
+    }).catch(function(){
+      var e=document.getElementById('stale');
+      if(e){ e.textContent='最新を取得できませんでした'; }
+      toast('最新を取得できませんでした。前回の内容を表示しています');
+    });
+    return;
+  }
+  call('apiGetData',[],hideSplash);
+}
 
 /* ============ 楽観的更新 ============ */
 function toast(msg,ok){
@@ -726,7 +777,7 @@ function opt(mutate,fn,args,label){
   }).catch(function(){
     DATA.items=JSON.parse(snap);
     render(false);
-    toast('保存できませんでした');
+    toast('保存できませんでした。通信を確認してください');
   });
   if(label)toast(label,true);
 }
@@ -1712,6 +1763,8 @@ function renderPassport(pageChanged){
 function openSetup(msg){
   hideSplash();
   bgPush(false);
+  if(locked){ locked=false; lockScroll(false); }
+  pushed=false; openCo=null;
   document.getElementById('sheet').innerHTML='';
   var dock=document.getElementById('tabbar');
   if(dock)dock.style.display='none';
@@ -1755,7 +1808,8 @@ function doSetup(){
 }
 function resetCfg(){
   if(!confirm('接続設定を消してやり直しますか。'))return;
-  try{localStorage.removeItem('sk_ep');localStorage.removeItem('sk_key');}catch(e){}
+  try{localStorage.removeItem('sk_ep');localStorage.removeItem('sk_key');
+      localStorage.removeItem('sk_cache');}catch(e){}
   CFG={ep:'',key:''};
   openSetup();
 }
