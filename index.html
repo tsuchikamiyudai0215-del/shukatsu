@@ -265,19 +265,41 @@ button,select,input{font-family:var(--body)}
 /* Chrome 系だけ、ガラス越しの背景を実際に歪ませる */
 html.can-refract .tabbar.lifted,
 html.can-refract .seg.lifted{
-  backdrop-filter:blur(14px) saturate(160%) url(#liquidWarp);
-  -webkit-backdrop-filter:blur(14px) saturate(160%);
-  background:rgba(46,46,52,.62)}
+  backdrop-filter:blur(10px) saturate(210%) brightness(1.12) url(#liquidWarp);
+  -webkit-backdrop-filter:blur(10px) saturate(210%) brightness(1.12);
+  background:rgba(48,48,56,.42)}   /* 薄くして背景を透かす */
 
 /* ---------- リキッドグラス：長押しでつまんで動かす ---------- */
 .tabbar,.seg{touch-action:pan-y;
   -webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none}          /* 長押しメニューを出さない */
+.tabbar,.seg{position:relative;isolation:isolate}
+/* バーの表面を走る反射。指の位置に追従する */
+.tabbar::before,.seg::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:2;
+  opacity:0;transition:opacity .3s var(--apple-ease);
+  background:
+    radial-gradient(120% 180% at var(--hx,50%) -30%,
+      rgba(255,255,255,.34) 0%,rgba(255,255,255,.08) 34%,rgba(255,255,255,0) 62%),
+    linear-gradient(180deg,rgba(255,255,255,.18) 0%,rgba(255,255,255,0) 34%,
+      rgba(255,255,255,0) 66%,rgba(255,255,255,.07) 100%)}
+.tabbar.lifted::before,.seg.lifted::before{opacity:1}
+/* 縁のふち光り */
+.tabbar::after,.seg::after{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
+  opacity:0;transition:opacity .3s var(--apple-ease);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),
+             inset 0 -1px 0 rgba(255,255,255,.14),
+             inset 1px 0 0 rgba(255,255,255,.2),
+             inset -1px 0 0 rgba(255,255,255,.2)}
+.tabbar.lifted::after,.seg.lifted::after{opacity:1}
+
 .tabbar.lifted,.seg.lifted{
-  background:rgba(52,52,58,.9);
-  border-color:rgba(255,255,255,.22);
-  box-shadow:var(--edge),0 4px 12px rgba(0,0,0,.45),0 26px 60px rgba(0,0,0,.6),
-             0 0 0 1px rgba(255,255,255,.06);
+  background:rgba(56,56,64,.72);
+  border-color:rgba(255,255,255,.3);
+  box-shadow:0 4px 14px rgba(0,0,0,.5),0 30px 70px rgba(0,0,0,.66),
+             0 0 26px rgba(255,255,255,.07),
+             inset 0 0 22px rgba(255,255,255,.06);
   transition:transform .34s var(--apple-pop),background .3s var(--apple-ease),
              box-shadow .3s var(--apple-ease),border-color .3s var(--apple-ease)}
 .tabbar.lifted{transform:translateX(-50%) scale(1.045)}
@@ -286,15 +308,21 @@ html.can-refract .seg.lifted{
 
 /* つまんでいる間のピル：光沢が指を追い、動く向きへ伸びる */
 .pill{position:absolute;overflow:hidden}
+.pill::before{content:'';position:absolute;left:8%;right:8%;top:2px;height:38%;
+  border-radius:999px;pointer-events:none;opacity:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,0));
+  transition:opacity .25s var(--apple-ease)}
 .pill::after{content:'';position:absolute;inset:0;border-radius:inherit;opacity:0;
-  background:radial-gradient(60% 120% at var(--gx,50%) 40%,
-    rgba(255,255,255,.9) 0%,rgba(255,255,255,.35) 38%,rgba(255,255,255,0) 72%);
+  background:radial-gradient(55% 120% at var(--gx,50%) 35%,
+    rgba(255,255,255,1) 0%,rgba(255,255,255,.45) 32%,rgba(255,255,255,0) 68%);
   mix-blend-mode:overlay;transition:opacity .25s var(--apple-ease)}
 .grabbing .pill{
-  box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 0 .5px rgba(255,255,255,.5),
-             inset 0 1px 0 rgba(255,255,255,.9);
+  box-shadow:0 8px 22px rgba(0,0,0,.5),0 0 0 .5px rgba(255,255,255,.6),
+             0 0 18px rgba(255,255,255,.28),
+             inset 0 1px 0 rgba(255,255,255,1),
+             inset 0 -2px 4px rgba(0,0,0,.18);
   transition:none}
-.grabbing .pill::after{opacity:1}
+.grabbing .pill::after,.grabbing .pill::before{opacity:1}
 .settling .pill{transition:transform .62s var(--apple-bounce)}
 
 /* ---------- passport ---------- */
@@ -1723,7 +1751,8 @@ function attachLiquid(host, ids, onPick, isActive){
   var pill = host.querySelector('.pill');
   if(!pill) return;
 
-  var press=0, lifted=false, startX=0, lastX=0, lastT=0, vx=0, base=0, cur=0;
+  var press=0, lifted=false, startX=0, lastX=0, lastT=0, vx=0;
+  var originLeft=0, baseVisual=0, curVisual=0;
 
   function btns(){ return ids.map(function(id){return document.getElementById(id)})
                               .filter(function(b){return !!b}) }
@@ -1731,34 +1760,44 @@ function attachLiquid(host, ids, onPick, isActive){
     var hr=host.getBoundingClientRect();
     return btns().map(function(b){var r=b.getBoundingClientRect();return r.left+r.width/2-hr.left});
   }
-  function pillHalf(){ return pill.getBoundingClientRect().width/2 }
-  function pillBaseLeft(){
-    /* CSS が決めている現在位置（transform 抜きの left）を測る */
-    var hr=host.getBoundingClientRect(), pr=pill.getBoundingClientRect();
-    return pr.left-hr.left;
+  function pillHalf(){ return pill.offsetWidth/2 }
+  /* CSS の transform で何 px ずれているかを読む。
+     これを足し引きしないと、記録タブ側でつまんだ瞬間に位置が飛ぶ */
+  function currentShift(){
+    var t=getComputedStyle(pill).transform;
+    if(!t||t==='none')return 0;
+    try{ return new DOMMatrixReadOnly(t).m41 || 0; }
+    catch(e){
+      var m=t.match(/matrix.*\((.+)\)/);
+      if(!m)return 0;
+      var p=m[1].split(',').map(parseFloat);
+      return p.length>6 ? (p[12]||0) : (p[4]||0);
+    }
   }
 
   function lift(){
     lifted=true;
     host.classList.add('lifted','grabbing');
-    base = pillBaseLeft();
-    cur = 0;
+    originLeft = pill.offsetLeft;             /* 変形前の位置 */
+    baseVisual = originLeft + currentShift(); /* 今そこに見えている位置 */
+    curVisual  = baseVisual;
     setWarp(6);                       /* つまんだ瞬間にガラスがたわむ */
     if(navigator.vibrate) try{ navigator.vibrate(8) }catch(e){}
   }
   function move(x){
     var cs=centers(), half=pillHalf();
     var min=cs[0]-half, max=cs[cs.length-1]-half;
-    var target=Math.max(min,Math.min(max, base+x));
-    cur=target-base;
+    curVisual = Math.max(min, Math.min(max, baseVisual + x));
     /* 動く向きへ伸ばす。速いほど強く */
-    var st=Math.max(-.14,Math.min(.14, vx*0.05));
-    setWarp(6 + Math.min(14, Math.abs(vx)*1.6));   /* 速く動かすほど強く歪む */
-    var sx=1+Math.abs(st), sy=1-Math.abs(st)*0.55;
-    pill.style.transform='translate3d('+cur+'px,0,0) scaleX('+sx.toFixed(3)+') scaleY('+sy.toFixed(3)+')';
+    var st=Math.max(-.16,Math.min(.16, vx*0.055));
+    setWarp(8 + Math.min(20, Math.abs(vx)*2.0));
+    var sx=1+Math.abs(st), sy=1-Math.abs(st)*0.6;
+    pill.style.transform='translate3d('+(curVisual-originLeft)+'px,0,0)'+
+      ' scaleX('+sx.toFixed(3)+') scaleY('+sy.toFixed(3)+')';
     /* 光沢を指の位置へ */
-    var pr=pill.getBoundingClientRect();
-    pill.style.setProperty('--gx', Math.max(0,Math.min(100, ((lastX-pr.left)/pr.width)*100)).toFixed(0)+'%');
+    var pr=pill.getBoundingClientRect(), hr=host.getBoundingClientRect();
+    pill.style.setProperty('--gx', Math.max(0,Math.min(100, ((lastX-pr.left)/Math.max(pr.width,1))*100)).toFixed(0)+'%');
+    host.style.setProperty('--hx', Math.max(0,Math.min(100, ((lastX-hr.left)/Math.max(hr.width,1))*100)).toFixed(0)+'%');
   }
   function drop(){
     host.classList.remove('lifted','grabbing');
@@ -1766,12 +1805,13 @@ function attachLiquid(host, ids, onPick, isActive){
     if(!lifted){ return }
     lifted=false;
     /* 一番近いボタンを選ぶ */
-    var cs=centers(), half=pillHalf(), now=base+cur+half;
+    var cs=centers(), half=pillHalf(), now=curVisual+half;
     var best=0, bd=1e9;
     cs.forEach(function(c,i){ var d=Math.abs(c-now); if(d<bd){bd=d;best=i} });
     host.classList.add('settling');
     pill.style.transform='';                 /* CSS の位置へ跳ねて戻る */
     pill.style.removeProperty('--gx');
+    host.style.removeProperty('--hx');
     setTimeout(function(){ host.classList.remove('settling') },640);
     if(!isActive(best)) onPick(best);
   }
@@ -1991,4 +2031,3 @@ if(loadCfg()) load(); else openSetup();
 </script>
 </body>
 </html>
-
