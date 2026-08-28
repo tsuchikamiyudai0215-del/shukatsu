@@ -16,12 +16,14 @@
 <link rel="manifest" href="manifest.json">
 <style>
 :root{
-  --ink:#020205;
+  --ink:#04040A;
   /* 一覧のカードは「半透明の塗り」で表現する。
      背景が固定のグラデーションなので、ブラーを掛けなくても見え方はほぼ同じで、
      33枚ぶんの背景ぼかしを毎フレーム計算する負荷だけを避けられる */
-  --surface:linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%), rgba(18,18,26,0.5);
-  --surface-hi:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 100%), rgba(26,26,36,0.72);
+  /* iOS の通知タイルは暗い板ではなく、白を薄く透かした面。
+     背景の色を拾うので、黒地でも沈まない */
+  --surface:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.075) 100%);
+  --surface-hi:linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.11) 100%);
   --hi:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 100%), rgba(22,22,32,0.78);
   /* Apple の Dock に合わせ、背景がはっきり透ける濃度にする */
   --chrome:linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.02) 100%), rgba(18,18,26,0.28);
@@ -30,10 +32,11 @@
   --text:#FFFFFF; --muted:#A2A2B2; --dim:#656573;
   --blue:#0A84FF; --go:#30D158; --wait:#FF9F0A; --hot:#FF453A; --fail:#6E3E4B;
 
+  /* 縁取りではなく、上端の反射と沈み込みの影だけで面を立たせる */
   --glass-edge:
-    inset 0 0.5px 0 0 rgba(255,255,255,0.4),
-    inset 0 -0.5px 0 0 rgba(0,0,0,0.35),
-    0 6px 20px -8px rgba(0,0,0,0.45);
+    inset 0 0.5px 0 0 rgba(255,255,255,0.28),
+    inset 0 -0.5px 0 0 rgba(0,0,0,0.2),
+    0 4px 16px -6px rgba(0,0,0,0.4);
   --glass-drop-lg:
     0 20px 56px -10px rgba(0,0,0,0.8),
     inset 0 1.5px 0.5px rgba(255,255,255,0.75),
@@ -111,17 +114,20 @@ button,select,input{font-family:var(--body)}
 .hero{padding-bottom:20px;border-bottom:1px solid var(--line-soft);margin-bottom:2px;cursor:pointer;
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .hero:active{transform:scale(.978);opacity:.86;transition:transform .1s var(--press)}
-.hero h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
+.hero h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.028em;line-height:1.15}
 .cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
-.cd b{font-family:var(--disp);font-size:56px;font-weight:600;letter-spacing:-.04em;
-  text-shadow:0 2px 20px rgba(255,255,255,.12)}
+.cd b{font-family:var(--disp);font-size:58px;font-weight:600;letter-spacing:-.045em;
+  /* 時計の数字と同じく、わずかに透かして内側に陰を落とす */
+  color:rgba(255,255,255,.96);
+  text-shadow:0 1px 0 rgba(255,255,255,.28), 0 3px 26px rgba(255,255,255,.14),
+              0 -1px 1px rgba(0,0,0,.22)}
 .cd s{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 10px 0 3px;text-decoration:none}
 
 /* ---------- strip & rows ---------- */
 .strip{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);
-  border:1px solid rgba(255,255,255,0.14);border-radius:22px;padding:12px 16px;color:var(--text);
+  border:none;border-radius:22px;padding:13px 16px;color:var(--text);
   box-shadow:var(--glass-edge);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .stripitem:active{transform:scale(.965);transition:transform .1s var(--press)}
@@ -134,36 +140,38 @@ button,select,input{font-family:var(--body)}
 
 .row{
   background:var(--surface);
-  border:1px solid rgba(255,255,255,0.14);border-radius:24px;
+  border:none;border-radius:26px;
   box-shadow:var(--glass-edge);
   margin-bottom:10px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;
   opacity:var(--base-op, 1);
   transition:transform .5s var(--spring),opacity .2s var(--ease),background .2s var(--ease)}
-.row:active{transform:scale(.965);background:var(--surface-hi);transition:transform .1s var(--press)}
+.row:active{transform:scale(.975);background:var(--surface-hi);
+  transition:transform .1s var(--press),background .1s var(--ease)}
 .row.is-fixed{
-  background:linear-gradient(180deg, rgba(48,209,88,0.22) 0%, rgba(14,34,22,0.66) 100%);
-  border-color:rgba(48,209,88,.4);
-  box-shadow:var(--glass-edge), 0 0 24px rgba(48,209,88,.18)}
+  background:linear-gradient(180deg, rgba(48,209,88,0.26) 0%, rgba(48,209,88,0.09) 100%);
+  box-shadow:var(--glass-edge), inset 0 0 0 .5px rgba(48,209,88,.3)}
 .row.is-offer{
-  background:linear-gradient(180deg, rgba(48,209,88,0.28) 0%, rgba(14,38,24,0.72) 100%);
-  border-color:rgba(48,209,88,.6);
-  box-shadow:var(--glass-edge), 0 0 32px rgba(48,209,88,.26)}
+  background:linear-gradient(180deg, rgba(48,209,88,0.34) 0%, rgba(48,209,88,0.13) 100%);
+  box-shadow:var(--glass-edge), inset 0 0 0 .5px rgba(48,209,88,.45),
+             0 0 26px -6px rgba(48,209,88,.3)}
 .row.is-muted{--base-op:0.42}
 
-.row .main{padding:14px 15px 12px;display:flex;align-items:center;gap:14px;flex:1 1 auto}
+.row .main{padding:16px 17px 13px;display:flex;align-items:center;gap:14px;flex:1 1 auto}
 .day{width:60px;flex:0 0 auto;text-align:center}
-.day b{font-family:var(--disp);font-size:32px;font-weight:600;letter-spacing:-.035em;line-height:1;display:block}
+.day b{font-family:var(--disp);font-size:33px;font-weight:600;letter-spacing:-.04em;line-height:1;display:block;
+  text-shadow:0 1px 0 rgba(255,255,255,.16)}
 .day s{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em;margin-top:4px;display:block;text-decoration:none}
 .day .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;line-height:1.5}
 .body1{min-width:0;flex:1}
 .meta{display:flex;align-items:center;gap:8px}
-.meta em{font-family:var(--mono);font-size:12px;color:var(--muted);font-style:normal;letter-spacing:.04em}
-.meta i{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim);font-style:normal}
-.name{font-size:16px;font-weight:600;letter-spacing:-.01em;margin-top:5px;
+.meta em{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.66);font-style:normal;letter-spacing:.02em}
+.meta i{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.45);font-style:normal}
+.name{font-size:17px;font-weight:600;letter-spacing:-.022em;margin-top:5px;line-height:1.25;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px}
-.acts{display:flex;gap:8px;padding:0 15px 12px 74px;flex:0 0 auto}
+.sub{font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.62);margin-top:5px;
+  letter-spacing:-.005em}
+.acts{display:flex;gap:8px;padding:0 17px 14px 76px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:var(--muted);
   border-radius:12px;padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
   display:inline-block;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);
@@ -189,8 +197,8 @@ button,select,input{font-family:var(--body)}
 .card{
   position:relative;width:100%;max-width:480px;
   height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
-  border-radius:30px;border:1px solid rgba(255,255,255,0.2);
-  background:linear-gradient(180deg, rgba(38,38,50,0.74) 0%, rgba(18,18,26,0.9) 100%);
+  border-radius:32px;border:none;
+  background:linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%), rgba(16,16,24,0.72);
   backdrop-filter:blur(44px) saturate(240%);-webkit-backdrop-filter:blur(44px) saturate(240%);
   box-shadow:var(--glass-drop-lg);
   padding:12px 20px calc(14px + env(safe-area-inset-bottom));
@@ -373,6 +381,7 @@ html.can-refract .seg.lifted{
 .pcard{border-radius:20px;padding:18px;position:relative;overflow:hidden;
   border:1px solid rgba(255,255,255,0.16);box-shadow:var(--glass-edge)}
 .pcard.flat{background:var(--surface)}
+.pcard{backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%)}
 .pcard.flat .ttl{color:var(--muted)}
 .pcard .ttl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;opacity:.85}
 .pcard .num{font-family:var(--disp);font-size:44px;line-height:1;font-weight:700;letter-spacing:-.04em}
@@ -847,6 +856,28 @@ function api(action,args){
   });
 }
 function busy(on){document.getElementById('busy').style.display=on?'flex':'none'}
+/* 上部の小さな表示。出しっぱなしにならないよう、消すのも文言を戻すのもここで行う */
+function staleShow(msg){
+  var el=document.getElementById('stale');
+  if(!el)return;
+  clearTimeout(window._stl);
+  clearTimeout(window._stlReset);   /* 消した直後の後片付けが文言を奪わないように */
+  el.textContent = msg || '更新中…';
+  el.style.borderColor = msg ? 'rgba(255,69,58,.5)' : 'rgba(255,255,255,.18)';
+  el.classList.add('on');
+  if(msg){ window._stl=setTimeout(staleHide,3200); }   /* 失敗の表示は自動で消す */
+}
+function staleHide(){
+  var el=document.getElementById('stale');
+  if(!el)return;
+  clearTimeout(window._stl);
+  el.classList.remove('on');
+  clearTimeout(window._stlReset);
+  window._stlReset=setTimeout(function(){
+    el.textContent='更新中…';
+    el.style.borderColor='rgba(255,255,255,.18)';
+  },320);
+}
 function cacheSave(j){
   try{ localStorage.setItem('sk_cache', JSON.stringify(
     {items:j.items||[], events:j.events||[], logos:j.logos||{}, at:Date.now()})); }catch(e){}
@@ -856,7 +887,7 @@ function cacheLoad(){
 }
 function applyData(j,cb){
   DATA=j;
-  if(j&&j.items&&j.items.length) cacheSave(j);
+  if(j&&j.items&&j.items.length){ cacheSave(j); staleHide(); }
   if(DATA.logos)for(var k in DATA.logos)if(!LOGOS[k])LOGOS[k]=DATA.logos[k];
   render(false); hydrateLogos(); if(cb)cb();
 }
@@ -893,16 +924,13 @@ function load(){
   var c=cacheLoad();
   if(c && c.items && c.items.length){
     applyData(c, hideSplash);
-    var st=document.getElementById('stale');
-    if(st) st.classList.add('on');
+    staleShow();
     api('apiGetData',[]).then(function(j){
       if(!j||!j.items) return;
       applyData(j);
-      var e=document.getElementById('stale'); if(e) e.classList.remove('on');
+      staleHide();
     }).catch(function(){
-      var e=document.getElementById('stale');
-      if(e){ e.textContent='最新を取得できませんでした'; }
-      toast('最新を取得できませんでした。前回の内容を表示しています');
+      staleShow('最新を取得できませんでした');
     });
     return;
   }
@@ -1944,7 +1972,7 @@ function renderPassport(pageChanged){
   });
 
   var cA=[], cB=[];
-  cA.push('<div class="pcard po1" style="background:linear-gradient(155deg,rgba(42,34,102,.86) 0%,rgba(28,58,120,.88) 55%,rgba(30,83,138,.92) 100%);color:#EAF0FF">'+
+  cA.push('<div class="pcard po1" style="background:linear-gradient(155deg,rgba(88,74,220,.5) 0%,rgba(48,102,214,.5) 55%,rgba(46,142,224,.5) 100%);color:#EEF3FF">'+
     '<div class="ttl">'+TERM+' パスポート</div>'+
     '<div class="pgrid">'+
       '<div><b>'+entered.length+'</b><span>エントリー社数</span></div>'+
@@ -1956,7 +1984,7 @@ function renderPassport(pageChanged){
     '<div class="pfoot">最も進んだ段階 '+esc(deepest)+'</div></div>');
 
   if(worst && t[worst].f>0 && fails.length>0){
-    cA.push('<div class="pcard po2" style="background:linear-gradient(155deg,rgba(122,31,43,.9) 0%,rgba(84,20,31,.92) 100%);color:#FFE9EC">'+
+    cA.push('<div class="pcard po2" style="background:linear-gradient(155deg,rgba(226,66,86,.46) 0%,rgba(150,32,48,.5) 100%);color:#FFEEF0">'+
       '<div style="display:flex;align-items:baseline;gap:12px">'+
         '<div class="num">'+t[worst].f+'</div>'+
         '<div style="font-size:15px;font-weight:600">社が'+esc(worst)+'で終了</div></div>'+
@@ -1983,7 +2011,7 @@ function renderPassport(pageChanged){
   cB.push(rate);
 
   if(waits.length){
-    cB.push('<div class="pcard po4" style="background:linear-gradient(155deg,rgba(22,48,78,.9) 0%,rgba(16,31,51,.92) 100%);color:#DCE9FF">'+
+    cB.push('<div class="pcard po4" style="background:linear-gradient(155deg,rgba(52,116,190,.44) 0%,rgba(28,62,108,.5) 100%);color:#E4EFFF">'+
       '<div class="ttl">結果待ち</div>'+
       '<div class="pgrid">'+
         '<div><b>'+waits.length+'</b><span>社</span></div>'+
@@ -2112,9 +2140,9 @@ function resetCfg(){
       if(p){ p.classList.add('spin'); p.style.opacity='1';
              p.style.transform='translate3d(-50%,40px,0) scale(1)'; }
       api('apiGetData',[]).then(function(j){
-        if(j&&j.items){ applyData(j); toast('最新に更新しました',true); }
+        if(j&&j.items){ applyData(j); staleHide(); toast('最新に更新しました',true); }
         reset();
-      }).catch(function(){ toast('更新できませんでした'); reset(); });
+      }).catch(function(){ staleShow('更新できませんでした'); reset(); });
     }else reset();
   });
 })();
