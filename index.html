@@ -80,7 +80,7 @@ body{
   overscroll-behavior-y:none;margin:0;background:transparent;color:var(--text);
   font-family:var(--body);font-variant-numeric:tabular-nums;
   padding:calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
-          calc(130px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+          calc(140px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
   max-width:480px;margin:0 auto;
 }
 button,select,input{font-family:var(--body)}
@@ -104,7 +104,8 @@ button,select,input{font-family:var(--body)}
 .hero:active{transform:scale(.978);opacity:.86;transition:transform .1s var(--press)}
 .hero h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.02em}
 .cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
-.cd b{font-family:var(--disp);font-size:52px;font-weight:600;letter-spacing:-.035em}
+.cd b{font-family:var(--disp);font-size:56px;font-weight:600;letter-spacing:-.04em;
+  text-shadow:0 2px 20px rgba(255,255,255,.12)}
 .cd s{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 10px 0 3px;text-decoration:none}
 
 /* ---------- strip & rows ---------- */
@@ -116,7 +117,8 @@ button,select,input{font-family:var(--body)}
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .stripitem:active{transform:scale(.965);transition:transform .1s var(--press)}
 .stripitem .k{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);
-  border:1px solid var(--line);border-radius:6px;padding:3px 7px;flex:0 0 auto;background:rgba(255,255,255,.08)}
+  border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex:0 0 auto;
+  background:rgba(255,255,255,.07)}
 .stripitem .n{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stripitem .d{margin-left:auto;font-family:var(--disp);font-size:15px;font-weight:600;flex:0 0 auto}
 .stripitem .w{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 auto}
@@ -388,13 +390,12 @@ html.can-refract .seg.lifted{
 /* 下端のぼかしは背景専用の層に掛ける。要素ごとマスクするとボタンまで欠ける */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:10px 16px 14px}
-.chips::before{content:'';position:absolute;inset:-1px 0 0 0;z-index:-1;
-  /* 黒で塗り潰すと背景のグラデーションがここで断ち切られる。
-     ぼかしと薄い覆いだけにして、色は透けたまま残す */
-  background:linear-gradient(180deg, rgba(2,2,5,.55) 0%, rgba(2,2,5,.3) 62%, rgba(2,2,5,0) 100%);
-  backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);
-  -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 100%);
-  mask-image:linear-gradient(180deg,#000 55%,transparent 100%)}
+.chips::before{content:'';position:absolute;inset:-24px 0 -8px 0;z-index:-1;
+  /* backdrop-filter は「ぼかした四角」の境界が必ず見えてしまう。
+     ここは固定バーではなく本文に重なる帯なので、ぼかしは使わず
+     上下に溶ける覆いだけにする */
+  background:linear-gradient(180deg,
+    rgba(2,2,5,0) 0%, rgba(2,2,5,.72) 22%, rgba(2,2,5,.72) 68%, rgba(2,2,5,0) 100%)}
 .chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;
@@ -405,13 +406,17 @@ html.can-refract .seg.lifted{
   transition:background .24s var(--ease),color .24s var(--ease),transform .5s var(--spring)}
 .chiprow button:active{transform:scale(.88);transition:transform .1s var(--press)}
 .chiprow button b{font-family:var(--disp);font-size:16px;font-weight:600;line-height:1}
-.chiprow button.on{background:linear-gradient(180deg,#FFFFFF 0%,#E9E9F1 100%);
+.chiprow button.on{background:linear-gradient(180deg,#FFFFFF 0%,#EDEDF4 100%);
   color:#000;border-color:transparent;font-weight:600;
-  box-shadow:0 4px 16px rgba(255,255,255,.32), inset 0 1px 0 #FFFFFF}
+  box-shadow:0 2px 12px rgba(255,255,255,.2), inset 0 1px 0 #FFFFFF}
 .chiprow button.on b{color:#000}
 
 .lanes{transition:opacity .2s var(--ease)}
-.lane{transition:opacity .2s var(--ease);margin-bottom:6px}
+.lane{transition:opacity .2s var(--ease);margin-bottom:18px}
+.lane > .lab{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
+.lane > .lab::before{content:'';width:3px;height:12px;border-radius:2px;
+  background:currentColor;opacity:.8;flex:0 0 auto}
+.lane > .accord-btn{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
 .lane.is-filt-hidden{display:none !important}
 .lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
 .lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{animation:rise .4s var(--spring) both}
@@ -949,7 +954,8 @@ function stOf(it){
   var s=it.status||'';
   if(s==='見送り') return 'skip';
   if(s==='落選') return 'fail';
-  if(s==='内定') return 'offer';
+  /* インターンの区分に「内定」は無いので、参加決定として扱う */
+  if(s==='内定') return (TERM==='夏インターン') ? 'fixed' : 'offer';
   if(s==='参加決定') return 'fixed';
   if(s==='結果待ち') return 'waiting';
   if(s==='対応中'&&it.due&&!rem(it.due)) return 'waiting';
@@ -994,8 +1000,9 @@ function rowHtml(it){
   if(st==='todo') acts='<div class="acts"><button class="gh" onclick="'+stop+'doDone(\''+esc(it.c)+'\')">完了にする</button></div>';
   if(st==='waiting'){
     var rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
+    var goalLab = last ? (TERM==='夏インターン'?'参加決定':'内定') : '通過';
     acts='<div class="acts">'+
-      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" onclick="'+stop+'doPass(\''+esc(it.c)+'\')">'+(last?'内定':'通過')+'</button>'+
+      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" onclick="'+stop+'doPass(\''+esc(it.c)+'\')">'+goalLab+'</button>'+
       '<button class="gh" onclick="'+stop+'confirmFail(\''+esc(it.c)+'\')">落選</button></div>';
   }
   var isMuted = (st==='fail'||st==='skip');
@@ -1445,7 +1452,8 @@ function renderTabContent(it){
         '<div class="lab" style="margin:0 0 8px">結果待ち</div>'+
         '<div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">'+(d==null?'—':d)+'</b><s>日経過</s></div>'+
         '<div style="display:flex;gap:10px;margin-top:16px">'+
-        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" onclick="doPass(\''+esc(it.c)+'\')">'+(last?'内定':'通過')+'</button>'+
+        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" onclick="doPass(\''+esc(it.c)+'\')">'+
+          (last?(TERM==='夏インターン'?'参加決定':'内定'):'通過')+'</button>'+
         '<button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="confirmFail(\''+esc(it.c)+'\')">落選</button>'+
         '</div></div>';
     }
@@ -1741,7 +1749,7 @@ function attachLiquid(host, ids, onPick, isActive){
   if(!pill) return;
 
   var press=0, lifted=false, startX=0, lastX=0, lastT=0, vx=0;
-  var startVisualX=0, originLeft=0, pointerId=null, rafId=0;
+  var startVisualX=0, originLeft=0, rafId=0, moved=false;
 
   function btns(){
     return ids.map(function(id){return document.getElementById(id)})
@@ -1782,18 +1790,33 @@ function attachLiquid(host, ids, onPick, isActive){
     if(pr.width) pill.style.setProperty('--gx', Math.max(0,Math.min(100,((lastX-pr.left)/pr.width)*100)).toFixed(0)+'%');
     if(hr.width) host.style.setProperty('--hx', Math.max(0,Math.min(100,((lastX-hr.left)/hr.width)*100)).toFixed(0)+'%');
   }
+  /* 指の真下にあるボタンを探す。つまんだまま動かさずに離したときに使う */
+  function indexUnder(x){
+    var L=btns();
+    for(var i=0;i<L.length;i++){
+      var r=L[i].getBoundingClientRect();
+      if(x>=r.left && x<=r.right) return i;
+    }
+    return -1;
+  }
   function drop(){
     clearTimeout(press);
     if(rafId){ cancelAnimationFrame(rafId); rafId=0 }
-    if(pointerId!==null){ try{ host.releasePointerCapture(pointerId) }catch(e){} pointerId=null }
     host.classList.remove('lifted','grabbing');
     setWarp(0);
     if(!lifted)return;
     lifted=false;
 
-    var t=targets(), x=startVisualX+(lastX-startX);
-    var best=0, bd=1e9;
-    t.forEach(function(tx,i){ var d=Math.abs(tx-x); if(d<bd){bd=d;best=i} });
+    var best;
+    if(!moved){
+      /* 動かさずに離した場合は、押している場所のボタンを選ぶ */
+      best = indexUnder(lastX);
+      if(best<0) best = activeIndex();
+    }else{
+      var t=targets(), x=startVisualX+(lastX-startX);
+      best=0; var bd=1e9;
+      t.forEach(function(tx,i){ var d=Math.abs(tx-x); if(d<bd){bd=d;best=i} });
+    }
 
     host.classList.add('settling');
     pill.style.transform='';
@@ -1801,15 +1824,22 @@ function attachLiquid(host, ids, onPick, isActive){
     host.style.removeProperty('--hx');
     setTimeout(function(){ host.classList.remove('settling') },600);
     if(!isActive(best)) onPick(best);
+    if(moved){                       /* 直後に発生する click を1回だけ無視する */
+      host._swallow=true;
+      setTimeout(function(){ host._swallow=false },350);
+    }
   }
 
   host.addEventListener('contextmenu',function(e){e.preventDefault()});
   host.addEventListener('selectstart',function(e){e.preventDefault()});
+  /* ドラッグで選び直した直後の click だけ握り潰す。
+     setPointerCapture を使うと click の宛先が容器に化けてボタンが押せなくなるため使わない */
+  host.addEventListener('click',function(e){
+    if(host._swallow){ e.preventDefault(); e.stopPropagation(); host._swallow=false; }
+  },true);
   host.addEventListener('pointerdown',function(e){
     if(e.pointerType==='mouse'&&e.button!==0)return;
-    startX=lastX=e.clientX; lastT=Date.now(); vx=0;
-    pointerId=e.pointerId;
-    try{ host.setPointerCapture(e.pointerId) }catch(err){}
+    startX=lastX=e.clientX; lastT=Date.now(); vx=0; moved=false;
     clearTimeout(press);
     press=setTimeout(lift,260);
   });
@@ -1821,11 +1851,13 @@ function attachLiquid(host, ids, onPick, isActive){
       if(Math.abs(e.clientX-startX)>9) clearTimeout(press);
       return;
     }
+    if(Math.abs(e.clientX-startX)>8) moved=true;
     e.preventDefault();
     if(!rafId) rafId=requestAnimationFrame(renderMove);
   });
   host.addEventListener('pointerup',drop);
   host.addEventListener('pointercancel',drop);
+  host.addEventListener('pointerleave',function(){ if(lifted) drop(); else clearTimeout(press); });
 }
 
 function initLiquid(){
@@ -1931,7 +1963,8 @@ function renderPassport(pageChanged){
   }
 
   var brk='<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">';
-  ['todo','waiting','fixed','offer'].forEach(function(k){
+  var brkKeys = (TERM==='夏インターン') ? ['todo','waiting','fixed'] : ['todo','waiting','fixed','offer'];
+  brkKeys.forEach(function(k){
     var n=LIST.filter(function(i){return stOf(i)===k}).length;
     var lab={todo:'対応中',waiting:'結果待ち',fixed:'参加決定',offer:'内定'}[k];
     var c2={todo:'var(--blue)',waiting:'var(--wait)',fixed:'var(--go)',offer:'var(--go)'}[k];
