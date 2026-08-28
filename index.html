@@ -72,9 +72,18 @@ html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:1
 body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
-    radial-gradient(120% 80% at 0% 0%, rgba(10,132,255,0.20) 0%, transparent 55%),
-    radial-gradient(100% 70% at 100% 25%, rgba(48,209,88,0.12) 0%, transparent 50%),
-    radial-gradient(140% 90% at 50% 85%, rgba(140,50,255,0.18) 0%, transparent 60%);
+    radial-gradient(120% 85% at 0% -5%,  rgba(10,132,255,0.22) 0%, rgba(10,132,255,0.06) 38%, transparent 68%),
+    radial-gradient(110% 75% at 100% 20%, rgba(48,209,88,0.14) 0%, rgba(48,209,88,0.04) 40%, transparent 70%),
+    radial-gradient(150% 95% at 50% 105%, rgba(140,50,255,0.2) 0%, rgba(140,50,255,0.05) 45%, transparent 75%);
+  /* 帯状のムラ（バンディング）を微細なノイズで散らす */
+  filter:blur(0.2px);
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'>\
+<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/></filter>\
+<rect width='140' height='140' filter='url(%23n)'/></svg>");
 }
 body{
   overscroll-behavior-y:none;margin:0;background:transparent;color:var(--text);
@@ -112,7 +121,7 @@ button,select,input{font-family:var(--body)}
 .strip{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);
-  border:1px solid rgba(255,255,255,0.16);border-radius:18px;padding:12px 16px;color:var(--text);
+  border:1px solid rgba(255,255,255,0.14);border-radius:22px;padding:12px 16px;color:var(--text);
   box-shadow:var(--glass-edge);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .stripitem:active{transform:scale(.965);transition:transform .1s var(--press)}
@@ -125,7 +134,7 @@ button,select,input{font-family:var(--body)}
 
 .row{
   background:var(--surface);
-  border:1px solid rgba(255,255,255,0.16);border-radius:20px;
+  border:1px solid rgba(255,255,255,0.14);border-radius:24px;
   box-shadow:var(--glass-edge);
   margin-bottom:10px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;
@@ -390,12 +399,14 @@ html.can-refract .seg.lifted{
 /* 下端のぼかしは背景専用の層に掛ける。要素ごとマスクするとボタンまで欠ける */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:10px 16px 14px}
-.chips::before{content:'';position:absolute;inset:-24px 0 -8px 0;z-index:-1;
-  /* backdrop-filter は「ぼかした四角」の境界が必ず見えてしまう。
-     ここは固定バーではなく本文に重なる帯なので、ぼかしは使わず
-     上下に溶ける覆いだけにする */
+.chips::before{content:'';position:absolute;z-index:-1;
+  /* 画面幅いっぱいに敷く。要素幅に合わせると左右に縦の継ぎ目が出る */
+  left:50%;width:100vw;transform:translateX(-50%);
+  top:-40px;bottom:-20px;
+  /* 上下とも完全な透明から始めて、段差が出ないようにする */
   background:linear-gradient(180deg,
-    rgba(2,2,5,0) 0%, rgba(2,2,5,.72) 22%, rgba(2,2,5,.72) 68%, rgba(2,2,5,0) 100%)}
+    rgba(2,2,5,0) 0%, rgba(2,2,5,.35) 26%, rgba(2,2,5,.62) 46%,
+    rgba(2,2,5,.5) 70%, rgba(2,2,5,0) 100%)}
 .chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;
@@ -461,6 +472,14 @@ html.can-refract .seg.lifted{
   border:1px solid rgba(255,255,255,0.18);border-radius:18px;padding:12px 20px;font-size:13px;font-weight:500;
   box-shadow:var(--glass-drop-lg);transition:opacity .3s var(--ease),transform .58s var(--spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
+#ptr{position:fixed;top:calc(6px + env(safe-area-inset-top));left:50%;
+  transform:translate3d(-50%,-40px,0) scale(.7);opacity:0;z-index:70;pointer-events:none;
+  width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;
+  background:var(--chrome);border:1px solid rgba(255,255,255,.18);box-shadow:var(--glass-edge)}
+.ptrRing{width:15px;height:15px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.28);border-top-color:#fff}
+#ptr.spin .ptrRing{animation:ptrSpin .7s linear infinite}
+@keyframes ptrSpin{to{transform:rotate(360deg)}}
 #stale{position:fixed;top:calc(8px + env(safe-area-inset-top));left:50%;
   transform:translate3d(-50%,-14px,0);opacity:0;pointer-events:none;z-index:70;
   background:var(--chrome);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
@@ -591,6 +610,7 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 
 <div id="side"></div>
 <div id="sheet"></div>
+<div id="ptr"><span class="ptrRing"></span></div>
 <div id="stale">更新中…</div>
 <div id="toast"></div>
 <div id="busy">SAVING…</div>
@@ -669,7 +689,17 @@ function markEnter(force){
 }
 
 /* ============ ユーティリティ ============ */
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+/* onclick の中は「HTML属性の中のJavaScript文字列」という二重構造。
+   実体参照にするだけではブラウザが ' に戻してから JS が読むので壊れる。
+   先に JS 用の退避をしてから HTML 用に変換する */
+function J(s){
+  return esc(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
+}
 function D(s){
   if(!s)return null;
   var d = new Date(String(s).replace(/-/g,'/').replace('T',' '));
@@ -997,17 +1027,17 @@ function rowHtml(it){
 
   var stop='event.stopPropagation();';
   var acts='';
-  if(st==='todo') acts='<div class="acts"><button class="gh" onclick="'+stop+'doDone(\''+esc(it.c)+'\')">完了にする</button></div>';
+  if(st==='todo') acts='<div class="acts"><button class="gh" onclick="'+stop+'doDone(\''+J(it.c)+'\')">完了にする</button></div>';
   if(st==='waiting'){
     var rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
     var goalLab = last ? (TERM==='夏インターン'?'参加決定':'内定') : '通過';
     acts='<div class="acts">'+
-      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" onclick="'+stop+'doPass(\''+esc(it.c)+'\')">'+goalLab+'</button>'+
-      '<button class="gh" onclick="'+stop+'confirmFail(\''+esc(it.c)+'\')">落選</button></div>';
+      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" onclick="'+stop+'doPass(\''+J(it.c)+'\')">'+goalLab+'</button>'+
+      '<button class="gh" onclick="'+stop+'confirmFail(\''+J(it.c)+'\')">落選</button></div>';
   }
   var isMuted = (st==='fail'||st==='skip');
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
-    '" data-cardco="'+esc(it.c)+'" onclick="openDetail(\''+esc(it.c)+'\')">'+
+    '" data-cardco="'+esc(it.c)+'" onclick="openDetail(\''+J(it.c)+'\')">'+
     '<div class="main">'+
       '<div class="day">'+left+'</div>'+
       '<div class="body1"><div class="meta">'+logo(it)+
@@ -1019,7 +1049,7 @@ function rowHtml(it){
 }
 function eventRowHtml(ev){
   var it=byCo(ev.c)||{c:ev.c,dom:''}, r=rem(ev.at);
-  return '<div class="row" data-cardco="'+esc(ev.c)+'" onclick="openDetail(\''+esc(ev.c)+'\')"><div class="main">'+
+  return '<div class="row" data-cardco="'+esc(ev.c)+'" onclick="openDetail(\''+J(ev.c)+'\')"><div class="main">'+
     '<div class="day">'+(r?dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)'):'<span class="tag" style="color:var(--dim)">終了</span>')+'</div>'+
     '<div class="body1"><div class="meta">'+logo(it)+
       '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+fdate(ev.at)+' '+ftime(ev.at)+'</i></div>'+
@@ -1102,7 +1132,7 @@ function render(pageChanged){
     MGMT.forEach(function(it){
       var r=it.due?rem(it.due):null;
       var lab=r?(r.d===0?'今日':r.d+'日後'):(it.due?'期限切れ':'日程未定');
-      h+='<button class="stripitem" onclick="openDetail(\''+esc(it.c)+'\')">'+
+      h+='<button class="stripitem" onclick="openDetail(\''+J(it.c)+'\')">'+
         '<span class="k">受験予定</span><span class="n">'+esc(it.c)+'</span>'+
         '<span class="d" style="color:'+(r&&r.d<=2?'var(--hot)':'var(--text)')+'">'+lab+'</span>'+
         (it.due?'<span class="w">'+fdate(it.due)+(it.timeUnset?'':' '+ftime(it.due))+'</span>':'')+
@@ -1115,7 +1145,7 @@ function render(pageChanged){
     var it=hero.it||{c:hero.c,dom:''};
     var head=hero.kind==='due'?'次の締切':'次の'+hero.ev.kind;
     var stage=hero.kind==='due'?it.stage:hero.ev.kind;
-    h+='<div class="hero" onclick="openDetail(\''+esc(hero.c)+'\')">'+
+    h+='<div class="hero" onclick="openDetail(\''+J(hero.c)+'\')">'+
       '<div class="lab" style="margin:0">'+head+'</div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'+logo(it,36)+'<h1>'+esc(hero.c)+'</h1></div>'+
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
@@ -1444,7 +1474,7 @@ function renderTabContent(it){
       }
       h+='<div style="display:flex;gap:8px;margin-top:10px">'+
         '<input class="f" type="datetime-local" id="coDue" style="flex:1;margin:0" value="'+esc(it.due||'')+'">'+
-        '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setDue(\''+esc(it.c)+'\')">保存</button></div></div>';
+        '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setDue(\''+J(it.c)+'\')">保存</button></div></div>';
     }
     if(st==='waiting'){
       var d=since(it.since||(it.due?it.due.slice(0,10):null));
@@ -1452,9 +1482,9 @@ function renderTabContent(it){
         '<div class="lab" style="margin:0 0 8px">結果待ち</div>'+
         '<div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">'+(d==null?'—':d)+'</b><s>日経過</s></div>'+
         '<div style="display:flex;gap:10px;margin-top:16px">'+
-        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" onclick="doPass(\''+esc(it.c)+'\')">'+
+        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" onclick="doPass(\''+J(it.c)+'\')">'+
           (last?(TERM==='夏インターン'?'参加決定':'内定'):'通過')+'</button>'+
-        '<button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="confirmFail(\''+esc(it.c)+'\')">落選</button>'+
+        '<button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="confirmFail(\''+J(it.c)+'\')">落選</button>'+
         '</div></div>';
     }
     if(st==='fixed'){
@@ -1468,20 +1498,20 @@ function renderTabContent(it){
     }
 
     if(st==='todo')
-      h+='<button class="big" style="background:var(--blue);color:#fff" onclick="doDone(\''+esc(it.c)+'\')">完了にして結果待ちへ</button>';
+      h+='<button class="big" style="background:var(--blue);color:#fff" onclick="doDone(\''+J(it.c)+'\')">完了にして結果待ちへ</button>';
     if(st==='waiting'||st==='fail'||st==='offer'||st==='fixed'||st==='skip')
-      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'対応中\')">対応中に戻す</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="doStatus(\''+J(it.c)+'\',\'対応中\')">対応中に戻す</button>';
     if(st==='waiting')
-      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'参加決定\')">参加決定にする</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" onclick="doStatus(\''+J(it.c)+'\',\'参加決定\')">参加決定にする</button>';
     if(curIdx>0)
-      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrevStage(\''+esc(it.c)+'\')">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrevStage(\''+J(it.c)+'\')">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
     if(st==='todo')
-      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" onclick="doStatus(\''+esc(it.c)+'\',\'見送り\')">見送りにする</button>';
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" onclick="doStatus(\''+J(it.c)+'\',\'見送り\')">見送りにする</button>';
 
     if(TERM==='夏インターン'&&isCo(it)){
       var already=DATA.items.some(function(x){return x.c===it.c&&(x.term||'')==='本選考'});
       h+='<button class="big" style="background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500" '+
-        (already?'disabled':'onclick="carryOver(\''+esc(it.c)+'\')"')+'>'+
+        (already?'disabled':'onclick="carryOver(\''+J(it.c)+'\')"')+'>'+
         (already?'本選考に登録済み':'本選考に引き継ぐ')+'</button>';
     }
 
@@ -1490,8 +1520,8 @@ function renderTabContent(it){
       '<div style="display:flex;gap:8px">'+
       '<input class="f" style="flex:1;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+
         esc(LOGOS[it.c]&&LOGOS[it.c]!=='none'?LOGOS[it.c]:'')+'">'+
-      '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setLogoUrl(\''+esc(it.c)+'\')">適用</button></div>'+
-      '<button class="gh" style="margin-top:8px" onclick="refetchLogo(\''+esc(it.c)+'\')">Wikidataから取り直す</button></div>';
+      '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setLogoUrl(\''+J(it.c)+'\')">適用</button></div>'+
+      '<button class="gh" style="margin-top:8px" onclick="refetchLogo(\''+J(it.c)+'\')">Wikidataから取り直す</button></div>';
 
     h+='<div style="margin-top:20px">'+
       '<div class="kv"><span>マイページID</span><span>'+esc(it.id||'—')+'</span></div>'+
@@ -1514,7 +1544,7 @@ function renderTabContent(it){
           (r?(r.d<=2?'var(--hot)':'var(--text)'):'var(--dim)')+'">'+(r?r.d:'—')+'</span>'+
         '<div style="flex:1"><div style="font-size:14px">'+esc(ev.kind)+'</div>'+
         '<div class="sub" style="margin-top:3px">'+fdate(ev.at)+' '+ftime(ev.at)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
-        '<button class="gh" style="color:var(--hot);padding:6px 10px" onclick="delEv(\''+esc(ev.uid)+'\')">×</button></div>';
+        '<button class="gh" style="color:var(--hot);padding:6px 10px" onclick="delEv(\''+J(ev.uid)+'\')">×</button></div>';
     });
     h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.05)">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
@@ -1675,7 +1705,7 @@ function searchRun(v){
   var t=v.trim();
   var L=DATA.items.filter(function(i){return !t||i.c.indexOf(t)>=0}).slice(0,8);
   document.getElementById('qres').innerHTML = L.length? L.map(function(it){
-    return '<button onclick="pick(\''+esc(it.c)+'\',\''+esc(it.term||'夏インターン')+'\')">'+
+    return '<button onclick="pick(\''+J(it.c)+'\',\''+J(it.term||'夏インターン')+'\')">'+
       logo(it,26)+'<span class="qn">'+esc(it.c)+'</span>'+
       '<span class="qs">'+esc(it.status||'')+' '+esc(it.stage||'')+'</span></button>';
   }).join('') : '<div class="qempty">見つかりません</div>';
@@ -2042,10 +2072,64 @@ function resetCfg(){
   openSetup();
 }
 
+/* ============ 引っ張って更新 ============ */
+(function(){
+  var y0=0, pulling=false, dist=0;
+  var el=function(){return document.getElementById('ptr')};
+  function set(d){
+    var p=el(); if(!p)return;
+    var t=Math.min(1,d/90);
+    p.style.opacity=t.toFixed(2);
+    p.style.transform='translate3d(-50%,'+Math.min(56,d*0.6)+'px,0) scale('+(0.7+t*0.3).toFixed(2)+')';
+    p.querySelector('.ptrRing').style.transform='rotate('+(d*3)+'deg)';
+  }
+  function reset(){
+    var p=el(); if(!p)return;
+    p.classList.remove('spin');
+    p.style.transition='opacity .3s var(--ease),transform .5s var(--spring)';
+    p.style.opacity='0';
+    p.style.transform='translate3d(-50%,-40px,0) scale(.7)';
+    setTimeout(function(){ if(p) p.style.transition='' },520);
+  }
+  document.addEventListener('touchstart',function(e){
+    if(document.getElementById('sheet').innerHTML)return;
+    if(window.scrollY>0)return;
+    if(e.touches.length!==1)return;
+    y0=e.touches[0].clientY; pulling=true; dist=0;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    if(!pulling)return;
+    dist=e.touches[0].clientY-y0;
+    if(dist<=0){ pulling=false; reset(); return }
+    if(window.scrollY>0){ pulling=false; reset(); return }
+    set(dist);
+  },{passive:true});
+  document.addEventListener('touchend',function(){
+    if(!pulling)return;
+    pulling=false;
+    if(dist>90 && CFG.ep){
+      var p=el();
+      if(p){ p.classList.add('spin'); p.style.opacity='1';
+             p.style.transform='translate3d(-50%,40px,0) scale(1)'; }
+      api('apiGetData',[]).then(function(j){
+        if(j&&j.items){ applyData(j); toast('最新に更新しました',true); }
+        reset();
+      }).catch(function(){ toast('更新できませんでした'); reset(); });
+    }else reset();
+  });
+})();
+
 window.addEventListener('load',function(){ syncPills(); initLiquid();
   setTimeout(syncPills,80); setTimeout(syncPills,300); });
 window.addEventListener('resize',function(){ syncPills() });
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){syncPills()});
+
+/* 画面と部品を端末に保存して、電波が無くても起動できるようにする */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
 
 if(loadCfg()) load(); else openSetup();
 </script>
