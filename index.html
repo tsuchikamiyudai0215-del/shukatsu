@@ -159,6 +159,7 @@ button,select,input{font-family:var(--body)}
 .stripitem .d{margin-left:auto;font-family:var(--disp);font-size:15px;font-weight:600;flex:0 0 auto}
 .stripitem .w{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 auto}
 
+.row[data-act]{cursor:pointer}
 .row{
   /* 画面外のカードは描かない。31枚あるので効果が大きい */
   content-visibility:auto;
@@ -576,6 +577,10 @@ html.can-refract .seg.lifted{
 }
 
 #side{display:none}
+/* キーボードが出ている間 */
+body.kb-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,40px,0);pointer-events:none}
+body.kb-open .sheet{padding-bottom:calc(10px + var(--kb,0px))}
+body.kb-open .card{height:auto;max-height:calc(100dvh - var(--kb,0px) - 40px)}
 #app{transform-origin:50% 0;
   transition:transform .5s var(--spring),border-radius .5s var(--spring),filter .5s var(--ease)}
 /* 奥へ引っ込める瞬間だけ GPU に載せる。常時載せるとスクロールが重くなる */
@@ -1113,17 +1118,17 @@ function rowHtml(it){
 
   var stop='event.stopPropagation();';
   var acts='';
-  if(st==='todo') acts='<div class="acts"><button class="gh" onclick="'+stop+'doDone(\''+J(it.c)+'\')">完了にする</button></div>';
+  if(st==='todo') acts='<div class="acts"><button class="gh" data-act="done" data-co="'+esc(it.c)+'">完了にする</button></div>';
   if(st==='waiting'){
     var rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
     var goalLab = last ? (TERM==='夏インターン'?'参加決定':'内定') : '通過';
     acts='<div class="acts">'+
-      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" onclick="'+stop+'doPass(\''+J(it.c)+'\')">'+goalLab+'</button>'+
-      '<button class="gh" onclick="'+stop+'confirmFail(\''+J(it.c)+'\')">落選</button></div>';
+      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" data-act="pass" data-co="'+esc(it.c)+'">'+goalLab+'</button>'+
+      '<button class="gh" data-act="fail" data-co="'+esc(it.c)+'">落選</button></div>';
   }
   var isMuted = (st==='fail'||st==='skip');
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
-    '" data-cardco="'+esc(it.c)+'" onclick="openDetail(\''+J(it.c)+'\')">'+
+    '" data-act="open" data-co="'+esc(it.c)+'">'+
     '<div class="main">'+
       '<div class="day">'+left+'</div>'+
       '<div class="body1"><div class="meta">'+logo(it)+
@@ -1135,7 +1140,7 @@ function rowHtml(it){
 }
 function eventRowHtml(ev){
   var it=byCo(ev.c)||{c:ev.c,dom:''}, r=rem(ev.at);
-  return '<div class="row" data-cardco="'+esc(ev.c)+'" onclick="openDetail(\''+J(ev.c)+'\')"><div class="main">'+
+  return '<div class="row" data-act="open" data-co="'+esc(ev.c)+'"><div class="main">'+
     '<div class="day">'+(r?dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)'):'<span class="tag" style="color:var(--dim)">終了</span>')+'</div>'+
     '<div class="body1"><div class="meta">'+logo(it)+
       '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+fdate(ev.at)+' '+ftime(ev.at)+'</i></div>'+
@@ -1218,7 +1223,7 @@ function render(pageChanged){
     MGMT.forEach(function(it){
       var r=it.due?rem(it.due):null;
       var lab=r?(r.d===0?'今日':r.d+'日後'):(it.due?'期限切れ':'日程未定');
-      h+='<button class="stripitem" onclick="openDetail(\''+J(it.c)+'\')">'+
+      h+='<button class="stripitem" data-act="open" data-co="'+esc(it.c)+'">'+
         '<span class="k">受験予定</span><span class="n">'+esc(it.c)+'</span>'+
         '<span class="d" style="color:'+(r&&r.d<=2?'var(--hot)':'var(--text)')+'">'+lab+'</span>'+
         (it.due?'<span class="w">'+fdate(it.due)+(it.timeUnset?'':' '+ftime(it.due))+'</span>':'')+
@@ -1231,7 +1236,7 @@ function render(pageChanged){
     var it=hero.it||{c:hero.c,dom:''};
     var head=hero.kind==='due'?'次の締切':'次の'+hero.ev.kind;
     var stage=hero.kind==='due'?it.stage:hero.ev.kind;
-    h+='<div class="hero" onclick="openDetail(\''+J(hero.c)+'\')">'+
+    h+='<div class="hero" data-act="open" data-co="'+esc(hero.c)+'">'+
       '<div class="lab" style="margin:0">'+head+'</div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'+logo(it,36)+'<h1>'+esc(hero.c)+'</h1></div>'+
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
@@ -1341,7 +1346,17 @@ function tickHero(){
   var str=(r.d>0?'<b>'+r.d+'</b><s>d</s>':'')+'<b>'+p(r.h)+'</b><s>h</s><b>'+p(r.m)+'</b><s>m</s><b>'+p(r.s)+'</b><s>s</s>';
   if(el.dataset.rendered!==str){ el.dataset.rendered=str; el.innerHTML=str; }
 }
-setInterval(tickHero,1000);
+/* 画面が隠れている間は毎秒の更新を止める。裏で回し続けると電池を食う */
+var heroTimer=null;
+function startTick(){ if(!heroTimer){ tickHero(); heroTimer=setInterval(tickHero,1000) } }
+function stopTick(){ if(heroTimer){ clearInterval(heroTimer); heroTimer=null } }
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden) stopTick();
+  else { startTick(); render(false); }   /* 戻ってきたら表示も合わせ直す */
+});
+window.addEventListener('pagehide',stopTick);
+window.addEventListener('pageshow',startTick);
+startTick();
 
 var wasWide=isWide();
 window.addEventListener('resize',function(){
@@ -1564,7 +1579,7 @@ function renderTabContent(it){
       }
       h+='<div style="display:flex;gap:8px;margin-top:10px">'+
         '<input class="f" type="datetime-local" id="coDue" style="flex:1;margin:0" value="'+esc(it.due||'')+'">'+
-        '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setDue(\''+J(it.c)+'\')">保存</button></div></div>';
+        '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">保存</button></div></div>';
     }
     if(st==='waiting'){
       var d=since(it.since||(it.due?it.due.slice(0,10):null));
@@ -1572,9 +1587,9 @@ function renderTabContent(it){
         '<div class="lab" style="margin:0 0 8px">結果待ち</div>'+
         '<div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">'+(d==null?'—':d)+'</b><s>日経過</s></div>'+
         '<div style="display:flex;gap:10px;margin-top:16px">'+
-        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" onclick="doPass(\''+J(it.c)+'\')">'+
+        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass" data-co="'+esc(it.c)+'">'+
           (last?(TERM==='夏インターン'?'参加決定':'内定'):'通過')+'</button>'+
-        '<button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="confirmFail(\''+J(it.c)+'\')">落選</button>'+
+        '<button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail" data-co="'+esc(it.c)+'">落選</button>'+
         '</div></div>';
     }
     if(st==='fixed'){
@@ -1588,20 +1603,20 @@ function renderTabContent(it){
     }
 
     if(st==='todo')
-      h+='<button class="big" style="background:var(--blue);color:#fff" onclick="doDone(\''+J(it.c)+'\')">完了にして結果待ちへ</button>';
+      h+='<button class="big" style="background:var(--blue);color:#fff" data-act="done" data-co="'+esc(it.c)+'">完了にして結果待ちへ</button>';
     if(st==='waiting'||st==='fail'||st==='offer'||st==='fixed'||st==='skip')
-      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" onclick="doStatus(\''+J(it.c)+'\',\'対応中\')">対応中に戻す</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="対応中">対応中に戻す</button>';
     if(st==='waiting')
-      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" onclick="doStatus(\''+J(it.c)+'\',\'参加決定\')">参加決定にする</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="参加決定">参加決定にする</button>';
     if(curIdx>0)
-      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" onclick="doPrevStage(\''+J(it.c)+'\')">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" data-act="prev" data-co="'+esc(it.c)+'">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
     if(st==='todo')
-      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" onclick="doStatus(\''+J(it.c)+'\',\'見送り\')">見送りにする</button>';
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="見送り">見送りにする</button>';
 
     if(TERM==='夏インターン'&&isCo(it)){
       var already=DATA.items.some(function(x){return x.c===it.c&&(x.term||'')==='本選考'});
       h+='<button class="big" style="background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500" '+
-        (already?'disabled':'onclick="carryOver(\''+J(it.c)+'\')"')+'>'+
+        (already?'disabled':'data-act="carry" data-co="'+esc(it.c)+'"')+'>'+
         (already?'本選考に登録済み':'本選考に引き継ぐ')+'</button>';
     }
 
@@ -1610,8 +1625,8 @@ function renderTabContent(it){
       '<div style="display:flex;gap:8px">'+
       '<input class="f" style="flex:1;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+
         esc(LOGOS[it.c]&&LOGOS[it.c]!=='none'?LOGOS[it.c]:'')+'">'+
-      '<button class="gh" style="padding:0 14px;color:var(--text)" onclick="setLogoUrl(\''+J(it.c)+'\')">適用</button></div>'+
-      '<button class="gh" style="margin-top:8px" onclick="refetchLogo(\''+J(it.c)+'\')">Wikidataから取り直す</button></div>';
+      '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="logo-set" data-co="'+esc(it.c)+'">適用</button></div>'+
+      '<button class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">Wikidataから取り直す</button></div>';
 
     h+='<div style="margin-top:20px">'+
       '<div class="kv"><span>マイページID</span><span>'+esc(it.id||'—')+'</span></div>'+
@@ -1634,7 +1649,7 @@ function renderTabContent(it){
           (r?(r.d<=2?'var(--hot)':'var(--text)'):'var(--dim)')+'">'+(r?r.d:'—')+'</span>'+
         '<div style="flex:1"><div style="font-size:14px">'+esc(ev.kind)+'</div>'+
         '<div class="sub" style="margin-top:3px">'+fdate(ev.at)+' '+ftime(ev.at)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
-        '<button class="gh" style="color:var(--hot);padding:6px 10px" onclick="delEv(\''+J(ev.uid)+'\')">×</button></div>';
+        '<button class="gh" style="color:var(--hot);padding:6px 10px" data-act="delev" data-v="'+esc(ev.uid)+'">×</button></div>';
     });
     h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05)">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
@@ -1800,7 +1815,7 @@ function searchRun(v){
   var t=v.trim();
   var L=DATA.items.filter(function(i){return !t||i.c.indexOf(t)>=0}).slice(0,8);
   document.getElementById('qres').innerHTML = L.length? L.map(function(it){
-    return '<button onclick="pick(\''+J(it.c)+'\',\''+J(it.term||'夏インターン')+'\')">'+
+    return '<button data-act="pick" data-co="'+esc(it.c)+'" data-v="'+esc(it.term||'夏インターン')+'">'+
       logo(it,26)+'<span class="qn">'+esc(it.c)+'</span>'+
       '<span class="qs">'+esc(it.status||'')+' '+esc(it.stage||'')+'</span></button>';
   }).join('') : '<div class="qempty">見つかりません</div>';
@@ -1853,6 +1868,35 @@ function doAdd(){
     stage:document.getElementById('nS').value,due:document.getElementById('nDue').value,term:TERM}],
     function(){closeSheet();toast('追加しました',true)});
 }
+
+/* ============ クリックの一元処理 ============ */
+/* 各要素に関数呼び出しを埋め込むと、社名に ' や \ が入った瞬間に壊れる。
+   data 属性で「何をするか」だけを持たせ、実行はここでまとめて行う。 */
+var ACTS={
+  open:  function(co){ openDetail(co) },
+  done:  function(co){ doDone(co) },
+  pass:  function(co){ doPass(co) },
+  fail:  function(co){ confirmFail(co) },
+  prev:  function(co){ doPrevStage(co) },
+  carry: function(co){ carryOver(co) },
+  setdue:function(co){ setDue(co) },
+  status:function(co,v){ doStatus(co,v) },
+  'logo-set':function(co){ setLogoUrl(co) },
+  'logo-get':function(co){ refetchLogo(co) },
+  delev: function(co,v){ delEv(v) },
+  pick:  function(co,v){ pick(co,v) }
+};
+document.addEventListener('click',function(e){
+  var el=e.target.closest ? e.target.closest('[data-act]') : null;
+  if(!el)return;
+  var act=el.getAttribute('data-act');
+  var fn=ACTS[act];
+  if(!fn)return;
+  /* 行の中のボタンは、行そのものを開く動作まで届かせない */
+  if(act!=='open') e.stopPropagation();
+  e.preventDefault();
+  fn(el.getAttribute('data-co')||'', el.getAttribute('data-v')||'');
+},false);
 
 /* ============ リキッドグラス操作 ============ */
 var CAN_REFRACT = (function(){
@@ -2167,10 +2211,28 @@ function resetCfg(){
   openSetup();
 }
 
+/* ============ ソフトキーボード対応 ============ */
+/* 入力欄に触れると画面下が持ち上がる。ドックは邪魔なので隠し、
+   シートの下端はキーボードの高さぶん空ける */
+(function(){
+  var vv=window.visualViewport;
+  if(!vv)return;
+  function apply(){
+    var gap=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb', gap+'px');
+    document.body.classList.toggle('kb-open', gap>120);
+  }
+  vv.addEventListener('resize',apply);
+  vv.addEventListener('scroll',apply);
+  apply();
+})();
+
 /* ============ 引っ張って更新 ============ */
 (function(){
-  var y0=0, pulling=false, dist=0;
+  var y0=0, x0=0, pulling=false, dist=0, locked=false, lastScroll=0;
   var el=function(){return document.getElementById('ptr')};
+  /* 直前までスクロールしていた（慣性が残っている）間は反応させない */
+  window.addEventListener('scroll',function(){ lastScroll=Date.now() },{passive:true});
   function set(d){
     var p=el(); if(!p)return;
     var t=Math.min(1,d/90);
@@ -2187,14 +2249,25 @@ function resetCfg(){
     setTimeout(function(){ if(p) p.style.transition='' },520);
   }
   document.addEventListener('touchstart',function(e){
+    pulling=false; locked=false;
     if(document.getElementById('sheet').innerHTML)return;
     if(window.scrollY>0)return;
+    if(Date.now()-lastScroll<350)return;          /* 慣性スクロールの直後は無視 */
     if(e.touches.length!==1)return;
-    y0=e.touches[0].clientY; pulling=true; dist=0;
+    if(e.target.closest&&e.target.closest('.chiprow,.tabbar,.seg,.tab-pane'))return;
+    y0=e.touches[0].clientY; x0=e.touches[0].clientX;
+    pulling=true; dist=0;
   },{passive:true});
   document.addEventListener('touchmove',function(e){
     if(!pulling)return;
-    dist=e.touches[0].clientY-y0;
+    if(e.touches.length!==1){ pulling=false; reset(); return }
+    var dy=e.touches[0].clientY-y0, dx=e.touches[0].clientX-x0;
+    if(!locked){
+      if(Math.abs(dx)>Math.abs(dy)){ pulling=false; reset(); return }  /* 横スワイプ */
+      if(Math.abs(dy)<8) return;
+      locked=true;
+    }
+    dist=dy;
     if(dist<=0){ pulling=false; reset(); return }
     if(window.scrollY>0){ pulling=false; reset(); return }
     set(dist);
@@ -2202,7 +2275,7 @@ function resetCfg(){
   document.addEventListener('touchend',function(){
     if(!pulling)return;
     pulling=false;
-    if(dist>90 && CFG.ep){
+    if(dist>110 && locked && CFG.ep){
       var p=el();
       if(p){ p.classList.add('spin'); p.style.opacity='1';
              p.style.transform='translate3d(-50%,40px,0) scale(1)'; }
