@@ -33,10 +33,10 @@
   --blue:#0A84FF; --go:#30D158; --wait:#FF9F0A; --hot:#FF453A; --fail:#6E3E4B;
 
   /* 縁取りではなく、上端の反射と沈み込みの影だけで面を立たせる */
+  /* 影は1本に絞る。層を重ねるほどラスタライズが重くなる */
   --glass-edge:
     inset 0 0.5px 0 0 rgba(255,255,255,0.28),
-    inset 0 -0.5px 0 0 rgba(0,0,0,0.2),
-    0 4px 16px -6px rgba(0,0,0,0.4);
+    0 3px 12px -6px rgba(0,0,0,0.45);
   --glass-drop-lg:
     0 20px 56px -10px rgba(0,0,0,0.8),
     inset 0 1.5px 0.5px rgba(255,255,255,0.75),
@@ -51,6 +51,17 @@
   --press:cubic-bezier(0.2, 0, 0, 1);
   --out:cubic-bezier(0.55, 0, 0.85, 0.35);
 
+  /* iOS の角丸。外側ほど大きく、内側は「外側 − 余白」で決める（入れ子の法則） */
+  --r-sheet:40px;   /* 画面下から出るシート */
+  --r-tile:26px;    /* 通知タイル相当。一覧のカード */
+  --r-card:22px;    /* 小さめのカード */
+  --r-field:16px;   /* 入力欄・大きなボタン */
+  --r-chip:999px;   /* カプセル形。ドック・区分・チップ・小ボタン */
+  /* 入れ子の法則：内側の角丸 ＝ 外側の角丸 − 余白。
+     これを外すと、外枠と中身の曲線が平行にならず不安定に見える */
+  --r-in-tile:calc(var(--r-tile) - 15px);   /* タイル内の要素（余白15px） */
+  --r-in-sheet:calc(var(--r-sheet) - 20px); /* シート内の要素（余白20px） */
+
   --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Helvetica Neue",sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
@@ -63,6 +74,16 @@
       .7439 24.4%,.8189 28%,.8802 31.9%,.9295 36.1%,.9682 40.9%,.9887 45.2%,
       1.0011 50%,1.0058 55.6%,1.0033 63.5%,1 78.5%,1);
   }
+}
+/* Apple の角は円弧ではなく連続曲線。対応環境では本物の形にする */
+@supports (corner-shape: squircle){
+  .row,.stripitem,.pcard,.card,.spotbox,.setupBox,
+  .gh,.big,.f,.tabbar,.seg,.pill,.chiprow button,
+  .sideclose,#toast,#stale,#ptr,#side,.setupErr,.logo.mono{
+    corner-shape:squircle;
+  }
+  /* カプセル形は連続曲線にすると潰れて見えるので、円弧のままにする */
+  .tabbar,.seg,.pill,.chiprow button,.gh{corner-shape:round}
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
 *::-webkit-scrollbar{width:6px;height:6px}
@@ -78,15 +99,15 @@ body::before{
     radial-gradient(120% 85% at 0% -5%,  rgba(10,132,255,0.22) 0%, rgba(10,132,255,0.06) 38%, transparent 68%),
     radial-gradient(110% 75% at 100% 20%, rgba(48,209,88,0.14) 0%, rgba(48,209,88,0.04) 40%, transparent 70%),
     radial-gradient(150% 95% at 50% 105%, rgba(140,50,255,0.2) 0%, rgba(140,50,255,0.05) 45%, transparent 75%);
-  /* 帯状のムラ（バンディング）を微細なノイズで散らす */
-  filter:blur(0.2px);
 }
 body::after{
-  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.035;
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.03;
+  /* 一度描いたら変わらない層として固定する */
+  transform:translateZ(0);
   background-image:url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'>\
-<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/></filter>\
-<rect width='140' height='140' filter='url(%23n)'/></svg>");
+<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>\
+<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter>\
+<rect width='120' height='120' filter='url(%23n)'/></svg>");
 }
 body{
   overscroll-behavior-y:none;margin:0;background:transparent;color:var(--text);
@@ -127,7 +148,7 @@ button,select,input{font-family:var(--body)}
 .strip{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);
-  border:none;border-radius:22px;padding:13px 16px;color:var(--text);
+  border:none;border-radius:var(--r-card);padding:13px 16px;color:var(--text);
   box-shadow:var(--glass-edge);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .stripitem:active{transform:scale(.965);transition:transform .1s var(--press)}
@@ -139,8 +160,13 @@ button,select,input{font-family:var(--body)}
 .stripitem .w{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 auto}
 
 .row{
+  /* 画面外のカードは描かない。31枚あるので効果が大きい */
+  content-visibility:auto;
+  contain-intrinsic-size:auto 104px;
+  /* 各カードの中で描画を完結させ、隣のカードの再描画を誘発させない */
+  contain:layout paint style;
   background:var(--surface);
-  border:none;border-radius:26px;
+  border:none;border-radius:var(--r-tile);
   box-shadow:var(--glass-edge);
   margin-bottom:10px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;
@@ -173,7 +199,7 @@ button,select,input{font-family:var(--body)}
   letter-spacing:-.005em}
 .acts{display:flex;gap:8px;padding:0 17px 14px 76px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:var(--muted);
-  border-radius:12px;padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
+  border-radius:var(--r-chip);padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
   display:inline-block;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);
   transition:transform .42s var(--spring),background .16s var(--ease),color .16s var(--ease)}
 .gh:active{transform:scale(.9);transition:transform .1s var(--press)}
@@ -185,8 +211,8 @@ button,select,input{font-family:var(--body)}
 
 /* ---------- sheet / card ---------- */
 .sheet{
-  position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.45);
-  backdrop-filter:blur(22px) brightness(.9);-webkit-backdrop-filter:blur(22px) brightness(.9);
+  position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.5);
+  /* 背後はすでに縮小・減光しているので、ここでのぼかしは二重になる */
   display:flex;align-items:flex-end;justify-content:center;z-index:60;
   padding:0 10px calc(10px + env(safe-area-inset-bottom));
   opacity:0;pointer-events:none;
@@ -197,9 +223,9 @@ button,select,input{font-family:var(--body)}
 .card{
   position:relative;width:100%;max-width:480px;
   height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
-  border-radius:32px;border:none;
+  border-radius:var(--r-sheet);border:none;
   background:linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%), rgba(16,16,24,0.72);
-  backdrop-filter:blur(44px) saturate(240%);-webkit-backdrop-filter:blur(44px) saturate(240%);
+  backdrop-filter:blur(34px) saturate(220%);-webkit-backdrop-filter:blur(34px) saturate(220%);
   box-shadow:var(--glass-drop-lg);
   padding:12px 20px calc(14px + env(safe-area-inset-bottom));
   transform:translate3d(0,105%,0);
@@ -207,6 +233,9 @@ button,select,input{font-family:var(--body)}
   will-change:transform;
 }
 .sheet.is-active .card{transform:translate3d(0,0,0)}
+/* せり上がっている最中はぼかしを外す。動きながらのぼかしが一番重い */
+.card.noblur{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
+  background:linear-gradient(180deg, rgba(44,44,58,.95) 0%, rgba(16,16,24,.98) 100%) !important}
 .grab{width:40px;height:5px;background:rgba(255,255,255,.3);border-radius:3px;margin:0 auto 16px;
   transition:background .2s var(--ease);flex:0 0 auto}
 .card.drag .grab{background:rgba(255,255,255,.7)}
@@ -240,14 +269,15 @@ button,select,input{font-family:var(--body)}
 .kv{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .kv span:first-child{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
 .kv span:last-child{font-size:13px;text-align:right;word-break:break-all;margin-left:16px}
-.f{width:100%;background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.15);border-radius:14px;
-  padding:12px 14px;color:var(--text);font-size:14px;outline:none;
+.f{width:100%;background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.15);border-radius:var(--r-field);
+  padding:13px 15px;color:var(--text);font-size:14px;outline:none;
   box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
   transition:border-color .2s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease)}
 .f:focus{border-color:var(--blue);background:rgba(0,0,0,.5);
   box-shadow:0 0 0 3.5px rgba(10,132,255,.32), inset 0 1px 2px rgba(0,0,0,.4)}
-.card .f{margin-top:8px}
-.big{width:100%;padding:14px 0;border-radius:14px;border:none;font-size:14px;font-weight:600;
+.card .f{margin-top:8px;border-radius:var(--r-in-sheet)}
+.card .big{border-radius:var(--r-in-sheet)}
+.big{width:100%;padding:14px 0;border-radius:var(--r-field);border:none;font-size:14px;font-weight:600;
   cursor:pointer;margin-top:12px;display:block;text-align:center;text-decoration:none;
   box-shadow:0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.35);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
@@ -278,9 +308,9 @@ button,select,input{font-family:var(--body)}
   bottom:calc(18px + env(safe-area-inset-bottom));z-index:45;
   display:inline-flex;align-items:center;justify-content:center;gap:2px;
   white-space:nowrap;max-width:calc(100vw - 24px);
-  border-radius:34px;padding:5px;--pw:88px;--pg:2px}
+  border-radius:var(--r-chip);padding:5px;--pw:88px;--pg:2px}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
-  padding:10px 0;border-radius:28px;cursor:pointer;position:relative;z-index:1;
+  padding:10px 0;border-radius:var(--r-chip);cursor:pointer;position:relative;z-index:1;
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
   transition:color .22s var(--ease),transform .42s var(--spring)}
 .tabbar button:active{transform:scale(.93);transition:transform .1s var(--press)}
@@ -291,10 +321,12 @@ button,select,input{font-family:var(--body)}
   white-space:nowrap;flex-shrink:0}
 
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:0 auto 16px;max-width:320px;
-  backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
-  border-radius:34px;padding:4px}
+  /* 本文と一緒にスクロールする要素にブラーを掛けると毎フレーム計算される。
+     塗りを一段濃くして見え方を合わせる */
+  background:linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.04) 100%), rgba(18,18,28,0.55);
+  border-radius:var(--r-chip);padding:4px}
 .seg button{background:none;border:none;color:var(--muted);position:relative;z-index:1;
-  border-radius:28px;padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
+  border-radius:var(--r-chip);padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
   white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
   transition:color .22s var(--ease),transform .42s var(--spring)}
 .seg button:active{transform:scale(.94);transition:transform .1s var(--press)}
@@ -303,7 +335,7 @@ button,select,input{font-family:var(--body)}
 
 /* ピル本体 */
 .pill{
-  position:absolute;z-index:0;pointer-events:none;border-radius:28px;overflow:hidden;
+  position:absolute;z-index:0;pointer-events:none;border-radius:var(--r-chip);overflow:hidden;
   background:linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(240,240,248,0.9) 100%);
   box-shadow:0 2px 10px rgba(0,0,0,0.22),
              inset 0 1px 0 rgba(255,255,255,1),
@@ -363,6 +395,32 @@ button,select,input{font-family:var(--body)}
 .grabbing button{color:var(--text) !important}
 .settling .pill{transition:transform .58s var(--spring)}
 
+/* ------------------------------------------------------------------
+   Chrome 系は GPU ラスタライズが効くので、余力のある環境でだけ
+   表現を上乗せする。Safari には一切適用されないので影響しない。
+   ------------------------------------------------------------------ */
+@media (min-width:1000px){
+  /* 画面が広い＝PC。カードにも本物のすりガラスを掛ける */
+  html.can-refract .row,
+  html.can-refract .stripitem,
+  html.can-refract .pcard{
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+  }
+  html.can-refract .seg{
+    background:linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.02) 100%), rgba(18,18,26,0.28);
+    backdrop-filter:blur(28px) saturate(200%);
+    -webkit-backdrop-filter:blur(28px) saturate(200%);
+  }
+  /* 面が透けるぶん、地の色をわずかに締める */
+  html.can-refract .row{background:linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.05) 100%)}
+}
+/* スマホの Chrome（Galaxy など）は、固定要素のぼかしだけ一段深くする */
+html.can-refract .tabbar{
+  backdrop-filter:blur(34px) saturate(200%) brightness(1.08);
+  -webkit-backdrop-filter:blur(34px) saturate(200%) brightness(1.08);
+}
+
 /* Chrome 系のみ、ガラス越しの背景を実際に歪ませる */
 /* 動いている要素へのブラーは重いので、対応環境だけに限る */
 html.can-refract .grabbing .pill{
@@ -378,10 +436,9 @@ html.can-refract .seg.lifted{
 .pwrap{display:flex;flex-direction:column;gap:12px}
 .pcol{display:contents}
 .po1{order:1}.po2{order:2}.po3{order:3}.po4{order:4}.po5{order:5}
-.pcard{border-radius:20px;padding:18px;position:relative;overflow:hidden;
+.pcard{border-radius:var(--r-card);padding:20px;position:relative;overflow:hidden;
   border:1px solid rgba(255,255,255,0.16);box-shadow:var(--glass-edge)}
 .pcard.flat{background:var(--surface)}
-.pcard{backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%)}
 .pcard.flat .ttl{color:var(--muted)}
 .pcard .ttl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;opacity:.85}
 .pcard .num{font-family:var(--disp);font-size:44px;line-height:1;font-weight:700;letter-spacing:-.04em}
@@ -420,7 +477,7 @@ html.can-refract .seg.lifted{
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;
   background:linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%), rgba(22,22,34,0.6);
-  border:1px solid rgba(255,255,255,.16);color:var(--muted);border-radius:20px;
+  border:1px solid rgba(255,255,255,.16);color:var(--muted);border-radius:var(--r-chip);
   padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 8px rgba(0,0,0,.3);
   transition:background .24s var(--ease),color .24s var(--ease),transform .5s var(--spring)}
@@ -448,7 +505,7 @@ html.can-refract .seg.lifted{
 
 /* ---------- spotlight ---------- */
 .sheet.spot{align-items:flex-start;padding-top:14vh}
-.spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:24px;overflow:hidden;
+.spotbox{width:100%;max-width:520px;margin:0 16px;border-radius:var(--r-card);overflow:hidden;
   background:var(--hi);backdrop-filter:blur(38px) saturate(240%);-webkit-backdrop-filter:blur(38px) saturate(240%);
   border:1px solid rgba(255,255,255,0.2);box-shadow:var(--glass-drop-lg);
   animation:popIn .42s var(--spring)}
@@ -468,17 +525,17 @@ html.can-refract .seg.lifted{
 .setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
 .setupBox{width:100%;max-width:420px;background:var(--hi);
   backdrop-filter:blur(34px) saturate(230%);-webkit-backdrop-filter:blur(34px) saturate(230%);
-  border:1px solid rgba(255,255,255,0.2);border-radius:24px;padding:28px 24px 26px;
+  border:1px solid rgba(255,255,255,0.2);border-radius:var(--r-card);padding:28px 24px 26px;
   box-shadow:var(--glass-drop-lg);animation:rise .42s var(--spring)}
 .setupMark{font-size:26px;font-weight:700;letter-spacing:.24em;padding-left:.24em;text-align:center}
 .setupLead{font-size:12px;color:var(--muted);line-height:1.9;margin-top:14px;text-align:center}
-.setupErr{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.7;
+.setupErr{margin-top:14px;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.7;
   background:rgba(255,69,58,.16);border:1px solid rgba(255,69,58,.4);color:#FFC9C4}
 .setupBox .lab{margin:18px 0 8px}
 #toast{position:fixed;left:50%;transform:translate3d(-50%,26px,0) scale(.9);
   bottom:calc(96px + env(safe-area-inset-bottom));z-index:80;opacity:0;pointer-events:none;
   background:var(--chrome);backdrop-filter:blur(26px) saturate(210%);-webkit-backdrop-filter:blur(26px) saturate(210%);
-  border:1px solid rgba(255,255,255,0.18);border-radius:18px;padding:12px 20px;font-size:13px;font-weight:500;
+  border:1px solid rgba(255,255,255,0.18);border-radius:var(--r-field);padding:12px 20px;font-size:13px;font-weight:500;
   box-shadow:var(--glass-drop-lg);transition:opacity .3s var(--ease),transform .58s var(--spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
 #ptr{position:fixed;top:calc(6px + env(safe-area-inset-top));left:50%;
@@ -520,17 +577,18 @@ html.can-refract .seg.lifted{
 
 #side{display:none}
 #app{transform-origin:50% 0;
-  transition:transform .5s var(--spring),border-radius .5s var(--spring),filter .5s var(--ease);
-  will-change:transform;backface-visibility:hidden}
+  transition:transform .5s var(--spring),border-radius .5s var(--spring),filter .5s var(--ease)}
+/* 奥へ引っ込める瞬間だけ GPU に載せる。常時載せるとスクロールが重くなる */
+body.sheet-open #app{will-change:transform;backface-visibility:hidden}
 body.sheet-open #app{transform:scale(var(--bgs,.93)) translate3d(0,10px,0);
-  border-radius:24px;overflow:hidden;filter:brightness(.62)}
+  border-radius:var(--r-card);overflow:hidden;filter:brightness(.62)}
 body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,0) scale(.9);
   pointer-events:none;transition:opacity .3s var(--ease),transform .4s var(--spring)}
 
 @media (min-width:820px){
   body{max-width:960px;padding-left:28px;padding-right:28px}
   .sheet{align-items:center}
-  .sheet .card{max-width:600px;height:84vh;height:84dvh;border-radius:26px;
+  .sheet .card{max-width:600px;height:84vh;height:84dvh;border-radius:var(--r-sheet);
     padding:10px 28px calc(24px + env(safe-area-inset-bottom));
     transform:scale(.88) translate3d(0,20px,0);opacity:0;
     transition:transform .5s var(--spring),opacity .22s var(--ease)}
@@ -560,7 +618,7 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
   #side{display:block;position:sticky;top:28px;flex:0 0 380px;width:380px;
     height:calc(100vh - 138px);height:calc(100dvh - 138px);overflow:hidden;
     background:var(--hi);backdrop-filter:blur(38px) saturate(240%);-webkit-backdrop-filter:blur(38px) saturate(240%);
-    border:1px solid rgba(255,255,255,0.2);border-radius:24px;box-shadow:var(--glass-drop-lg);
+    border:1px solid rgba(255,255,255,0.2);border-radius:var(--r-card);box-shadow:var(--glass-drop-lg);
     padding:22px 20px 24px}
   #side .card{background:none;border:none;padding:0;max-width:none;height:100%;
     box-shadow:none;transform:none;opacity:1;position:relative;backdrop-filter:none;-webkit-backdrop-filter:none}
@@ -1332,6 +1390,8 @@ function closeOverlay(){
   document.body.classList.remove('sheet-open');
   document.body.style.removeProperty('--bgs');
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
+  var c=sh.querySelector('.card');
+  if(c) c.classList.add('noblur');        /* 閉じる動きの間も外す */
   sh.classList.remove('is-active');
   sh.classList.add('out');
   setTimeout(function(){
@@ -1386,6 +1446,7 @@ function bindSheetGesture(){
 
   card.addEventListener('touchmove',function(e){
     if(!tracking||e.touches.length!==1)return;
+    if(active&&!card.classList.contains('noblur')) card.classList.add('noblur');
     var cy=e.touches[0].clientY, cx=e.touches[0].clientX;
     var vdy=cy-y0, vdx=cx-x0;
     var st=getScrollTop();
@@ -1417,10 +1478,11 @@ function bindSheetGesture(){
     card.classList.add('spring');
     card.style.transform='';
     document.body.style.setProperty('--bgs','.93');   /* 背景も奥へ戻す */
+    setTimeout(function(){ card.classList.remove('noblur') },600);
   }
   function dismiss(){
     card.classList.remove('drag');
-    card.classList.add('fly');
+    card.classList.add('fly','noblur');
     card.style.transform='translate3d(0,100%,0) scale(.97)';
     sheet.classList.remove('is-active');
     sheet.classList.add('out');
@@ -1574,7 +1636,7 @@ function renderTabContent(it){
         '<div class="sub" style="margin-top:3px">'+fdate(ev.at)+' '+ftime(ev.at)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
         '<button class="gh" style="color:var(--hot);padding:6px 10px" onclick="delEv(\''+J(ev.uid)+'\')">×</button></div>';
     });
-    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.05)">'+
+    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05)">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
       '<select class="f" id="evKind">'+KINDS.map(function(k){return '<option>'+k+'</option>'}).join('')+'</select>'+
       '<input class="f" type="datetime-local" id="evAt">'+
@@ -1648,11 +1710,16 @@ function paintDetail(it){
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
   if(card){ card.innerHTML=fullHtml; return; }
-  box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card">'+fullHtml+'</div></div>';
+  box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card noblur">'+fullHtml+'</div></div>';
   requestAnimationFrame(function(){
     var sh=box.querySelector('.sheet');
     if(sh) sh.classList.add('is-active');
   });
+  /* 動き終わってから本来のガラスに戻す */
+  setTimeout(function(){
+    var c=box.querySelector('.card');
+    if(c) c.classList.remove('noblur');
+  },620);
   sheetOpened();
 }
 function renderDetail(){
