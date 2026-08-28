@@ -22,7 +22,7 @@
      33枚ぶんの背景ぼかしを毎フレーム計算する負荷だけを避けられる */
   /* iOS の通知タイルは暗い板ではなく、白を薄く透かした面。
      背景の色を拾うので、黒地でも沈まない */
-  --surface:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.075) 100%);
+  --surface:linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.065) 100%), rgba(24,24,32,0.34);
   --surface-hi:linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.11) 100%);
   --hi:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 100%), rgba(22,22,32,0.78);
   /* Apple の Dock に合わせ、背景がはっきり透ける濃度にする */
@@ -96,9 +96,9 @@ html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:1
 body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
-    radial-gradient(120% 85% at 0% -5%,  rgba(10,132,255,0.22) 0%, rgba(10,132,255,0.06) 38%, transparent 68%),
-    radial-gradient(110% 75% at 100% 20%, rgba(48,209,88,0.14) 0%, rgba(48,209,88,0.04) 40%, transparent 70%),
-    radial-gradient(150% 95% at 50% 105%, rgba(140,50,255,0.2) 0%, rgba(140,50,255,0.05) 45%, transparent 75%);
+    radial-gradient(130% 90% at 0% -8%,   rgba(56,110,190,0.11) 0%, rgba(56,110,190,0.03) 42%, transparent 72%),
+    radial-gradient(115% 80% at 100% 18%, rgba(70,150,120,0.07) 0%, rgba(70,150,120,0.02) 44%, transparent 74%),
+    radial-gradient(160% 100% at 50% 108%, rgba(96,72,150,0.1) 0%, rgba(96,72,150,0.025) 48%, transparent 78%);
 }
 body::after{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.03;
@@ -469,11 +469,11 @@ html.can-refract .seg.lifted{
 .chips::before{content:'';position:absolute;z-index:-1;
   /* 画面幅いっぱいに敷く。要素幅に合わせると左右に縦の継ぎ目が出る */
   left:50%;width:100vw;transform:translateX(-50%);
-  top:-40px;bottom:-20px;
-  /* 上下とも完全な透明から始めて、段差が出ないようにする */
+  top:-18px;bottom:-6px;
+  /* 濃く長い覆いは、背景に色があると黒い帯として浮いてしまう。
+     文字が読める最低限の濃さに留める */
   background:linear-gradient(180deg,
-    rgba(2,2,5,0) 0%, rgba(2,2,5,.35) 26%, rgba(2,2,5,.62) 46%,
-    rgba(2,2,5,.5) 70%, rgba(2,2,5,0) 100%)}
+    rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%)}
 .chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;
