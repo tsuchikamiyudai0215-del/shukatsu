@@ -467,13 +467,17 @@ html.can-refract .seg.lifted{
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:10px 16px 14px}
 .chips::before{content:'';position:absolute;z-index:-1;
-  /* 画面幅いっぱいに敷く。要素幅に合わせると左右に縦の継ぎ目が出る */
-  left:50%;width:100vw;transform:translateX(-50%);
-  top:-18px;bottom:-6px;
-  /* 濃く長い覆いは、背景に色があると黒い帯として浮いてしまう。
-     文字が読める最低限の濃さに留める */
+  /* 100vw にすると右パネルの下まで潜り込み、
+     半透明のパネル越しに黒帯として透けてしまう。本文の幅に収める。
+     ただし左右へ少しはみ出させ、境目を読む範囲の外で消す */
+  left:-14px;right:-14px;top:-18px;bottom:-6px;
+  /* 縦の減衰は塗りで、横の減衰はマスクで。四辺すべてが溶けて切れ目が出ない */
   background:linear-gradient(180deg,
-    rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%)}
+    rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%);
+  -webkit-mask-image:linear-gradient(90deg,
+    transparent 0%, #000 7%, #000 93%, transparent 100%);
+  mask-image:linear-gradient(90deg,
+    transparent 0%, #000 7%, #000 93%, transparent 100%)}
 .chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;
@@ -554,6 +558,8 @@ html.can-refract .seg.lifted{
   padding:6px 16px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);
   box-shadow:var(--glass-edge);transition:opacity .3s var(--ease),transform .5s var(--spring)}
 #stale.on{opacity:1;transform:translate3d(-50%,0,0)}
+/* 固定要素の下端に、輪郭を溶かす淡い影を置く */
+.tabbar::before,.seg::before{border-radius:inherit}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.65);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   display:none;align-items:center;justify-content:center;z-index:99;
@@ -622,7 +628,10 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
   .row:hover{background:var(--surface-hi)}
   #side{display:block;position:sticky;top:28px;flex:0 0 380px;width:380px;
     height:calc(100vh - 138px);height:calc(100dvh - 138px);overflow:hidden;
-    background:var(--hi);backdrop-filter:blur(38px) saturate(240%);-webkit-backdrop-filter:blur(38px) saturate(240%);
+    /* 背後の一覧が透けると、覆いや影がにじんで見える。
+       ここは自前の面として不透明寄りに置く */
+    background:linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%), rgba(18,18,26,0.9);
+    backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);
     border:1px solid rgba(255,255,255,0.2);border-radius:var(--r-card);box-shadow:var(--glass-drop-lg);
     padding:22px 20px 24px}
   #side .card{background:none;border:none;padding:0;max-width:none;height:100%;
