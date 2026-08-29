@@ -369,11 +369,20 @@ button,select,input{font-family:var(--body)}
 .seg.lifted{transform:scale(1.045)}
 @media (min-width:1000px){ .tabbar.lifted{transform:scale(1.055)} }
 
+/* つまんでいる間は、一覧のタイルと同じすりガラスになる。
+   縁取りも上端の光も入れず、影だけで浮かせる（One UI と同じ作り） */
 .grabbing .pill{
   transition:none !important;
   will-change:transform;
-  box-shadow:0 8px 22px rgba(0,0,0,.38), 0 0 16px rgba(255,255,255,.22),
-             inset 0 1.5px 1px rgba(255,255,255,1) !important}
+  background:linear-gradient(180deg, rgba(186,206,238,0.28) 0%, rgba(150,175,215,0.16) 100%),
+             rgba(24,30,46,0.5) !important;
+  backdrop-filter:blur(20px) saturate(190%) brightness(1.15);
+  -webkit-backdrop-filter:blur(20px) saturate(190%) brightness(1.15);
+  box-shadow:0 4px 14px -4px rgba(0,0,0,.45),
+             0 14px 32px -14px rgba(0,0,0,.55) !important}
+/* 面が透けるので、文字は白のまま読ませる */
+.grabbing button.on{color:var(--text) !important}
+.grabbing .pill::before{opacity:0}
 .grabbing button{color:var(--text) !important}
 .settling .pill{transition:transform .58s var(--spring)}
 
