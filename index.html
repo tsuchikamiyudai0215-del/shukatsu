@@ -345,36 +345,21 @@ button,select,input{font-family:var(--body)}
   transition:transform .55s var(--spring);
   will-change:transform;
 }
-/* 上面の照り返し */
+/* 上面の照り返しだけを残す */
 .pill::before{content:'';position:absolute;left:8%;right:8%;top:2px;height:40%;
   border-radius:999px;pointer-events:none;opacity:.5;
-  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0));
-  transition:opacity .25s var(--ease)}
-/* 指を追う鏡面反射 */
-.pill::after{content:'';position:absolute;inset:0;border-radius:inherit;opacity:0;
-  background:radial-gradient(55% 120% at var(--gx,50%) 35%,
-    rgba(255,255,255,1) 0%,rgba(255,255,255,.45) 32%,rgba(255,255,255,0) 68%);
-  mix-blend-mode:overlay;transition:opacity .25s var(--ease)}
+  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0))}
 .tabbar .pill{left:5px;top:5px;width:var(--pw);height:calc(100% - 10px)}
 .tabbar.p1 .pill{transform:translate3d(calc(var(--pw) + var(--pg)),0,0)}
 .seg .pill{left:4px;top:4px;height:calc(100% - 8px);width:calc((100% - 8px) / 2)}
 .seg.i1 .pill{transform:translate3d(100%,0,0)}
 
-/* バー表面の反射（つまんでいる間だけ） */
-.tabbar::before,.seg::before{
-  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:2;
-  opacity:0;transition:opacity .25s var(--ease);
-  background:
-    radial-gradient(120% 180% at var(--hx,50%) -30%,
-      rgba(255,255,255,.42) 0%,rgba(255,255,255,.1) 34%,rgba(255,255,255,0) 65%),
-    linear-gradient(180deg,rgba(255,255,255,.18) 0%,rgba(255,255,255,0) 36%,rgba(255,255,255,.06) 100%)}
-.tabbar.lifted::before,.seg.lifted::before{opacity:1}
-/* 四辺のふち光り */
+/* つまんでいる間だけ、四辺のふちを光らせる */
 .tabbar::after,.seg::after{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
   opacity:0;transition:opacity .25s var(--ease);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(255,255,255,.14),
-             inset 1px 0 0 rgba(255,255,255,.18),inset -1px 0 0 rgba(255,255,255,.18)}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),
+             inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16)}
 .tabbar.lifted::after,.seg.lifted::after{opacity:1}
 
 .tabbar.lifted,.seg.lifted{
@@ -388,49 +373,20 @@ button,select,input{font-family:var(--body)}
 
 .grabbing .pill{
   transition:none !important;
-  background:linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.36) 100%) !important;
-  box-shadow:0 10px 26px rgba(0,0,0,.4),0 0 20px rgba(255,255,255,.3),
-             inset 0 1.5px 1px rgba(255,255,255,1),inset 0 -1.5px 3px rgba(0,0,0,.22),
-             inset 0 0 12px rgba(255,255,255,.25) !important}
-.grabbing .pill::after,.grabbing .pill::before{opacity:1}
+  will-change:transform;
+  box-shadow:0 8px 22px rgba(0,0,0,.38), 0 0 16px rgba(255,255,255,.22),
+             inset 0 1.5px 1px rgba(255,255,255,1) !important}
 .grabbing button{color:var(--text) !important}
 .settling .pill{transition:transform .58s var(--spring)}
 
-/* ------------------------------------------------------------------
-   Chrome 系は GPU ラスタライズが効くので、余力のある環境でだけ
-   表現を上乗せする。Safari には一切適用されないので影響しない。
-   ------------------------------------------------------------------ */
+/* PC は余力があるので、カードにも本物のすりガラスを掛ける。
+   スマホは塗りだけで表現して負荷を避ける */
 @media (min-width:1000px){
-  /* 画面が広い＝PC。カードにも本物のすりガラスを掛ける */
-  html.can-refract .row,
-  html.can-refract .stripitem,
-  html.can-refract .pcard{
-    backdrop-filter:blur(24px) saturate(180%);
-    -webkit-backdrop-filter:blur(24px) saturate(180%);
+  .row,.stripitem,.pcard{
+    backdrop-filter:blur(22px) saturate(170%);
+    -webkit-backdrop-filter:blur(22px) saturate(170%);
   }
-  html.can-refract .seg{
-    background:linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.02) 100%), rgba(18,18,26,0.28);
-    backdrop-filter:blur(28px) saturate(200%);
-    -webkit-backdrop-filter:blur(28px) saturate(200%);
-  }
-  /* 面が透けるぶん、地の色をわずかに締める */
-  html.can-refract .row{background:linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.05) 100%)}
 }
-/* スマホの Chrome（Galaxy など）は、固定要素のぼかしだけ一段深くする */
-html.can-refract .tabbar{
-  backdrop-filter:blur(34px) saturate(200%) brightness(1.08);
-  -webkit-backdrop-filter:blur(34px) saturate(200%) brightness(1.08);
-}
-
-/* Chrome 系のみ、ガラス越しの背景を実際に歪ませる */
-/* 動いている要素へのブラーは重いので、対応環境だけに限る */
-html.can-refract .grabbing .pill{
-  backdrop-filter:blur(20px) saturate(240%) brightness(1.18) !important;
-  -webkit-backdrop-filter:blur(20px) saturate(240%) brightness(1.18) !important}
-html.can-refract .tabbar.lifted,
-html.can-refract .seg.lifted{
-  backdrop-filter:blur(10px) saturate(220%) brightness(1.14) url(#liquidWarp);
-  -webkit-backdrop-filter:blur(10px) saturate(220%) brightness(1.14)}
 
 /* ---------- passport ---------- */
 .ptitle{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em;margin-bottom:12px}
@@ -500,10 +456,16 @@ html.can-refract .seg.lifted{
   background:currentColor;opacity:.8;flex:0 0 auto}
 .lane > .accord-btn{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
 .lane.is-filt-hidden{display:none !important}
-.lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
-.lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{animation:rise .4s var(--spring) both}
-.lanes.filt-in .lane:not(.is-filt-hidden) .row{
-  animation:rise .5s var(--spring) both;animation-delay:calc(var(--fi,0) * 26ms)}
+/* 絞り込み時の再生。--fi を使い、画面切り替え用より優先度を上げる */
+#view .lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
+#view .lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{
+  animation:rise .4s var(--spring) both}
+#view .lanes.filt-in .lane:not(.is-filt-hidden) .row{
+  animation:rise .5s var(--spring) both !important;
+  animation-delay:calc(var(--fi,0) * 26ms) !important}
+/* 再生中は「画面外を描かない」設定を外す。
+   表示領域に入った瞬間に描き始めると、開始がばらついて見える */
+#view .lanes.filt-in .row{content-visibility:visible}
 .accord-btn{width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted);
   transition:transform .42s var(--spring),opacity .2s var(--ease)}
 .accord-btn:active{transform:scale(.98);opacity:.8;transition:transform .1s var(--press)}
@@ -570,10 +532,11 @@ html.can-refract .seg.lifted{
 @keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
 @keyframes sweep{to{transform:translateX(100%)}}
 
+/* 画面が切り替わったときの登場。--ei を使う */
 #view.enter{animation:rise .34s var(--spring)}
 #view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .55s var(--spring) both}
-#view.enter .row{animation-delay:calc(var(--fi,0) * 28ms)}
-#view.enter .pcard{animation-delay:calc(var(--fi,0) * 48ms)}
+#view.enter .row{animation-delay:calc(var(--ei,0) * 28ms)}
+#view.enter .pcard{animation-delay:calc(var(--ei,0) * 48ms)}
 #view.enter .hero{animation:rise .52s var(--spring) both}
 #view.enter .chips{animation:rise .38s var(--spring) .06s both}
 
@@ -663,14 +626,6 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 </style>
 </head>
 <body>
-
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <filter id="liquidWarp" x="-20%" y="-20%" width="140%" height="140%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.008 0.016" numOctaves="2" seed="7" result="n"/>
-    <feDisplacementMap id="liquidDisp" in="SourceGraphic" in2="n" scale="0"
-      xChannelSelector="R" yChannelSelector="G"/>
-  </filter>
-</svg>
 
 <div id="splash">
   <div class="mark">就活</div>
@@ -767,6 +722,9 @@ function markEnter(force){
   el.classList.remove('enter');
   void el.offsetWidth;
   el.classList.add('enter');
+  /* 付けっぱなしにすると、後から走る絞り込みの動きと競合する */
+  clearTimeout(window._entT);
+  window._entT=setTimeout(function(){ el.classList.remove('enter') },1000);
 }
 
 /* ============ ユーティリティ ============ */
@@ -1172,11 +1130,22 @@ function syncPills(){
 function replayFilterMotion(){
   var box=document.querySelector('.lanes');
   if(!box)return;
-  var vis=box.querySelectorAll('.lane:not(.is-filt-hidden) .row');
-  for(var i=0;i<vis.length;i++) vis[i].style.setProperty('--fi', i<12?i:12);
+  /* 画面切り替え用の指定が残っていると、どちらが効くか毎回変わる */
+  var view=document.getElementById('view');
+  if(view) view.classList.remove('enter');
+  clearTimeout(window._entT);
+
   box.classList.remove('filt-in');
-  void box.offsetWidth;
+  var vis=box.querySelectorAll('.lane:not(.is-filt-hidden) .row');
+  for(var i=0;i<vis.length;i++){
+    vis[i].style.animation='none';          /* 走りかけを一度止める */
+    vis[i].style.setProperty('--fi', i<12?i:12);
+  }
+  void box.offsetWidth;                     /* ここで確実に初期状態へ戻す */
+  for(var k=0;k<vis.length;k++) vis[k].style.animation='';
   box.classList.add('filt-in');
+  clearTimeout(window._filtT);
+  window._filtT=setTimeout(function(){ box.classList.remove('filt-in') },900);
 }
 function setFilt(k){
   FILT = (FILT===k && k!=='all') ? 'all' : k;
@@ -1326,9 +1295,9 @@ function render(pageChanged){
   h+='</div>';
 
   document.getElementById('view').innerHTML=h;
-  /* 登場アニメの順番。CSS 側も --fi を見る */
+  /* 画面切り替え用の順番。絞り込み用の --fi とは別に持つ */
   var rws=document.querySelectorAll('#view .row, #view .pcard');
-  for(var q=0;q<rws.length;q++) rws[q].style.setProperty('--fi', q<12?q:12);
+  for(var q=0;q<rws.length;q++) rws[q].style.setProperty('--ei', q<12?q:12);
   if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
   tickHero();
@@ -1908,17 +1877,6 @@ document.addEventListener('click',function(e){
 },false);
 
 /* ============ リキッドグラス操作 ============ */
-var CAN_REFRACT = (function(){
-  try{ return window.CSS && CSS.supports &&
-    (CSS.supports('backdrop-filter','url(#x)') || CSS.supports('-webkit-backdrop-filter','url(#x)')); }
-  catch(e){ return false }
-})();
-if(CAN_REFRACT) document.documentElement.classList.add('can-refract');
-function setWarp(v){
-  if(!CAN_REFRACT)return;
-  var el=document.getElementById('liquidDisp');
-  if(el) el.setAttribute('scale', String(v));
-}
 
 function attachLiquid(host, ids, onPick, isActive){
   if(!host || host._liquid) return;
@@ -1928,6 +1886,9 @@ function attachLiquid(host, ids, onPick, isActive){
 
   var press=0, lifted=false, startX=0, lastX=0, lastT=0, vx=0;
   var startVisualX=0, originLeft=0, rafId=0, moved=false;
+  /* つまんだ時点の寸法を覚えておく。毎フレーム測り直すと、
+     変形の書き込みと測定が交互に起きてレイアウト計算が強制され、動きががたつく */
+  var geo=null;
 
   function btns(){
     return ids.map(function(id){return document.getElementById(id)})
@@ -1950,23 +1911,20 @@ function attachLiquid(host, ids, onPick, isActive){
     host.classList.add('lifted','grabbing');
     var t=targets(), i=activeIndex();
     startVisualX = (t[i]!==undefined) ? t[i] : 0;
-    setWarp(12);
+    /* ここで一度だけ測る */
+    var pr=pill.getBoundingClientRect(), hr=host.getBoundingClientRect();
+    geo={ t:t, min:t[0], max:t[t.length-1],
+          pw:pr.width||1, pl:pr.left, hw:hr.width||1, hl:hr.left };
     if(navigator.vibrate) try{ navigator.vibrate(11) }catch(e){}
   }
   function renderMove(){
     rafId=0;
-    if(!lifted)return;
-    var t=targets();
-    if(!t.length)return;
-    var min=t[0], max=t[t.length-1];
-    var x=Math.max(min, Math.min(max, startVisualX + (lastX-startX)));
+    if(!lifted||!geo)return;
+    var x=Math.max(geo.min, Math.min(geo.max, startVisualX + (lastX-startX)));
     var st=Math.max(-.16, Math.min(.16, vx*0.06));
-    setWarp(10 + Math.min(24, Math.abs(vx)*2.1));
     var sx=1+Math.abs(st), sy=1-Math.abs(st)*0.55;
+    /* 書き込みだけを行う。読み取りを混ぜない */
     pill.style.transform='translate3d('+x+'px,0,0) scaleX('+sx.toFixed(3)+') scaleY('+sy.toFixed(3)+')';
-    var pr=pill.getBoundingClientRect(), hr=host.getBoundingClientRect();
-    if(pr.width) pill.style.setProperty('--gx', Math.max(0,Math.min(100,((lastX-pr.left)/pr.width)*100)).toFixed(0)+'%');
-    if(hr.width) host.style.setProperty('--hx', Math.max(0,Math.min(100,((lastX-hr.left)/hr.width)*100)).toFixed(0)+'%');
   }
   /* 指の真下にあるボタンを探す。つまんだまま動かさずに離したときに使う */
   function indexUnder(x){
@@ -1981,7 +1939,6 @@ function attachLiquid(host, ids, onPick, isActive){
     clearTimeout(press);
     if(rafId){ cancelAnimationFrame(rafId); rafId=0 }
     host.classList.remove('lifted','grabbing');
-    setWarp(0);
     if(!lifted)return;
     lifted=false;
 
@@ -1991,15 +1948,14 @@ function attachLiquid(host, ids, onPick, isActive){
       best = indexUnder(lastX);
       if(best<0) best = activeIndex();
     }else{
-      var t=targets(), x=startVisualX+(lastX-startX);
+      var t=(geo?geo.t:targets()), x=startVisualX+(lastX-startX);
       best=0; var bd=1e9;
       t.forEach(function(tx,i){ var d=Math.abs(tx-x); if(d<bd){bd=d;best=i} });
     }
 
+    geo=null;
     host.classList.add('settling');
     pill.style.transform='';
-    pill.style.removeProperty('--gx');
-    host.style.removeProperty('--hx');
     setTimeout(function(){ host.classList.remove('settling') },600);
     if(!isActive(best)) onPick(best);
     if(moved){                       /* 直後に発生する click を1回だけ無視する */
@@ -2019,11 +1975,13 @@ function attachLiquid(host, ids, onPick, isActive){
     if(e.pointerType==='mouse'&&e.button!==0)return;
     startX=lastX=e.clientX; lastT=Date.now(); vx=0; moved=false;
     clearTimeout(press);
-    press=setTimeout(lift,260);
+    press=setTimeout(lift,150);   /* つまめるまでの待ちを短く */
   });
   host.addEventListener('pointermove',function(e){
     var t=Date.now(), dt=Math.max(1,t-lastT);
-    vx=(e.clientX-lastX)/dt*10;
+    /* 生の速度は1フレームごとに大きく振れる。均して伸縮の震えを抑える */
+    var raw=(e.clientX-lastX)/dt*10;
+    vx = vx*0.65 + raw*0.35;
     lastX=e.clientX; lastT=t;
     if(!lifted){
       if(Math.abs(e.clientX-startX)>9) clearTimeout(press);
@@ -2159,7 +2117,7 @@ function renderPassport(pageChanged){
 
   document.getElementById('view').innerHTML=h;
   var pc=document.querySelectorAll('#view .pcard');
-  for(var q=0;q<pc.length;q++) pc[q].style.setProperty('--fi', q);
+  for(var q=0;q<pc.length;q++) pc[q].style.setProperty('--ei', q);
   if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
   if(isWide()&&!openCo)sideEmpty();
