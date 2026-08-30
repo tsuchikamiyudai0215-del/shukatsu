@@ -244,7 +244,11 @@ button,select,input{font-family:var(--body)}
 .sheet.out .card{transform:translate3d(0,100%,0) scale(.97);transition:transform .3s var(--out)}
 .sheet .card.drag{transition:none}
 .sheet .card.spring{transition:transform .58s var(--spring)}
-.sheet .card.fly{transition:transform .26s var(--out),opacity .2s var(--ease)}
+.sheet .card.fly{transition:transform .26s var(--out),opacity .22s var(--ease);
+  will-change:transform,opacity;backface-visibility:hidden}
+/* 飛ばしたカードには、閉じる動きを重ねて掛けない（残像の原因）。
+   位置はインラインの transform が持っているので、そちらを優先させる */
+.sheet.out .card.fly{transition:transform .26s var(--out),opacity .22s var(--ease) !important}
 .sideclose{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:16px;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:var(--muted);
   font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -1041,6 +1045,7 @@ function doStatus(co,st){
 function setDue(co){
   var el=document.getElementById('coDue');
   var v=el?el.value:'';
+  if(v&&!D(v)){toast('日時の形式が正しくありません');return}
   call('apiSetDue',[co,TERM,v],function(){toast(v?'締切を更新しました':'締切を未定にしました',true)});
 }
 
@@ -1363,6 +1368,8 @@ function carryOver(co){
 
 /* ============ シート制御 ============ */
 var lockY=0, pushed=false, locked=false;
+/* スワイプで既に飛ばし終えたかどうか。閉じる処理を二重に走らせないため */
+var DISMISSING=false;
 function lockScroll(on){
   var de=document.documentElement;
   if(on){
@@ -1389,6 +1396,15 @@ function closeOverlay(){
   if(!isWide()) openCo=null;
   document.body.classList.remove('sheet-open');
   document.body.style.removeProperty('--bgs');
+
+  /* スワイプで既に画面外へ飛んでいる場合、ここで再度アニメーションを掛けると
+     消えたはずのカードがもう一度描かれ、残像として見える */
+  if(DISMISSING){
+    DISMISSING=false;
+    box.innerHTML='';
+    if(locked){locked=false;lockScroll(false)}
+    return;
+  }
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
   var c=sh.querySelector('.card');
   if(c) c.classList.add('noblur');        /* 閉じる動きの間も外す */
@@ -1483,15 +1499,18 @@ function bindSheetGesture(){
   function dismiss(){
     card.classList.remove('drag');
     card.classList.add('fly','noblur');
-    card.style.transform='translate3d(0,100%,0) scale(.97)';
+    /* 指の位置から続けて飛ばす。ここで一度止めると跳ねて見える */
+    card.style.transform='translate3d(0,'+Math.max(window.innerHeight, dy+400)+'px,0) scale(.96)';
+    card.style.opacity='0';
     sheet.classList.remove('is-active');
     sheet.classList.add('out');
     document.body.classList.remove('sheet-open');
     document.body.style.removeProperty('--bgs');
+    DISMISSING=true;                 /* 後片付けでアニメーションを重ねない */
     setTimeout(function(){
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
-    },260);
+    },240);
   }
 }
 
@@ -1739,8 +1758,14 @@ function sideEmpty(){
 function saveRoute(arr,stage){call('apiSetRoute',[openCo,TERM,arr,stage||''])}
 function mv(i,d){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice(),j=i+d;
   if(j<0||j>=r.length)return; var t=r[i];r[i]=r[j];r[j]=t; saveRoute(r)}
-function rm(i){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice();
-  if(r.length<=2)return; r.splice(i,1); saveRoute(r)}
+function rm(i){
+  var it=byCo(openCo); if(!it)return;
+  var r=routeOf(it).slice();
+  if(r.length<=2){ toast('段階は2つ以上必要です'); return; }
+  var cur=it.lost||it.stage;
+  if(r[i]===cur){ toast('現在の段階は削除できません'); return; }
+  r.splice(i,1); saveRoute(r);
+}
 function setCur(i){var it=byCo(openCo);if(!it)return;var r=routeOf(it); saveRoute(r.slice(),r[i])}
 function addStage(){
   var it=byCo(openCo); if(!it)return;
@@ -1768,6 +1793,7 @@ function addCustomStage(){
 function addEv(){
   var at=document.getElementById('evAt').value;
   if(!at){toast('日時を入れてください');return}
+  if(!D(at)){toast('日時の形式が正しくありません');return}
   call('apiAddEvent',[openCo,TERM,document.getElementById('evKind').value,at,
     document.getElementById('evPlace').value],function(){toast('予定を追加しました',true)});
 }
@@ -1790,7 +1816,10 @@ function openSearch(){
   var q=document.getElementById('q');
   q.addEventListener('input',function(){searchRun(q.value)});
   q.addEventListener('keydown',function(e){
-    if(e.key==='Enter'){var f=document.querySelector('#qres button');if(f)f.click()}
+    if(e.key==='Enter'){
+      var f=document.querySelector('#qres button');
+      if(f){ e.preventDefault(); f.click(); }
+    }
     if(e.key==='Escape')closeSheet();
   });
   searchRun('');
@@ -1848,6 +1877,10 @@ function openAdd(){
 function doAdd(){
   var c=document.getElementById('nC').value.trim();
   if(!c){toast('会社名を入れてください');return}
+  /* 同じ区分に同名があると、どの行を指すか決められなくなる */
+  if(DATA.items.some(function(x){return x.c===c&&(x.term||'夏インターン')===TERM})){
+    toast('その会社はすでに登録されています'); return;
+  }
   call('apiAddCompany',[{c:c,url:document.getElementById('nU').value.trim(),
     id:document.getElementById('nI').value.trim(),dom:document.getElementById('nD').value.trim(),
     stage:document.getElementById('nS').value,due:document.getElementById('nDue').value,term:TERM}],
