@@ -280,6 +280,19 @@ button,select,input{font-family:var(--body)}
   transition:border-color .2s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease)}
 .f:focus{border-color:var(--blue);background:rgba(0,0,0,.5);
   box-shadow:0 0 0 3.5px rgba(10,132,255,.32), inset 0 1px 2px rgba(0,0,0,.4)}
+/* iOS の日時入力は固有の最低幅を持つため、width:100% だけでは枠からはみ出す。
+   見た目を自前に切り替え、最低幅の縛りを外す */
+input[type="datetime-local"],input[type="date"],input[type="time"]{
+  -webkit-appearance:none;appearance:none;
+  min-width:0;max-width:100%;width:100%;
+  font-family:var(--body);font-size:14px;line-height:1.2;
+  text-align:left}
+/* 空のときに何を入れる欄か分かるようにする */
+input[type="datetime-local"]:invalid,
+input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
+.f{max-width:100%;min-width:0}
+/* 横並びの中でも縮めるようにする */
+.f[style*="flex:1"]{min-width:0}
 .card .f{margin-top:8px;border-radius:var(--r-in-sheet)}
 .card .big{border-radius:var(--r-in-sheet)}
 .big{width:100%;padding:14px 0;border-radius:var(--r-field);border:none;font-size:14px;font-weight:600;
@@ -776,7 +789,29 @@ function ITEMS(){return DATA.items.filter(function(i){return (i.term||'夏イン
 function EVENTS(){return DATA.events.filter(function(e){return (e.term||'夏インターン')===TERM})}
 function byCo(c){var L=ITEMS();for(var i=0;i<L.length;i++){if(L[i].c===c)return L[i]}return null}
 function evOf(c){return EVENTS().filter(function(e){return e.c===c}).sort(function(a,b){return (a.at||'').localeCompare(b.at||'')})}
-function nextEv(c){var f=evOf(c).filter(function(e){return rem(e.at)});return f[0]||null}
+/* 複数日の予定は、最終日を過ぎるまで「これから」として扱う */
+function evActive(e){
+  if(rem(e.at))return true;
+  if(!e.end)return false;
+  var d=D(e.end); if(!d)return false;
+  return new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59) > new Date();
+}
+function nextEv(c){var f=evOf(c).filter(evActive);return f[0]||null}
+function evDays(e){
+  if(!e.end)return 1;
+  var a=D(e.at), b=D(e.end);
+  if(!a||!b)return 1;
+  return Math.max(1, Math.round((new Date(b.getFullYear(),b.getMonth(),b.getDate())
+    - new Date(a.getFullYear(),a.getMonth(),a.getDate()))/86400000)+1);
+}
+function spanLabel(e){
+  var n=evDays(e);
+  return n>1 ? '<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:8px">'+n+'日間</span>' : '';
+}
+function evWhen(e){
+  if(e.end && evDays(e)>1) return fdate(e.at)+' 〜 '+fdate(e.end);
+  return fdate(e.at)+' '+ftime(e.at);
+}
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
 
 /* ============ ロゴ ============ */
@@ -1077,8 +1112,11 @@ function rowHtml(it){
     if(autoSent(it)) sub='<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>';
   } else if(st==='fixed'){
     var ev=nextEv(it.c), rr=ev?rem(ev.at):null;
-    left=rr?dayCell(rr.d===0?'TODAY':rr.d,'var(--go)'):'<span class="tag" style="color:var(--go)">参加<br>決定</span>';
-    right=ev?fdate(ev.at)+' 実施':(it.on?fdate(it.on)+' 確定':'');
+    left=rr?dayCell(rr.d===0?'TODAY':rr.d,'var(--go)')
+           :(ev?'<span class="tag" style="color:var(--go)">開催<br>中</span>'
+               :'<span class="tag" style="color:var(--go)">参加<br>決定</span>');
+    right=ev?(evDays(ev)>1?fdate(ev.at)+'〜'+fdate(ev.end):fdate(ev.at)+' 実施')
+            :(it.on?fdate(it.on)+' 確定':'');
   } else if(st==='offer'){
     left='<span class="tag" style="color:var(--go)">内定</span>';
     right=it.on?fdate(it.on):'';
@@ -1122,7 +1160,7 @@ function eventRowHtml(ev){
   return '<div class="row" data-act="open" data-co="'+esc(ev.c)+'"><div class="main">'+
     '<div class="day">'+(r?dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)'):'<span class="tag" style="color:var(--dim)">終了</span>')+'</div>'+
     '<div class="body1"><div class="meta">'+logo(it)+
-      '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+fdate(ev.at)+' '+ftime(ev.at)+'</i></div>'+
+      '<em style="color:var(--text)">'+esc(ev.kind)+'</em><i>'+evWhen(ev)+'</i></div>'+
       '<div class="name">'+esc(ev.c)+'</div>'+
       (ev.place?'<div class="sub" style="font-family:var(--body)">'+esc(ev.place)+'</div>':'')+
     '</div></div></div>';
@@ -1582,7 +1620,7 @@ function renderTabContent(it){
         h+='<div style="font-size:13px;color:var(--dim);margin:8px 0 12px">締切が未設定です</div>';
       }
       h+='<div style="display:flex;gap:8px;margin-top:10px">'+
-        '<input class="f" type="datetime-local" id="coDue" style="flex:1;margin:0" value="'+esc(it.due||'')+'">'+
+        '<input class="f" type="datetime-local" id="coDue" style="flex:1 1 0;min-width:0;margin:0" value="'+esc(it.due||'')+'">'+
         '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">保存</button></div></div>';
     }
     if(st==='waiting'){
@@ -1601,7 +1639,9 @@ function renderTabContent(it){
       h+='<div style="margin-top:18px;padding-bottom:16px;border-bottom:1px solid var(--line-soft)">'+
         '<div class="lab" style="margin:0 0 8px">実施日まで</div>'+
         (rr?'<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:50px">'+rr.d+'</b><s>日</s></div>'+
-            '<div class="sub">'+fdate(ev.at)+' '+ftime(ev.at)+'</div>'
+            '<div class="sub">'+evWhen(ev)+(evDays(ev)>1?'（'+evDays(ev)+'日間）':'')+'</div>'
+           :ev?'<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:34px">開催中</b></div>'+
+               '<div class="sub">'+evWhen(ev)+'</div>'
            :'<div style="font-size:12px;color:var(--dim);line-height:1.8">実施日が未登録です。「予定」タブで種別「インターン」として日時を入れてください。</div>')+
         '</div>';
     }
@@ -1627,7 +1667,7 @@ function renderTabContent(it){
     h+='<div style="margin-top:22px">'+
       '<div class="lab" style="margin:0 0 8px">ロゴ</div>'+
       '<div style="display:flex;gap:8px">'+
-      '<input class="f" style="flex:1;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+
+      '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+
         esc(LOGOS[it.c]&&LOGOS[it.c]!=='none'?LOGOS[it.c]:'')+'">'+
       '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="logo-set" data-co="'+esc(it.c)+'">適用</button></div>'+
       '<button class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">Wikidataから取り直す</button></div>';
@@ -1651,15 +1691,21 @@ function renderTabContent(it){
       h+='<div style="border-bottom:1px solid var(--line-soft);padding:12px 0;display:flex;align-items:center;gap:10px">'+
         '<span style="font-family:var(--disp);font-size:26px;font-weight:600;min-width:34px;color:'+
           (r?(r.d<=2?'var(--hot)':'var(--text)'):'var(--dim)')+'">'+(r?r.d:'—')+'</span>'+
-        '<div style="flex:1"><div style="font-size:14px">'+esc(ev.kind)+'</div>'+
-        '<div class="sub" style="margin-top:3px">'+fdate(ev.at)+' '+ftime(ev.at)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
+        '<div style="flex:1"><div style="font-size:14px">'+esc(ev.kind)+spanLabel(ev)+'</div>'+
+        '<div class="sub" style="margin-top:3px">'+evWhen(ev)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
         '<button class="gh" style="color:var(--hot);padding:6px 10px" data-act="delev" data-v="'+esc(ev.uid)+'">×</button></div>';
     });
-    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05)">'+
+    h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05);overflow:hidden">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
       '<select class="f" id="evKind">'+KINDS.map(function(k){return '<option>'+k+'</option>'}).join('')+'</select>'+
+      '<div class="lab" style="margin:12px 0 6px">開始日時</div>'+
       '<input class="f" type="datetime-local" id="evAt">'+
-      '<input class="f" id="evPlace" placeholder="場所・オンラインURL">'+
+      '<div class="lab" style="margin:12px 0 6px">終了日（複数日のときだけ）</div>'+
+      '<input class="f" type="date" id="evEnd">'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7">'+
+      'インターンのように何日か続く場合は終了日を入れてください。'+
+      'カレンダーには期間の予定として1件で登録されます。</div>'+
+      '<input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin-top:12px">'+
       '<button class="big" style="background:#fff;color:#000" onclick="addEv()">追加</button></div></div>';
   }
 
@@ -1679,12 +1725,12 @@ function renderTabContent(it){
     h+='</div>'+
       '<div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div>'+
       '<div style="display:flex;gap:8px">'+
-        '<select class="f" style="flex:1;margin:0" id="addStage">'+
+        '<select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">'+
           PALETTE.map(function(p){return '<option>'+esc(p)+'</option>'}).join('')+'</select>'+
         '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addStage()">追加</button></div>'+
       '<div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div>'+
       '<div style="display:flex;gap:8px">'+
-        '<input class="f" style="flex:1;margin:0" id="newStage" placeholder="例：リクルーター面談"'+
+        '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談"'+
           ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();addCustomStage()}">'+
         '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addCustomStage()">追加</button></div>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">'+
@@ -1792,10 +1838,21 @@ function addCustomStage(){
 /* 予定 */
 function addEv(){
   var at=document.getElementById('evAt').value;
-  if(!at){toast('日時を入れてください');return}
+  if(!at){toast('開始日時を入れてください');return}
   if(!D(at)){toast('日時の形式が正しくありません');return}
+  var endEl=document.getElementById('evEnd');
+  var end=endEl?endEl.value:'';
+  if(end){
+    var a=D(at), b=D(end);
+    if(!b){toast('終了日の形式が正しくありません');return}
+    if(new Date(b.getFullYear(),b.getMonth(),b.getDate())
+       < new Date(a.getFullYear(),a.getMonth(),a.getDate())){
+      toast('終了日は開始日より後にしてください'); return;
+    }
+  }
   call('apiAddEvent',[openCo,TERM,document.getElementById('evKind').value,at,
-    document.getElementById('evPlace').value],function(){toast('予定を追加しました',true)});
+    document.getElementById('evPlace').value, end],
+    function(){toast(end?'期間の予定を追加しました':'予定を追加しました',true)});
 }
 function delEv(uid){
   if(!confirm('この予定を削除します。カレンダーからも消えます。'))return;
