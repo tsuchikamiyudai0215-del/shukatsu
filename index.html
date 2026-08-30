@@ -789,30 +789,57 @@ function ITEMS(){return DATA.items.filter(function(i){return (i.term||'夏イン
 function EVENTS(){return DATA.events.filter(function(e){return (e.term||'夏インターン')===TERM})}
 function byCo(c){var L=ITEMS();for(var i=0;i<L.length;i++){if(L[i].c===c)return L[i]}return null}
 function evOf(c){return EVENTS().filter(function(e){return e.c===c}).sort(function(a,b){return (a.at||'').localeCompare(b.at||'')})}
-/* 複数日の予定は、最終日を過ぎるまで「これから」として扱う */
+/* 予定の扱い。終日か、時間帯か、複数日かで表示を変える */
+function evAllDay(e){
+  if(e.allDay)return true;
+  /* 以前の「日付だけ」の行は 0:00 で入っているので終日とみなす */
+  return !!(e.end && String(e.end).slice(11)==='00:00' && String(e.end).slice(0,10)!==String(e.at).slice(0,10));
+}
+function evEndAt(e){ return e.end ? D(e.end) : null }
+/* 終わるまでは「これから」として扱う。初日の朝に消えないように */
 function evActive(e){
-  if(rem(e.at))return true;
-  if(!e.end)return false;
-  var d=D(e.end); if(!d)return false;
-  return new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59) > new Date();
+  var end=evEndAt(e);
+  if(end){
+    if(evAllDay(e)) return new Date(end.getFullYear(),end.getMonth(),end.getDate(),23,59) > new Date();
+    return end > new Date();
+  }
+  if(evAllDay(e)){
+    var d=D(e.at); if(!d)return false;
+    return new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59) > new Date();
+  }
+  return !!rem(e.at);
 }
 function nextEv(c){var f=evOf(c).filter(evActive);return f[0]||null}
 function evDays(e){
-  if(!e.end)return 1;
-  var a=D(e.at), b=D(e.end);
+  var a=D(e.at), b=evEndAt(e);
   if(!a||!b)return 1;
   return Math.max(1, Math.round((new Date(b.getFullYear(),b.getMonth(),b.getDate())
     - new Date(a.getFullYear(),a.getMonth(),a.getDate()))/86400000)+1);
 }
 function spanLabel(e){
   var n=evDays(e);
-  return n>1 ? '<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:8px">'+n+'日間</span>' : '';
+  var t = n>1 ? (n+'日間'+(e.daily?' 連日':'')) : (evAllDay(e) ? '終日' : '');
+  return t ? '<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:8px">'+t+'</span>' : '';
 }
 function evWhen(e){
-  if(e.end && evDays(e)>1) return fdate(e.at)+' 〜 '+fdate(e.end);
-  return fdate(e.at)+' '+ftime(e.at);
+  var n=evDays(e), all=evAllDay(e), end=evEndAt(e);
+  if(n>1 && e.daily) return fdate(e.at)+'〜'+fdate(e.end)+'  毎日 '+ftime(e.at)+'〜'+ftime(e.end);
+  if(n>1) return all ? fdate(e.at)+' 〜 '+fdate(e.end)
+                     : fdate(e.at)+' '+ftime(e.at)+' 〜 '+fdate(e.end)+' '+ftime(e.end);
+  if(all) return fdate(e.at)+' 終日';
+  return end ? fdate(e.at)+' '+ftime(e.at)+'〜'+ftime(e.end)
+             : fdate(e.at)+' '+ftime(e.at);
 }
-function todayStr(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function evShort(e){
+  var n=evDays(e);
+  if(n>1) return fdate(e.at)+'〜'+fdate(e.end);
+  if(evAllDay(e)) return fdate(e.at)+' 終日';
+  return fdate(e.at)+' 実施';
+}
+function todayStr(){
+  var d=new Date(), p=function(v){return ('0'+v).slice(-2)};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
 
 /* ============ ロゴ ============ */
 var LOGOS = {}, tried = {};
@@ -1115,8 +1142,7 @@ function rowHtml(it){
     left=rr?dayCell(rr.d===0?'TODAY':rr.d,'var(--go)')
            :(ev?'<span class="tag" style="color:var(--go)">開催<br>中</span>'
                :'<span class="tag" style="color:var(--go)">参加<br>決定</span>');
-    right=ev?(evDays(ev)>1?fdate(ev.at)+'〜'+fdate(ev.end):fdate(ev.at)+' 実施')
-            :(it.on?fdate(it.on)+' 確定':'');
+    right=ev?evShort(ev):(it.on?fdate(it.on)+' 確定':'');
   } else if(st==='offer'){
     left='<span class="tag" style="color:var(--go)">内定</span>';
     right=it.on?fdate(it.on):'';
@@ -1698,13 +1724,20 @@ function renderTabContent(it){
     h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05);overflow:hidden">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
       '<select class="f" id="evKind">'+KINDS.map(function(k){return '<option>'+k+'</option>'}).join('')+'</select>'+
-      '<div class="lab" style="margin:12px 0 6px">開始日時</div>'+
+      '<label style="display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;font-size:13px">'+
+        '<input type="checkbox" id="evAll" onchange="toggleAllDay()" '+
+        'style="width:20px;height:20px;accent-color:var(--blue)">終日（時刻を使わない）</label>'+
+      '<div class="lab" style="margin:14px 0 6px" id="evAtLab">開始日時</div>'+
       '<input class="f" type="datetime-local" id="evAt">'+
-      '<div class="lab" style="margin:12px 0 6px">終了日（複数日のときだけ）</div>'+
-      '<input class="f" type="date" id="evEnd">'+
-      '<div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7">'+
-      'インターンのように何日か続く場合は終了日を入れてください。'+
-      'カレンダーには期間の予定として1件で登録されます。</div>'+
+      '<div class="lab" style="margin:12px 0 6px" id="evEndLab">終了日時（任意）</div>'+
+      '<input class="f" type="datetime-local" id="evEnd">'+
+      '<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px" id="evDailyWrap">'+
+        '<input type="checkbox" id="evDaily" style="width:20px;height:20px;accent-color:var(--blue)">'+
+        '毎日この時間帯（連日）</label>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7" id="evHint">'+
+      '同じ日の中で終了時刻を入れると、その時間帯の予定になります。<br>'+
+      '別の日まで指定した場合、「連日」に印を付けると毎日その時間帯で登録され、'+
+      '付けないと夜通し続く1件の予定になります。</div>'+
       '<input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin-top:12px">'+
       '<button class="big" style="background:#fff;color:#000" onclick="addEv()">追加</button></div></div>';
   }
@@ -1836,23 +1869,58 @@ function addCustomStage(){
 }
 
 /* 予定 */
+/* 終日を選ぶと、時刻の欄を日付の欄に切り替える */
+function toggleAllDay(){
+  var on=document.getElementById('evAll').checked;
+  ['evAt','evEnd'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    var v=el.value;
+    el.type = on ? 'date' : 'datetime-local';
+    if(v) el.value = on ? v.slice(0,10) : (v.length===10 ? v+'T09:00' : v);
+  });
+  var dw=document.getElementById('evDailyWrap');
+  if(dw) dw.style.display = on ? 'none' : 'flex';
+  if(on){ var dc=document.getElementById('evDaily'); if(dc) dc.checked=false; }
+  var a=document.getElementById('evAtLab'), b=document.getElementById('evEndLab'),
+      h=document.getElementById('evHint');
+  if(a) a.textContent = on ? '開始日' : '開始日時';
+  if(b) b.textContent = on ? '終了日（任意）' : '終了日時（任意）';
+  if(h) h.innerHTML = on
+    ? '1日だけなら終了日は空のままで構いません。'
+    : '同じ日の中で終了時刻を入れると、その時間帯の予定になります。<br>'+
+      '別の日まで指定した場合、「連日」に印を付けると毎日その時間帯で登録され、'+
+      '付けないと夜通し続く1件の予定になります。';
+}
 function addEv(){
+  var all=document.getElementById('evAll').checked;
   var at=document.getElementById('evAt').value;
-  if(!at){toast('開始日時を入れてください');return}
-  if(!D(at)){toast('日時の形式が正しくありません');return}
-  var endEl=document.getElementById('evEnd');
-  var end=endEl?endEl.value:'';
+  if(!at){toast(all?'開始日を入れてください':'開始日時を入れてください');return}
+  var start=D(all?at+'T00:00':at);
+  if(!start){toast('日時の形式が正しくありません');return}
+
+  var end=document.getElementById('evEnd').value;
   if(end){
-    var a=D(at), b=D(end);
-    if(!b){toast('終了日の形式が正しくありません');return}
-    if(new Date(b.getFullYear(),b.getMonth(),b.getDate())
-       < new Date(a.getFullYear(),a.getMonth(),a.getDate())){
-      toast('終了日は開始日より後にしてください'); return;
+    var e=D(all?end+'T00:00':end);
+    if(!e){toast('終了の形式が正しくありません');return}
+    if(all){
+      if(new Date(e.getFullYear(),e.getMonth(),e.getDate())
+         < new Date(start.getFullYear(),start.getMonth(),start.getDate())){
+        toast('終了日は開始日より後にしてください'); return;
+      }
+    }else if(e<=start){
+      toast('終了は開始より後にしてください'); return;
     }
   }
-  call('apiAddEvent',[openCo,TERM,document.getElementById('evKind').value,at,
-    document.getElementById('evPlace').value, end],
-    function(){toast(end?'期間の予定を追加しました':'予定を追加しました',true)});
+
+  var dailyEl=document.getElementById('evDaily');
+  var daily = !all && !!(dailyEl && dailyEl.checked) && !!end;
+  call('apiAddEvent',[openCo,TERM,document.getElementById('evKind').value,
+    all ? at+'T00:00' : at,
+    document.getElementById('evPlace').value,
+    end ? (all ? end+'T00:00' : end) : '',
+    all, daily],
+    function(){toast(daily?'連日の予定を追加しました':'予定を追加しました',true)});
 }
 function delEv(uid){
   if(!confirm('この予定を削除します。カレンダーからも消えます。'))return;
