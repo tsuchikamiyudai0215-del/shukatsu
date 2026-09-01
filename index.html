@@ -1458,7 +1458,20 @@ function lockScroll(on){
     window.scrollTo(0,lockY);
   }
 }
+/* 背景をタップして閉じる判定を厳しくする。
+   要素が入れ替わると、指を離した瞬間のクリックが背景に当たってしまい、
+   押してもいないのに閉じることがある */
+function armBackdrop(){
+  var sh=document.querySelector('#sheet .sheet');
+  if(!sh||sh._armed)return;
+  sh._armed=true;
+  sh._downOnBackdrop=false;
+  sh.addEventListener('pointerdown',function(e){
+    sh._downOnBackdrop=(e.target===sh);
+  },true);
+}
 function sheetOpened(){
+  armBackdrop();
   if(isWide()){bindSheetGesture();return}
   if(!locked){ locked=true; lockScroll(true); }
   document.body.style.setProperty('--bgs','.93');
@@ -1495,6 +1508,8 @@ function closeSide(){ openCo=null; sideEmpty(); }
 function closeDetail(){ if(isWide()) closeSide(); else closeSheet(); }
 function closeSheet(e){
   if(e&&e.target!==e.currentTarget)return;
+  /* 押し始めが背景でなければ閉じない（指の下で要素が入れ替わったとき用） */
+  if(e&&e.currentTarget&&e.currentTarget._armed&&!e.currentTarget._downOnBackdrop)return;
   var box=document.getElementById('sheet');
   if(box.innerHTML){
     if(!isWide()&&pushed){ history.back(); return }
@@ -1603,6 +1618,7 @@ function switchTab(k){
     var it=byCo(openCo);
     if(it){
       pane.innerHTML=renderTabContent(it);
+      pane.scrollTop=0;
       pane.style.animation='none'; void pane.offsetWidth; pane.style.animation='';
     }
   }
@@ -1807,9 +1823,12 @@ function paintDetail(it){
     var side=document.getElementById('side');
     var sc=side.querySelector('.card');
     if(sc && side.dataset.co===openCo){
-      var sy=side.scrollTop;
+      var sp=sc.querySelector('.tab-pane');
+      var sy=sp?sp.scrollTop:0, sy2=side.scrollTop;
       sc.innerHTML=fullHtml;
-      side.scrollTop=sy;
+      var np2=sc.querySelector('.tab-pane');
+      if(np2){ np2.style.animation='none'; np2.scrollTop=sy; }
+      side.scrollTop=sy2;
       return;
     }
     side.dataset.co=openCo;
@@ -1819,7 +1838,17 @@ function paintDetail(it){
 
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
-  if(card){ card.innerHTML=fullHtml; return; }
+  if(card){
+    /* 中身だけを差し替える場合は、読んでいた位置を保ち、
+       タブの滑り込みも再生しない。操作のたびに先頭へ飛ぶと
+       画面が閉じたように見える */
+    var pane=card.querySelector('.tab-pane');
+    var y=pane?pane.scrollTop:0;
+    card.innerHTML=fullHtml;
+    var np=card.querySelector('.tab-pane');
+    if(np){ np.style.animation='none'; np.scrollTop=y; }
+    return;
+  }
   box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card noblur">'+fullHtml+'</div></div>';
   requestAnimationFrame(function(){
     var sh=box.querySelector('.sheet');
@@ -1972,6 +2001,7 @@ function openSearch(){
     var sh=box.querySelector('.sheet');
     if(sh) sh.classList.add('is-active');
   });
+  armBackdrop();
   var q=document.getElementById('q');
   q.addEventListener('input',function(){searchRun(q.value)});
   q.addEventListener('keydown',function(e){
@@ -2005,9 +2035,16 @@ document.addEventListener('keydown',function(e){
     else if(isWide()&&openCo) closeSide();
   }
 });
+var outsideDown=false;
+document.addEventListener('pointerdown',function(e){
+  var t=e.target;
+  outsideDown = !(t.closest&&(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
+    t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg')));
+},true);
 document.addEventListener('click',function(e){
   if(!isWide()||!openCo)return;
   if(document.getElementById('sheet').innerHTML)return;
+  if(!outsideDown)return;          /* 押し始めが外側でなければ閉じない */
   var t=e.target;
   if(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
      t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg'))return;
