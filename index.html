@@ -1049,13 +1049,25 @@ function toast(msg,ok){
   clearTimeout(window._tt);
   window._tt=setTimeout(function(){el.classList.remove('on')},2200);
 }
+/* 軽い応答が返ったときは、操作が途切れてから一度だけ全体を取り直す。
+   並べ替えを連打しても通信は最後の1回で済む */
+var syncTimer=null;
+function scheduleSync(){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(function(){
+    if(!CFG.ep)return;
+    api('apiGetData',[]).then(function(j){
+      if(j&&j.items){ DATA.items=j.items; DATA.events=j.events; cacheSave(j); render(false); }
+    }).catch(function(){});
+  },4000);
+}
 function opt(mutate,fn,args,label){
   var snap=JSON.stringify(DATA.items);
   mutate();
   render(false);
   api(fn,args).then(function(d){
-    if(d&&d.items){ DATA.items=d.items; DATA.events=d.events; cacheSave(d); }
-    render(false);
+    if(d&&d.items){ DATA.items=d.items; DATA.events=d.events; cacheSave(d); render(false); }
+    else { cacheSave(DATA); scheduleSync(); }   /* 軽い応答 */
   }).catch(function(){
     DATA.items=JSON.parse(snap);
     render(false);
@@ -1834,24 +1846,47 @@ function sideEmpty(){
 }
 
 /* ルート編集 */
-function saveRoute(arr,stage){call('apiSetRoute',[openCo,TERM,arr,stage||''])}
-function mv(i,d){var it=byCo(openCo);if(!it)return;var r=routeOf(it).slice(),j=i+d;
-  if(j<0||j>=r.length)return; var t=r[i];r[i]=r[j];r[j]=t; saveRoute(r)}
+/* 選考ルートの変更も、先に画面を書き換えて裏で保存する。
+   通信の完了を待つと、並べ替えのたびに1〜3秒止まる */
+function saveRoute(arr,stage,label){
+  var co=openCo;
+  opt(function(){
+    var it=find_(co); if(!it)return;
+    it.route=arr.slice();
+    if(stage){
+      it.stage=stage;
+      if(it.lost) it.lost=stage;
+    }
+  },'apiSetRoute',[co,TERM,arr,stage||''],label);
+}
+function mv(i,d){
+  var it=byCo(openCo); if(!it)return;
+  var r=routeOf(it).slice(), j=i+d;
+  if(j<0||j>=r.length)return;
+  var t=r[i]; r[i]=r[j]; r[j]=t;
+  saveRoute(r);
+}
 function rm(i){
   var it=byCo(openCo); if(!it)return;
   var r=routeOf(it).slice();
   if(r.length<=2){ toast('段階は2つ以上必要です'); return; }
   var cur=it.lost||it.stage;
   if(r[i]===cur){ toast('現在の段階は削除できません'); return; }
-  r.splice(i,1); saveRoute(r);
+  var r0=r[i];
+  r.splice(i,1); saveRoute(r, '', r0+' を外しました');
 }
-function setCur(i){var it=byCo(openCo);if(!it)return;var r=routeOf(it); saveRoute(r.slice(),r[i])}
+function setCur(i){
+  var it=byCo(openCo); if(!it)return;
+  var r=routeOf(it);
+  if((it.lost||it.stage)===r[i])return;      /* 変化がなければ通信しない */
+  saveRoute(r.slice(), r[i], r[i]+' を現在地にしました');
+}
 function addStage(){
   var it=byCo(openCo); if(!it)return;
   var v=document.getElementById('addStage').value;
   var r=routeOf(it).slice();
   if(r.indexOf(v)>=0){ toast('すでにその段階があります'); return; }
-  r.push(v); saveRoute(r);
+  r.push(v); saveRoute(r, '', v+' を追加しました');
 }
 function addCustomStage(){
   var it=byCo(openCo); if(!it)return;
@@ -1864,8 +1899,7 @@ function addCustomStage(){
   rememberStage(v);
   r.push(v);
   if(el) el.value='';
-  saveRoute(r);
-  toast(v+' を追加しました',true);
+  saveRoute(r, '', v+' を追加しました');
 }
 
 /* 予定 */
