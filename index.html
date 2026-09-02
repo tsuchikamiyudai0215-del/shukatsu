@@ -17,15 +17,24 @@
 <style>
 :root{
   --ink:#04040A;
+  /* 一覧のカードは「半透明の塗り」で表現する。
+     背景が固定のグラデーションなので、ブラーを掛けなくても見え方はほぼ同じで、
+     33枚ぶんの背景ぼかしを毎フレーム計算する負荷だけを避けられる */
+  /* iOS の通知タイルは暗い板ではなく、白を薄く透かした面。
+     背景の色を拾うので、黒地でも沈まない */
+  /* One UI のタイルは背景の色を強く拾う。白だけでなく寒色を混ぜて厚みを出す */
   --surface:linear-gradient(180deg, rgba(186,206,238,0.17) 0%, rgba(150,175,215,0.09) 100%), rgba(24,30,46,0.42);
   --surface-hi:linear-gradient(180deg, rgba(196,216,248,0.26) 0%, rgba(160,185,225,0.15) 100%), rgba(30,38,56,0.46);
   --hi:linear-gradient(180deg, rgba(186,206,238,0.16) 0%, rgba(150,175,215,0.05) 100%), rgba(20,26,40,0.8);
+  /* Apple の Dock に合わせ、背景がはっきり透ける濃度にする */
   --chrome:linear-gradient(180deg, rgba(190,210,242,0.16) 0%, rgba(150,175,215,0.05) 100%), rgba(20,26,40,0.34);
   --line:rgba(255,255,255,0.14);
   --line-soft:rgba(255,255,255,0.06);
   --text:#FFFFFF; --muted:#A2A2B2; --dim:#656573;
   --blue:#0A84FF; --go:#30D158; --wait:#FF9F0A; --hot:#FF453A; --fail:#6E3E4B;
 
+  /* 縁取りではなく、上端の反射と沈み込みの影だけで面を立たせる */
+  /* One UI のタイルには縁取りも上端の光もない。柔らかい影だけで浮かせる */
   --glass-edge:
     0 2px 10px -4px rgba(0,0,0,0.4),
     0 10px 28px -14px rgba(0,0,0,0.5);
@@ -34,19 +43,25 @@
     inset 0 1.5px 0.5px rgba(255,255,255,0.75),
     inset 0 -1px 1px rgba(0,0,0,0.5);
 
+  /* iOS 26 相当のスプリング。到達が速く、余韻が長い */
+  /* まず全環境で動く曲線を入れておき、linear() が使える環境だけ差し替える。
+     未対応環境で linear() を直に書くと、その transition ごと無効になる */
   --spring:cubic-bezier(0.32, 0.72, 0, 1);
   --spring-soft:cubic-bezier(0.16, 1, 0.3, 1);
   --ease:cubic-bezier(0.25, 0.1, 0.25, 1);
   --press:cubic-bezier(0.2, 0, 0, 1);
   --out:cubic-bezier(0.55, 0, 0.85, 0.35);
 
-  --r-sheet:40px;
-  --r-tile:28px;
-  --r-card:24px;
-  --r-field:16px;
-  --r-chip:999px;
-  --r-in-tile:calc(var(--r-tile) - 15px);
-  --r-in-sheet:calc(var(--r-sheet) - 20px);
+  /* iOS の角丸。外側ほど大きく、内側は「外側 − 余白」で決める（入れ子の法則） */
+  --r-sheet:40px;   /* 画面下から出るシート */
+  --r-tile:28px;    /* 一覧のカード */
+  --r-card:24px;    /* 小さめのカード */
+  --r-field:16px;   /* 入力欄・大きなボタン */
+  --r-chip:999px;   /* カプセル形。ドック・区分・チップ・小ボタン */
+  /* 入れ子の法則：内側の角丸 ＝ 外側の角丸 − 余白。
+     これを外すと、外枠と中身の曲線が平行にならず不安定に見える */
+  --r-in-tile:calc(var(--r-tile) - 15px);   /* タイル内の要素（余白15px） */
+  --r-in-sheet:calc(var(--r-sheet) - 20px); /* シート内の要素（余白20px） */
 
   --disp:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Helvetica Neue",sans-serif;
@@ -61,12 +76,14 @@
       1.0011 50%,1.0058 55.6%,1.0033 63.5%,1 78.5%,1);
   }
 }
+/* Apple の角は円弧ではなく連続曲線。対応環境では本物の形にする */
 @supports (corner-shape: squircle){
   .row,.stripitem,.pcard,.card,.spotbox,.setupBox,
   .gh,.big,.f,.tabbar,.seg,.pill,.chiprow button,
   .sideclose,#toast,#stale,#ptr,#side,.setupErr,.logo.mono{
     corner-shape:squircle;
   }
+  /* カプセル形は連続曲線にすると潰れて見えるので、円弧のままにする */
   .tabbar,.seg,.pill,.chiprow button,.gh{corner-shape:round}
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
@@ -75,6 +92,8 @@
 *::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:999px}
 
 html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:120px}
+/* 背景は固定レイヤーとして敷く。background-attachment:fixed は
+   iOS でスクロールのたびに再描画されるため使わない */
 body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
@@ -84,6 +103,7 @@ body::before{
 }
 body::after{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.03;
+  /* 一度描いたら変わらない層として固定する */
   transform:translateZ(0);
   background-image:url("data:image/svg+xml;utf8,\
 <svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>\
@@ -119,6 +139,7 @@ button,select,input{font-family:var(--body)}
 .hero h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.028em;line-height:1.15}
 .cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
 .cd b{font-family:var(--disp);font-size:58px;font-weight:600;letter-spacing:-.045em;
+  /* 時計の数字と同じく、わずかに透かして内側に陰を落とす */
   color:rgba(255,255,255,.96);
   text-shadow:0 1px 0 rgba(255,255,255,.28), 0 3px 26px rgba(255,255,255,.14),
               0 -1px 1px rgba(0,0,0,.22)}
@@ -141,8 +162,10 @@ button,select,input{font-family:var(--body)}
 
 .row[data-act]{cursor:pointer}
 .row{
+  /* 画面外のカードは描かない。31枚あるので効果が大きい */
   content-visibility:auto;
   contain-intrinsic-size:auto 104px;
+  /* 各カードの中で描画を完結させ、隣のカードの再描画を誘発させない */
   contain:layout paint style;
   background:var(--surface);
   border:none;border-radius:var(--r-tile);
@@ -190,6 +213,7 @@ button,select,input{font-family:var(--body)}
 /* ---------- sheet / card ---------- */
 .sheet{
   position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.5);
+  /* 背後はすでに縮小・減光しているので、ここでのぼかしは二重になる */
   display:flex;align-items:flex-end;justify-content:center;z-index:60;
   padding:0 10px calc(10px + env(safe-area-inset-bottom));
   opacity:0;pointer-events:none;
@@ -210,6 +234,7 @@ button,select,input{font-family:var(--body)}
   will-change:transform;
 }
 .sheet.is-active .card{transform:translate3d(0,0,0)}
+/* せり上がっている最中はぼかしを外す。動きながらのぼかしが一番重い */
 .card.noblur{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
   background:linear-gradient(180deg, rgba(44,44,58,.95) 0%, rgba(16,16,24,.98) 100%) !important}
 .grab{width:40px;height:5px;background:rgba(255,255,255,.3);border-radius:3px;margin:0 auto 16px;
@@ -221,6 +246,8 @@ button,select,input{font-family:var(--body)}
 .sheet .card.spring{transition:transform .58s var(--spring)}
 .sheet .card.fly{transition:transform .26s var(--out),opacity .22s var(--ease);
   will-change:transform,opacity;backface-visibility:hidden}
+/* 飛ばしたカードには、閉じる動きを重ねて掛けない（残像の原因）。
+   位置はインラインの transform が持っているので、そちらを優先させる */
 .sheet.out .card.fly{transition:transform .26s var(--out),opacity .22s var(--ease) !important}
 .sideclose{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:16px;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:var(--muted);
@@ -253,14 +280,18 @@ button,select,input{font-family:var(--body)}
   transition:border-color .2s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease)}
 .f:focus{border-color:var(--blue);background:rgba(0,0,0,.5);
   box-shadow:0 0 0 3.5px rgba(10,132,255,.32), inset 0 1px 2px rgba(0,0,0,.4)}
+/* iOS の日時入力は固有の最低幅を持つため、width:100% だけでは枠からはみ出す。
+   見た目を自前に切り替え、最低幅の縛りを外す */
 input[type="datetime-local"],input[type="date"],input[type="time"]{
   -webkit-appearance:none;appearance:none;
   min-width:0;max-width:100%;width:100%;
   font-family:var(--body);font-size:14px;line-height:1.2;
   text-align:left}
+/* 空のときに何を入れる欄か分かるようにする */
 input[type="datetime-local"]:invalid,
 input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .f{max-width:100%;min-width:0}
+/* 横並びの中でも縮めるようにする */
 .f[style*="flex:1"]{min-width:0}
 .card .f{margin-top:8px;border-radius:var(--r-in-sheet)}
 .card .big{border-radius:var(--r-in-sheet)}
@@ -289,6 +320,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
              border-color .3s var(--ease),box-shadow .3s var(--ease);
 }
 .tabbar{position:fixed;left:50%;transform:translateX(-50%);
+  /* 画面に固定されていてスクロールで再計算されないので、強めのブラーを掛けられる */
   backdrop-filter:blur(32px) saturate(190%) brightness(1.04);
   -webkit-backdrop-filter:blur(32px) saturate(190%) brightness(1.04);
   bottom:calc(18px + env(safe-area-inset-bottom));z-index:45;
@@ -307,6 +339,8 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   white-space:nowrap;flex-shrink:0}
 
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:0 auto 16px;max-width:320px;
+  /* 本文と一緒にスクロールする要素にブラーを掛けると毎フレーム計算される。
+     塗りを一段濃くして見え方を合わせる */
   background:linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.04) 100%), rgba(18,18,28,0.55);
   border-radius:var(--r-chip);padding:4px}
 .seg button{background:none;border:none;color:var(--muted);position:relative;z-index:1;
@@ -326,6 +360,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   transition:transform .55s var(--spring);
   will-change:transform;
 }
+/* 上面の照り返しだけを残す */
 .pill::before{content:'';position:absolute;left:8%;right:8%;top:2px;height:40%;
   border-radius:999px;pointer-events:none;opacity:.32;
   background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0))}
@@ -334,6 +369,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .seg .pill{left:4px;top:4px;height:calc(100% - 8px);width:calc((100% - 8px) / 2)}
 .seg.i1 .pill{transform:translate3d(100%,0,0)}
 
+/* つまんでいる間だけ、四辺のふちを光らせる */
 .tabbar::after,.seg::after{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
   opacity:0;transition:opacity .25s var(--ease);
@@ -350,6 +386,8 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .seg.lifted{transform:scale(1.045)}
 @media (min-width:1000px){ .tabbar.lifted{transform:scale(1.055)} }
 
+/* つまんでいる間は、一覧のタイルと同じすりガラスになる。
+   縁取りも上端の光も入れず、影だけで浮かせる（One UI と同じ作り） */
 .grabbing .pill{
   transition:none !important;
   will-change:transform;
@@ -359,11 +397,14 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   -webkit-backdrop-filter:blur(20px) saturate(190%) brightness(1.15);
   box-shadow:0 4px 14px -4px rgba(0,0,0,.45),
              0 14px 32px -14px rgba(0,0,0,.55) !important}
+/* 面が透けるので、文字は白のまま読ませる */
 .grabbing button.on{color:var(--text) !important}
 .grabbing .pill::before{opacity:0}
 .grabbing button{color:var(--text) !important}
 .settling .pill{transition:transform .58s var(--spring)}
 
+/* PC は余力があるので、カードにも本物のすりガラスを掛ける。
+   スマホは塗りだけで表現して負荷を避ける */
 @media (min-width:1000px){
   .row,.stripitem,.pcard{
     backdrop-filter:blur(22px) saturate(170%);
@@ -402,10 +443,15 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .brkRow:last-child{border-bottom:none;padding-bottom:0}
 
 /* ---------- chips ---------- */
+/* 下端のぼかしは背景専用の層に掛ける。要素ごとマスクするとボタンまで欠ける */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:10px 16px 14px}
 .chips::before{content:'';position:absolute;z-index:-1;
+  /* 100vw にすると右パネルの下まで潜り込み、
+     半透明のパネル越しに黒帯として透けてしまう。本文の幅に収める。
+     ただし左右へ少しはみ出させ、境目を読む範囲の外で消す */
   left:-14px;right:-14px;top:-18px;bottom:-6px;
+  /* 縦の減衰は塗りで、横の減衰はマスクで。四辺すべてが溶けて切れ目が出ない */
   background:linear-gradient(180deg,
     rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%);
   -webkit-mask-image:linear-gradient(90deg,
@@ -434,12 +480,15 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   background:currentColor;opacity:.8;flex:0 0 auto}
 .lane > .accord-btn{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
 .lane.is-filt-hidden{display:none !important}
+/* 絞り込み時の再生。--fi を使い、画面切り替え用より優先度を上げる */
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{
   animation:rise .4s var(--spring) both}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) .row{
   animation:rise .5s var(--spring) both !important;
   animation-delay:calc(var(--fi,0) * 26ms) !important}
+/* 再生中は「画面外を描かない」設定を外す。
+   表示領域に入った瞬間に描き始めると、開始がばらついて見える */
 #view .lanes.filt-in .row{content-visibility:visible}
 .accord-btn{width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted);
   transition:transform .42s var(--spring),opacity .2s var(--ease)}
@@ -495,6 +544,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   padding:6px 16px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);
   box-shadow:var(--glass-edge);transition:opacity .3s var(--ease),transform .5s var(--spring)}
 #stale.on{opacity:1;transform:translate3d(-50%,0,0)}
+/* 固定要素の下端に、輪郭を溶かす淡い影を置く */
 .tabbar::before,.seg::before{border-radius:inherit}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.65);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
@@ -506,6 +556,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 @keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
 @keyframes sweep{to{transform:translateX(100%)}}
 
+/* 画面が切り替わったときの登場。--ei を使う */
 #view.enter{animation:rise .34s var(--spring)}
 #view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .55s var(--spring) both}
 #view.enter .row{animation-delay:calc(var(--ei,0) * 28ms)}
@@ -519,11 +570,13 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 }
 
 #side{display:none}
+/* キーボードが出ている間 */
 body.kb-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,40px,0);pointer-events:none}
 body.kb-open .sheet{padding-bottom:calc(10px + var(--kb,0px))}
 body.kb-open .card{height:auto;max-height:calc(100dvh - var(--kb,0px) - 40px)}
 #app{transform-origin:50% 0;
   transition:transform .5s var(--spring),border-radius .5s var(--spring),filter .5s var(--ease)}
+/* 奥へ引っ込める瞬間だけ GPU に載せる。常時載せるとスクロールが重くなる */
 body.sheet-open #app{will-change:transform;backface-visibility:hidden}
 body.sheet-open #app{transform:scale(var(--bgs,.93)) translate3d(0,10px,0);
   border-radius:var(--r-card);overflow:hidden;filter:brightness(.62)}
@@ -562,6 +615,8 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
   .row:hover{background:var(--surface-hi)}
   #side{display:block;position:sticky;top:28px;flex:0 0 380px;width:380px;
     height:calc(100vh - 138px);height:calc(100dvh - 138px);overflow:hidden;
+    /* 背後の一覧が透けると、覆いや影がにじんで見える。
+       ここは自前の面として不透明寄りに置く */
     background:linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%), rgba(18,18,26,0.9);
     backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);
     border:1px solid rgba(255,255,255,0.2);border-radius:var(--r-card);box-shadow:var(--glass-drop-lg);
@@ -691,6 +746,7 @@ function markEnter(force){
   el.classList.remove('enter');
   void el.offsetWidth;
   el.classList.add('enter');
+  /* 付けっぱなしにすると、後から走る絞り込みの動きと競合する */
   clearTimeout(window._entT);
   window._entT=setTimeout(function(){ el.classList.remove('enter') },1000);
 }
@@ -701,6 +757,9 @@ function esc(s){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 }
+/* onclick の中は「HTML属性の中のJavaScript文字列」という二重構造。
+   実体参照にするだけではブラウザが ' に戻してから JS が読むので壊れる。
+   先に JS 用の退避をしてから HTML 用に変換する */
 function J(s){
   return esc(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 }
@@ -730,11 +789,14 @@ function ITEMS(){return DATA.items.filter(function(i){return (i.term||'夏イン
 function EVENTS(){return DATA.events.filter(function(e){return (e.term||'夏インターン')===TERM})}
 function byCo(c){var L=ITEMS();for(var i=0;i<L.length;i++){if(L[i].c===c)return L[i]}return null}
 function evOf(c){return EVENTS().filter(function(e){return e.c===c}).sort(function(a,b){return (a.at||'').localeCompare(b.at||'')})}
+/* 予定の扱い。終日か、時間帯か、複数日かで表示を変える */
 function evAllDay(e){
   if(e.allDay)return true;
+  /* 以前の「日付だけ」の行は 0:00 で入っているので終日とみなす */
   return !!(e.end && String(e.end).slice(11)==='00:00' && String(e.end).slice(0,10)!==String(e.at).slice(0,10));
 }
 function evEndAt(e){ return e.end ? D(e.end) : null }
+/* 終わるまでは「これから」として扱う。初日の朝に消えないように */
 function evActive(e){
   var end=evEndAt(e);
   if(end){
@@ -897,15 +959,16 @@ function api(action,args){
   });
 }
 function busy(on){document.getElementById('busy').style.display=on?'flex':'none'}
+/* 上部の小さな表示。出しっぱなしにならないよう、消すのも文言を戻すのもここで行う */
 function staleShow(msg){
   var el=document.getElementById('stale');
   if(!el)return;
   clearTimeout(window._stl);
-  clearTimeout(window._stlReset);
+  clearTimeout(window._stlReset);   /* 消した直後の後片付けが文言を奪わないように */
   el.textContent = msg || '更新中…';
   el.style.borderColor = msg ? 'rgba(255,69,58,.5)' : 'rgba(255,255,255,.18)';
   el.classList.add('on');
-  if(msg){ window._stl=setTimeout(staleHide,3200); }
+  if(msg){ window._stl=setTimeout(staleHide,3200); }   /* 失敗の表示は自動で消す */
 }
 function staleHide(){
   var el=document.getElementById('stale');
@@ -986,6 +1049,8 @@ function toast(msg,ok){
   clearTimeout(window._tt);
   window._tt=setTimeout(function(){el.classList.remove('on')},2200);
 }
+/* 軽い応答が返ったときは、操作が途切れてから一度だけ全体を取り直す。
+   並べ替えを連打しても通信は最後の1回で済む */
 var syncTimer=null;
 function scheduleSync(){
   clearTimeout(syncTimer);
@@ -1002,7 +1067,7 @@ function opt(mutate,fn,args,label){
   render(false);
   api(fn,args).then(function(d){
     if(d&&d.items){ DATA.items=d.items; DATA.events=d.events; cacheSave(d); render(false); }
-    else { cacheSave(DATA); scheduleSync(); }
+    else { cacheSave(DATA); scheduleSync(); }   /* 軽い応答 */
   }).catch(function(){
     DATA.items=JSON.parse(snap);
     render(false);
@@ -1051,6 +1116,15 @@ function doStatus(co,st){
     if(st==='対応中'){it.lost='';it.on=null;}
   },'apiSetStatus',[co,TERM,st],st+'にしました');
 }
+function saveInfo(co){
+  var u=document.getElementById('coUrl'), i=document.getElementById('coId');
+  var url=u?u.value.trim():'', id=i?i.value.trim():'';
+  if(url && !/^https?:\/\//i.test(url)){ toast('URLは https:// から始めてください'); return; }
+  opt(function(){
+    var it=find_(co); if(!it)return;
+    it.url=url; it.id=id;
+  },'apiSetInfo',[co,TERM,url,id],'マイページを保存しました');
+}
 function setDue(co){
   var el=document.getElementById('coDue');
   var v=el?el.value:'';
@@ -1063,6 +1137,7 @@ function stOf(it){
   var s=it.status||'';
   if(s==='見送り') return 'skip';
   if(s==='落選') return 'fail';
+  /* インターンの区分に「内定」は無いので、参加決定として扱う */
   if(s==='内定') return (TERM==='夏インターン') ? 'fixed' : 'offer';
   if(s==='参加決定') return 'fixed';
   if(s==='結果待ち') return 'waiting';
@@ -1105,14 +1180,15 @@ function rowHtml(it){
     left='<span class="tag" style="color:var(--dim)">未定</span>';
   }
 
+  var stop='event.stopPropagation();';
   var acts='';
-  if(st==='todo') acts='<div class="acts"><button type="button" class="gh" data-act="done" data-co="'+esc(it.c)+'">完了にする</button></div>';
+  if(st==='todo') acts='<div class="acts"><button class="gh" data-act="done" data-co="'+esc(it.c)+'">完了にする</button></div>';
   if(st==='waiting'){
     var rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
     var goalLab = last ? (TERM==='夏インターン'?'参加決定':'内定') : '通過';
     acts='<div class="acts">'+
-      '<button type="button" class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" data-act="pass" data-co="'+esc(it.c)+'">'+goalLab+'</button>'+
-      '<button type="button" class="gh" data-act="fail" data-co="'+esc(it.c)+'">落選</button></div>';
+      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" data-act="pass" data-co="'+esc(it.c)+'">'+goalLab+'</button>'+
+      '<button class="gh" data-act="fail" data-co="'+esc(it.c)+'">落選</button></div>';
   }
   var isMuted = (st==='fail'||st==='skip');
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
@@ -1151,6 +1227,7 @@ function syncPills(){
 function replayFilterMotion(){
   var box=document.querySelector('.lanes');
   if(!box)return;
+  /* 画面切り替え用の指定が残っていると、どちらが効くか毎回変わる */
   var view=document.getElementById('view');
   if(view) view.classList.remove('enter');
   clearTimeout(window._entT);
@@ -1158,10 +1235,10 @@ function replayFilterMotion(){
   box.classList.remove('filt-in');
   var vis=box.querySelectorAll('.lane:not(.is-filt-hidden) .row');
   for(var i=0;i<vis.length;i++){
-    vis[i].style.animation='none';
+    vis[i].style.animation='none';          /* 走りかけを一度止める */
     vis[i].style.setProperty('--fi', i<12?i:12);
   }
-  void box.offsetWidth;
+  void box.offsetWidth;                     /* ここで確実に初期状態へ戻す */
   for(var k=0;k<vis.length;k++) vis[k].style.animation='';
   box.classList.add('filt-in');
   clearTimeout(window._filtT);
@@ -1221,7 +1298,7 @@ function render(pageChanged){
     MGMT.forEach(function(it){
       var r=it.due?rem(it.due):null;
       var lab=r?(r.d===0?'今日':r.d+'日後'):(it.due?'期限切れ':'日程未定');
-      h+='<button type="button" class="stripitem" data-act="open" data-co="'+esc(it.c)+'">'+
+      h+='<button class="stripitem" data-act="open" data-co="'+esc(it.c)+'">'+
         '<span class="k">受験予定</span><span class="n">'+esc(it.c)+'</span>'+
         '<span class="d" style="color:'+(r&&r.d<=2?'var(--hot)':'var(--text)')+'">'+lab+'</span>'+
         (it.due?'<span class="w">'+fdate(it.due)+(it.timeUnset?'':' '+ftime(it.due))+'</span>':'')+
@@ -1243,7 +1320,7 @@ function render(pageChanged){
   } else if(!DATA.items.length){
     h+='<div class="emptyNote">シートからデータを取得できていません。<br>'+
        'Sheet1 に行があるか、接続設定が正しいかを確認してください。'+
-       '<button type="button" class="gh" style="display:block;margin:14px auto 0" onclick="resetCfg()">接続設定をやり直す</button></div>';
+       '<button class="gh" style="display:block;margin:14px auto 0" onclick="resetCfg()">接続設定をやり直す</button></div>';
   } else {
     h+='<div style="color:var(--dim);font-size:14px;padding:20px 0">予定も締切もありません。</div>';
   }
@@ -1272,10 +1349,10 @@ function render(pageChanged){
   ].filter(function(g){return g.n>0});
 
   h+='<div class="chips"><div class="chiprow">';
-  h+='<button type="button" data-filt="all" class="'+(FILT==='all'?'on':'')+'" onclick="setFilt(\'all\')">すべて'+
+  h+='<button data-filt="all" class="'+(FILT==='all'?'on':'')+'" onclick="setFilt(\'all\')">すべて'+
      '<b>'+(events.length+todo.length+offers.length+fixed.length+waiting.length)+'</b></button>';
   G.forEach(function(g){
-    h+='<button type="button" data-filt="'+g.k+'" class="'+(FILT===g.k?'on':'')+'" onclick="setFilt(\''+g.k+'\')">'+
+    h+='<button data-filt="'+g.k+'" class="'+(FILT===g.k?'on':'')+'" onclick="setFilt(\''+g.k+'\')">'+
        g.lab+'<b style="color:'+(FILT===g.k?'':g.col)+'">'+g.n+'</b></button>';
   });
   h+='</div></div>';
@@ -1301,20 +1378,21 @@ function render(pageChanged){
   if(ended.length){
     var isEndHidden = (FILT!=='all' && FILT!=='end');
     h+='<section class="lane'+(isEndHidden?' is-filt-hidden':'')+'" data-lane="end">'+
-       '<button type="button" class="lab accord-btn" onclick="toggleEnded()">'+
+       '<button class="lab accord-btn" onclick="toggleEnded()">'+
        '終了 '+ended.length+'件 '+(window._end?'▾':'▸')+'</button>'+
        (window._end?'<div class="rows">'+rows.end()+'</div>':'')+'</section>';
   }
   if(skipped.length){
     var isSkipHidden = (FILT!=='all' && FILT!=='skip');
     h+='<section class="lane'+(isSkipHidden?' is-filt-hidden':'')+'" data-lane="skip">'+
-       '<button type="button" class="lab accord-btn" onclick="toggleSkip()">'+
+       '<button class="lab accord-btn" onclick="toggleSkip()">'+
        '見送り '+skipped.length+'件 '+(window._skip?'▾':'▸')+'</button>'+
        (window._skip?'<div class="rows">'+rows.skip()+'</div>':'')+'</section>';
   }
   h+='</div>';
 
   document.getElementById('view').innerHTML=h;
+  /* 画面切り替え用の順番。絞り込み用の --fi とは別に持つ */
   var rws=document.querySelectorAll('#view .row, #view .pcard');
   for(var q=0;q<rws.length;q++) rws[q].style.setProperty('--ei', q<12?q:12);
   if(pageChanged) markEnter(true);
@@ -1343,12 +1421,13 @@ function tickHero(){
   var str=(r.d>0?'<b>'+r.d+'</b><s>d</s>':'')+'<b>'+p(r.h)+'</b><s>h</s><b>'+p(r.m)+'</b><s>m</s><b>'+p(r.s)+'</b><s>s</s>';
   if(el.dataset.rendered!==str){ el.dataset.rendered=str; el.innerHTML=str; }
 }
+/* 画面が隠れている間は毎秒の更新を止める。裏で回し続けると電池を食う */
 var heroTimer=null;
 function startTick(){ if(!heroTimer){ tickHero(); heroTimer=setInterval(tickHero,1000) } }
 function stopTick(){ if(heroTimer){ clearInterval(heroTimer); heroTimer=null } }
 document.addEventListener('visibilitychange',function(){
   if(document.hidden) stopTick();
-  else { startTick(); render(false); }
+  else { startTick(); render(false); }   /* 戻ってきたら表示も合わせ直す */
 });
 window.addEventListener('pagehide',stopTick);
 window.addEventListener('pageshow',startTick);
@@ -1374,6 +1453,7 @@ function carryOver(co){
 
 /* ============ シート制御 ============ */
 var lockY=0, pushed=false, locked=false;
+/* スワイプで既に飛ばし終えたかどうか。閉じる処理を二重に走らせないため */
 var DISMISSING=false;
 function lockScroll(on){
   var de=document.documentElement;
@@ -1387,6 +1467,9 @@ function lockScroll(on){
     window.scrollTo(0,lockY);
   }
 }
+/* 背景をタップして閉じる判定を厳しくする。
+   要素が入れ替わると、指を離した瞬間のクリックが背景に当たってしまい、
+   押してもいないのに閉じることがある */
 function armBackdrop(){
   var sh=document.querySelector('#sheet .sheet');
   if(!sh||sh._armed)return;
@@ -1412,6 +1495,8 @@ function closeOverlay(){
   document.body.classList.remove('sheet-open');
   document.body.style.removeProperty('--bgs');
 
+  /* スワイプで既に画面外へ飛んでいる場合、ここで再度アニメーションを掛けると
+     消えたはずのカードがもう一度描かれ、残像として見える */
   if(DISMISSING){
     DISMISSING=false;
     box.innerHTML='';
@@ -1420,7 +1505,7 @@ function closeOverlay(){
   }
   if(!sh){ if(locked){locked=false;lockScroll(false)} return }
   var c=sh.querySelector('.card');
-  if(c) c.classList.add('noblur');
+  if(c) c.classList.add('noblur');        /* 閉じる動きの間も外す */
   sh.classList.remove('is-active');
   sh.classList.add('out');
   setTimeout(function(){
@@ -1432,6 +1517,7 @@ function closeSide(){ openCo=null; sideEmpty(); }
 function closeDetail(){ if(isWide()) closeSide(); else closeSheet(); }
 function closeSheet(e){
   if(e&&e.target!==e.currentTarget)return;
+  /* 押し始めが背景でなければ閉じない（指の下で要素が入れ替わったとき用） */
   if(e&&e.currentTarget&&e.currentTarget._armed&&!e.currentTarget._downOnBackdrop)return;
   var box=document.getElementById('sheet');
   if(box.innerHTML){
@@ -1463,6 +1549,7 @@ function bindSheetGesture(){
     var d=Math.max(0,dy);
     var sc=Math.max(.9,1-d/2400);
     card.style.transform='translate3d(0,'+d+'px,0) scale('+sc+')';
+    /* 背後の画面が指に合わせて手前へ戻る */
     document.body.style.setProperty('--bgs',(0.93+Math.min(1,d/320)*0.07).toFixed(3));
   }
 
@@ -1506,19 +1593,20 @@ function bindSheetGesture(){
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform='';
-    document.body.style.setProperty('--bgs','.93');
+    document.body.style.setProperty('--bgs','.93');   /* 背景も奥へ戻す */
     setTimeout(function(){ card.classList.remove('noblur') },600);
   }
   function dismiss(){
     card.classList.remove('drag');
     card.classList.add('fly','noblur');
+    /* 指の位置から続けて飛ばす。ここで一度止めると跳ねて見える */
     card.style.transform='translate3d(0,'+Math.max(window.innerHeight, dy+400)+'px,0) scale(.96)';
     card.style.opacity='0';
     sheet.classList.remove('is-active');
     sheet.classList.add('out');
     document.body.classList.remove('sheet-open');
     document.body.style.removeProperty('--bgs');
-    DISMISSING=true;
+    DISMISSING=true;                 /* 後片付けでアニメーションを重ねない */
     setTimeout(function(){
       if(!isWide()&&pushed){ history.back(); }
       else closeOverlay();
@@ -1596,7 +1684,7 @@ function renderTabContent(it){
       }
       h+='<div style="display:flex;gap:8px;margin-top:10px">'+
         '<input class="f" type="datetime-local" id="coDue" style="flex:1 1 0;min-width:0;margin:0" value="'+esc(it.due||'')+'">'+
-        '<button type="button" class="gh" style="padding:0 14px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">保存</button></div></div>';
+        '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">保存</button></div></div>';
     }
     if(st==='waiting'){
       var d=since(it.since||(it.due?it.due.slice(0,10):null));
@@ -1604,9 +1692,9 @@ function renderTabContent(it){
         '<div class="lab" style="margin:0 0 8px">結果待ち</div>'+
         '<div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">'+(d==null?'—':d)+'</b><s>日経過</s></div>'+
         '<div style="display:flex;gap:10px;margin-top:16px">'+
-        '<button type="button" class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass" data-co="'+esc(it.c)+'">'+
+        '<button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass" data-co="'+esc(it.c)+'">'+
           (last?(TERM==='夏インターン'?'参加決定':'内定'):'通過')+'</button>'+
-        '<button type="button" class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail" data-co="'+esc(it.c)+'">落選</button>'+
+        '<button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail" data-co="'+esc(it.c)+'">落選</button>'+
         '</div></div>';
     }
     if(st==='fixed'){
@@ -1622,19 +1710,19 @@ function renderTabContent(it){
     }
 
     if(st==='todo')
-      h+='<button type="button" class="big" style="background:var(--blue);color:#fff" data-act="done" data-co="'+esc(it.c)+'">完了にして結果待ちへ</button>';
+      h+='<button class="big" style="background:var(--blue);color:#fff" data-act="done" data-co="'+esc(it.c)+'">完了にして結果待ちへ</button>';
     if(st==='waiting'||st==='fail'||st==='offer'||st==='fixed'||st==='skip')
-      h+='<button type="button" class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="対応中">対応中に戻す</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="対応中">対応中に戻す</button>';
     if(st==='waiting')
-      h+='<button type="button" class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="参加決定">参加決定にする</button>';
+      h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="参加決定">参加決定にする</button>';
     if(curIdx>0)
-      h+='<button type="button" class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" data-act="prev" data-co="'+esc(it.c)+'">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" data-act="prev" data-co="'+esc(it.c)+'">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
     if(st==='todo')
-      h+='<button type="button" class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="見送り">見送りにする</button>';
+      h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="見送り">見送りにする</button>';
 
     if(TERM==='夏インターン'&&isCo(it)){
       var already=DATA.items.some(function(x){return x.c===it.c&&(x.term||'')==='本選考'});
-      h+='<button type="button" class="big" style="background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500" '+
+      h+='<button class="big" style="background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500" '+
         (already?'disabled':'data-act="carry" data-co="'+esc(it.c)+'"')+'>'+
         (already?'本選考に登録済み':'本選考に引き継ぐ')+'</button>';
     }
@@ -1644,12 +1732,18 @@ function renderTabContent(it){
       '<div style="display:flex;gap:8px">'+
       '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+
         esc(LOGOS[it.c]&&LOGOS[it.c]!=='none'?LOGOS[it.c]:'')+'">'+
-      '<button type="button" class="gh" style="padding:0 14px;color:var(--text)" data-act="logo-set" data-co="'+esc(it.c)+'">適用</button></div>'+
-      '<button type="button" class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">Wikidataから取り直す</button></div>';
+      '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="logo-set" data-co="'+esc(it.c)+'">適用</button></div>'+
+      '<button class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">Wikidataから取り直す</button></div>';
 
-    h+='<div style="margin-top:20px">'+
-      '<div class="kv"><span>マイページID</span><span>'+esc(it.id||'—')+'</span></div>'+
-      '<div class="kv"><span>パスワード</span><span style="color:var(--dim)">この端末には保存しません</span></div>'+
+    h+='<div style="margin-top:22px">'+
+      '<div class="lab" style="margin:0 0 8px">マイページ</div>'+
+      '<input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="'+esc(it.url||'')+'">'+
+      '<input class="f" id="coId" placeholder="ログインID" value="'+esc(it.id||'')+'" style="margin-top:8px">'+
+      '<button class="gh" style="margin-top:8px" data-act="setinfo" data-co="'+esc(it.c)+'">保存</button>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">'+
+      'パスワードはこの端末にも画面にも保存しません。</div></div>';
+
+    h+='<div style="margin-top:18px">'+
       (it.on?'<div class="kv"><span>結果日</span><span>'+fdate(it.on)+'</span></div>':'')+'</div>';
 
     if(it.due) h+='<a class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" target="_blank" href="'+
@@ -1668,7 +1762,7 @@ function renderTabContent(it){
           (r?(r.d<=2?'var(--hot)':'var(--text)'):'var(--dim)')+'">'+(r?r.d:'—')+'</span>'+
         '<div style="flex:1"><div style="font-size:14px">'+esc(ev.kind)+spanLabel(ev)+'</div>'+
         '<div class="sub" style="margin-top:3px">'+evWhen(ev)+(ev.place?' '+esc(ev.place):'')+'</div></div>'+
-        '<button type="button" class="gh" style="color:var(--hot);padding:6px 10px" data-act="delev" data-v="'+esc(ev.uid)+'">×</button></div>';
+        '<button class="gh" style="color:var(--hot);padding:6px 10px" data-act="delev" data-v="'+esc(ev.uid)+'">×</button></div>';
     });
     h+='<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05);overflow:hidden">'+
       '<div class="lab" style="margin:0 0 8px">予定を追加</div>'+
@@ -1688,7 +1782,7 @@ function renderTabContent(it){
       '別の日まで指定した場合、「連日」に印を付けると毎日その時間帯で登録され、'+
       '付けないと夜通し続く1件の予定になります。</div>'+
       '<input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin-top:12px">'+
-      '<button type="button" class="big" style="background:#fff;color:#000" onclick="addEv()">追加</button></div></div>';
+      '<button class="big" style="background:#fff;color:#000" onclick="addEv()">追加</button></div></div>';
   }
 
   if(tab==='route'){
@@ -1697,24 +1791,24 @@ function renderTabContent(it){
       var cur=(it.lost||it.stage)===s;
       h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft)">'+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--dim);width:16px">'+(i+1)+'</span>'+
-        '<button type="button" style="flex:1;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;color:'+
-          (cur?'var(--text)':'var(--muted)')+';font-weight:'+(cur?600:400)+'" onclick="event.stopPropagation();setCur('+i+')">'+esc(s)+
+        '<button style="flex:1;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;color:'+
+          (cur?'var(--text)':'var(--muted)')+';font-weight:'+(cur?600:400)+'" onclick="setCur('+i+')">'+esc(s)+
           (cur?' <span style="font-family:var(--mono);font-size:9px;color:var(--blue)">現在</span>':'')+'</button>'+
-        '<button type="button" class="gh" style="padding:4px 9px" onclick="event.stopPropagation();mv('+i+',-1)">↑</button>'+
-        '<button type="button" class="gh" style="padding:4px 9px" onclick="event.stopPropagation();mv('+i+',1)">↓</button>'+
-        '<button type="button" class="gh" style="padding:4px 9px;color:var(--hot)" onclick="event.stopPropagation();rm('+i+')">×</button></div>';
+        '<button class="gh" style="padding:4px 9px" onclick="mv('+i+',-1)">↑</button>'+
+        '<button class="gh" style="padding:4px 9px" onclick="mv('+i+',1)">↓</button>'+
+        '<button class="gh" style="padding:4px 9px;color:var(--hot)" onclick="rm('+i+')">×</button></div>';
     });
     h+='</div>'+
       '<div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div>'+
       '<div style="display:flex;gap:8px">'+
         '<select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">'+
           PALETTE.map(function(p){return '<option>'+esc(p)+'</option>'}).join('')+'</select>'+
-        '<button type="button" class="gh" style="padding:0 18px;color:var(--text)" onclick="event.stopPropagation();addStage()">追加</button></div>'+
+        '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addStage()">追加</button></div>'+
       '<div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div>'+
       '<div style="display:flex;gap:8px">'+
         '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談"'+
           ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();addCustomStage()}">'+
-        '<button type="button" class="gh" style="padding:0 18px;color:var(--text)" onclick="event.stopPropagation();addCustomStage()">追加</button></div>'+
+        '<button class="gh" style="padding:0 18px;color:var(--text)" onclick="addCustomStage()">追加</button></div>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">'+
       '段階名をタップすると現在地になります。↑↓で並べ替え、×で削除。<br>'+
       '自分で足した名前は次から上の一覧にも出ます。</div></div>';
@@ -1727,7 +1821,7 @@ function paintDetail(it){
   var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
 
   var headHtml='<div class="grab"></div>'+
-    '<button type="button" class="sideclose" onclick="event.stopPropagation();closeDetail()" aria-label="閉じる">✕</button>'+
+    '<button class="sideclose" onclick="event.stopPropagation();closeDetail()" aria-label="閉じる">✕</button>'+
     '<div style="display:flex;align-items:center;gap:12px">'+logo(it,44)+
     '<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">'+esc(it.c)+'</div>'+
     '<div style="font-family:var(--mono);font-size:11px;color:'+col+';margin-top:3px">'+
@@ -1735,7 +1829,7 @@ function paintDetail(it){
     '<div class="tabs">'+
       ['info,概要','events,予定 '+evOf(it.c).length,'route,選考ルート'].map(function(x){
         var k=x.split(',')[0];
-        return '<button type="button" data-tab="'+k+'" class="'+(tab===k?'on':'')+'" onclick="switchTab(\''+k+'\')">'+x.split(',')[1]+'</button>';
+        return '<button data-tab="'+k+'" class="'+(tab===k?'on':'')+'" onclick="switchTab(\''+k+'\')">'+x.split(',')[1]+'</button>';
       }).join('')+'</div>';
 
   var fullHtml='<div class="card-head">'+headHtml+'</div><div class="tab-pane">'+renderTabContent(it)+'</div>';
@@ -1760,6 +1854,9 @@ function paintDetail(it){
   var box=document.getElementById('sheet');
   var card=box.querySelector('.sheet .card');
   if(card){
+    /* 中身だけを差し替える場合は、読んでいた位置を保ち、
+       タブの滑り込みも再生しない。操作のたびに先頭へ飛ぶと
+       画面が閉じたように見える */
     var pane=card.querySelector('.tab-pane');
     var y=pane?pane.scrollTop:0;
     card.innerHTML=fullHtml;
@@ -1772,6 +1869,7 @@ function paintDetail(it){
     var sh=box.querySelector('.sheet');
     if(sh) sh.classList.add('is-active');
   });
+  /* 動き終わってから本来のガラスに戻す */
   setTimeout(function(){
     var c=box.querySelector('.card');
     if(c) c.classList.remove('noblur');
@@ -1792,6 +1890,8 @@ function sideEmpty(){
 }
 
 /* ルート編集 */
+/* 選考ルートの変更も、先に画面を書き換えて裏で保存する。
+   通信の完了を待つと、並べ替えのたびに1〜3秒止まる */
 function saveRoute(arr,stage,label){
   var co=openCo;
   opt(function(){
@@ -1822,7 +1922,7 @@ function rm(i){
 function setCur(i){
   var it=byCo(openCo); if(!it)return;
   var r=routeOf(it);
-  if((it.lost||it.stage)===r[i])return;
+  if((it.lost||it.stage)===r[i])return;      /* 変化がなければ通信しない */
   saveRoute(r.slice(), r[i], r[i]+' を現在地にしました');
 }
 function addStage(){
@@ -1847,6 +1947,7 @@ function addCustomStage(){
 }
 
 /* 予定 */
+/* 終日を選ぶと、時刻の欄を日付の欄に切り替える */
 function toggleAllDay(){
   var on=document.getElementById('evAll').checked;
   ['evAt','evEnd'].forEach(function(id){
@@ -1932,7 +2033,7 @@ function searchRun(v){
   var t=v.trim();
   var L=DATA.items.filter(function(i){return !t||i.c.indexOf(t)>=0}).slice(0,8);
   document.getElementById('qres').innerHTML = L.length? L.map(function(it){
-    return '<button type="button" data-act="pick" data-co="'+esc(it.c)+'" data-v="'+esc(it.term||'夏インターン')+'">'+
+    return '<button data-act="pick" data-co="'+esc(it.c)+'" data-v="'+esc(it.term||'夏インターン')+'">'+
       logo(it,26)+'<span class="qn">'+esc(it.c)+'</span>'+
       '<span class="qs">'+esc(it.status||'')+' '+esc(it.stage||'')+'</span></button>';
   }).join('') : '<div class="qempty">見つかりません</div>';
@@ -1949,28 +2050,19 @@ document.addEventListener('keydown',function(e){
     else if(isWide()&&openCo) closeSide();
   }
 });
-
 var outsideDown=false;
 document.addEventListener('pointerdown',function(e){
   var t=e.target;
-  var inside = t.closest && (
-    t.closest('#side') || t.closest('.row') || t.closest('.hero') ||
-    t.closest('.stripitem') || t.closest('.tabbar') || t.closest('.chips') || t.closest('.seg') ||
-    t.closest('.sheet') || t.closest('#toast')
-  );
-  outsideDown = !inside;
+  outsideDown = !(t.closest&&(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
+    t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg')));
 },true);
-
 document.addEventListener('click',function(e){
   if(!isWide()||!openCo)return;
   if(document.getElementById('sheet').innerHTML)return;
-  if(!outsideDown)return;
+  if(!outsideDown)return;          /* 押し始めが外側でなければ閉じない */
   var t=e.target;
-  if(t.closest && (
-    t.closest('#side') || t.closest('.row') || t.closest('.hero') ||
-    t.closest('.stripitem') || t.closest('.tabbar') || t.closest('.chips') || t.closest('.seg') ||
-    t.closest('.sheet') || t.closest('#toast')
-  )) return;
+  if(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
+     t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg'))return;
   closeSide();
 });
 
@@ -1986,7 +2078,7 @@ function openAdd(){
     '<div class="lab">ロゴ用ドメイン（任意）</div><input class="f" id="nD" placeholder="例：mitsubishicorp.com">'+
     '<div class="lab">段階</div><select class="f" id="nS">'+PALETTE.map(function(p){return '<option>'+esc(p)+'</option>'}).join('')+'</select>'+
     '<div class="lab">締切（任意）</div><input class="f" type="datetime-local" id="nDue">'+
-    '<button type="button" class="big" style="background:#fff;color:#000" onclick="doAdd()">追加する</button></div></div>';
+    '<button class="big" style="background:#fff;color:#000" onclick="doAdd()">追加する</button></div></div>';
   requestAnimationFrame(function(){
     var sh=document.querySelector('#sheet .sheet');
     if(sh) sh.classList.add('is-active');
@@ -1996,6 +2088,7 @@ function openAdd(){
 function doAdd(){
   var c=document.getElementById('nC').value.trim();
   if(!c){toast('会社名を入れてください');return}
+  /* 同じ区分に同名があると、どの行を指すか決められなくなる */
   if(DATA.items.some(function(x){return x.c===c&&(x.term||'夏インターン')===TERM})){
     toast('その会社はすでに登録されています'); return;
   }
@@ -2006,6 +2099,8 @@ function doAdd(){
 }
 
 /* ============ クリックの一元処理 ============ */
+/* 各要素に関数呼び出しを埋め込むと、社名に ' や \ が入った瞬間に壊れる。
+   data 属性で「何をするか」だけを持たせ、実行はここでまとめて行う。 */
 var ACTS={
   open:  function(co){ openDetail(co) },
   done:  function(co){ doDone(co) },
@@ -2014,6 +2109,7 @@ var ACTS={
   prev:  function(co){ doPrevStage(co) },
   carry: function(co){ carryOver(co) },
   setdue:function(co){ setDue(co) },
+  setinfo:function(co){ saveInfo(co) },
   status:function(co,v){ doStatus(co,v) },
   'logo-set':function(co){ setLogoUrl(co) },
   'logo-get':function(co){ refetchLogo(co) },
@@ -2026,12 +2122,14 @@ document.addEventListener('click',function(e){
   var act=el.getAttribute('data-act');
   var fn=ACTS[act];
   if(!fn)return;
+  /* 行の中のボタンは、行そのものを開く動作まで届かせない */
   if(act!=='open') e.stopPropagation();
   e.preventDefault();
   fn(el.getAttribute('data-co')||'', el.getAttribute('data-v')||'');
 },false);
 
 /* ============ リキッドグラス操作 ============ */
+
 function attachLiquid(host, ids, onPick, isActive){
   if(!host || host._liquid) return;
   host._liquid = true;
@@ -2040,6 +2138,8 @@ function attachLiquid(host, ids, onPick, isActive){
 
   var press=0, lifted=false, startX=0, lastX=0, lastT=0, vx=0;
   var startVisualX=0, originLeft=0, rafId=0, moved=false;
+  /* つまんだ時点の寸法を覚えておく。毎フレーム測り直すと、
+     変形の書き込みと測定が交互に起きてレイアウト計算が強制され、動きががたつく */
   var geo=null;
 
   function btns(){
@@ -2051,6 +2151,8 @@ function attachLiquid(host, ids, onPick, isActive){
     for(var i=0;i<L.length;i++) if(isActive(i)) return i;
     return 0;
   }
+  /* ピルの「変形前の位置」を基準に、各ボタンまでの移動量を出す。
+     これを使わないと、右側のタブからつまんだときに位置が飛ぶ */
   function targets(){
     originLeft = pill.offsetLeft || 4;
     return btns().map(function(b){ return b.offsetLeft - originLeft });
@@ -2061,6 +2163,7 @@ function attachLiquid(host, ids, onPick, isActive){
     host.classList.add('lifted','grabbing');
     var t=targets(), i=activeIndex();
     startVisualX = (t[i]!==undefined) ? t[i] : 0;
+    /* ここで一度だけ測る */
     var pr=pill.getBoundingClientRect(), hr=host.getBoundingClientRect();
     geo={ t:t, min:t[0], max:t[t.length-1],
           pw:pr.width||1, pl:pr.left, hw:hr.width||1, hl:hr.left };
@@ -2072,8 +2175,10 @@ function attachLiquid(host, ids, onPick, isActive){
     var x=Math.max(geo.min, Math.min(geo.max, startVisualX + (lastX-startX)));
     var st=Math.max(-.16, Math.min(.16, vx*0.06));
     var sx=1+Math.abs(st), sy=1-Math.abs(st)*0.55;
+    /* 書き込みだけを行う。読み取りを混ぜない */
     pill.style.transform='translate3d('+x+'px,0,0) scaleX('+sx.toFixed(3)+') scaleY('+sy.toFixed(3)+')';
   }
+  /* 指の真下にあるボタンを探す。つまんだまま動かさずに離したときに使う */
   function indexUnder(x){
     var L=btns();
     for(var i=0;i<L.length;i++){
@@ -2091,6 +2196,7 @@ function attachLiquid(host, ids, onPick, isActive){
 
     var best;
     if(!moved){
+      /* 動かさずに離した場合は、押している場所のボタンを選ぶ */
       best = indexUnder(lastX);
       if(best<0) best = activeIndex();
     }else{
@@ -2104,7 +2210,7 @@ function attachLiquid(host, ids, onPick, isActive){
     pill.style.transform='';
     setTimeout(function(){ host.classList.remove('settling') },600);
     if(!isActive(best)) onPick(best);
-    if(moved){
+    if(moved){                       /* 直後に発生する click を1回だけ無視する */
       host._swallow=true;
       setTimeout(function(){ host._swallow=false },350);
     }
@@ -2112,6 +2218,8 @@ function attachLiquid(host, ids, onPick, isActive){
 
   host.addEventListener('contextmenu',function(e){e.preventDefault()});
   host.addEventListener('selectstart',function(e){e.preventDefault()});
+  /* ドラッグで選び直した直後の click だけ握り潰す。
+     setPointerCapture を使うと click の宛先が容器に化けてボタンが押せなくなるため使わない */
   host.addEventListener('click',function(e){
     if(host._swallow){ e.preventDefault(); e.stopPropagation(); host._swallow=false; }
   },true);
@@ -2119,10 +2227,11 @@ function attachLiquid(host, ids, onPick, isActive){
     if(e.pointerType==='mouse'&&e.button!==0)return;
     startX=lastX=e.clientX; lastT=Date.now(); vx=0; moved=false;
     clearTimeout(press);
-    press=setTimeout(lift,150);
+    press=setTimeout(lift,150);   /* つまめるまでの待ちを短く */
   });
   host.addEventListener('pointermove',function(e){
     var t=Date.now(), dt=Math.max(1,t-lastT);
+    /* 生の速度は1フレームごとに大きく振れる。均して伸縮の震えを抑える */
     var raw=(e.clientX-lastX)/dt*10;
     vx = vx*0.65 + raw*0.35;
     lastX=e.clientX; lastT=t;
@@ -2288,7 +2397,7 @@ function openSetup(msg){
     '<input class="f" id="cfgEp" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(CFG.ep)+'">'+
     '<div class="lab">鍵</div>'+
     '<input class="f" id="cfgKey" type="password" placeholder="WebAppApi.gs の WA_KEY" value="'+esc(CFG.key)+'">'+
-    '<button type="button" class="big" style="background:#fff;color:#000" onclick="doSetup()">接続する</button>'+
+    '<button class="big" style="background:#fff;color:#000" onclick="doSetup()">接続する</button>'+
     '</div></div>';
   var k=document.getElementById('cfgKey');
   if(k)k.addEventListener('keydown',function(e){if(e.key==='Enter')doSetup()});
@@ -2322,6 +2431,8 @@ function resetCfg(){
 }
 
 /* ============ ソフトキーボード対応 ============ */
+/* 入力欄に触れると画面下が持ち上がる。ドックは邪魔なので隠し、
+   シートの下端はキーボードの高さぶん空ける */
 (function(){
   var vv=window.visualViewport;
   if(!vv)return;
@@ -2339,6 +2450,7 @@ function resetCfg(){
 (function(){
   var y0=0, x0=0, pulling=false, dist=0, locked=false, lastScroll=0;
   var el=function(){return document.getElementById('ptr')};
+  /* 直前までスクロールしていた（慣性が残っている）間は反応させない */
   window.addEventListener('scroll',function(){ lastScroll=Date.now() },{passive:true});
   function set(d){
     var p=el(); if(!p)return;
@@ -2359,7 +2471,7 @@ function resetCfg(){
     pulling=false; locked=false;
     if(document.getElementById('sheet').innerHTML)return;
     if(window.scrollY>0)return;
-    if(Date.now()-lastScroll<350)return;
+    if(Date.now()-lastScroll<350)return;          /* 慣性スクロールの直後は無視 */
     if(e.touches.length!==1)return;
     if(e.target.closest&&e.target.closest('.chiprow,.tabbar,.seg,.tab-pane'))return;
     y0=e.touches[0].clientY; x0=e.touches[0].clientX;
@@ -2370,7 +2482,7 @@ function resetCfg(){
     if(e.touches.length!==1){ pulling=false; reset(); return }
     var dy=e.touches[0].clientY-y0, dx=e.touches[0].clientX-x0;
     if(!locked){
-      if(Math.abs(dx)>Math.abs(dy)){ pulling=false; reset(); return }
+      if(Math.abs(dx)>Math.abs(dy)){ pulling=false; reset(); return }  /* 横スワイプ */
       if(Math.abs(dy)<8) return;
       locked=true;
     }
@@ -2399,6 +2511,7 @@ window.addEventListener('load',function(){ syncPills(); initLiquid();
 window.addEventListener('resize',function(){ syncPills() });
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){syncPills()});
 
+/* 画面と部品を端末に保存して、電波が無くても起動できるようにする */
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('./sw.js').catch(function(){});
