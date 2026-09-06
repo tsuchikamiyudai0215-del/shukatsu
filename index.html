@@ -283,7 +283,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   border:1px solid rgba(255,255,255,0.14);
   box-shadow:var(--glass-edge);
   transition:transform .5s var(--spring),background .3s var(--ease),
-              border-color .3s var(--ease),box-shadow .3s var(--ease);
+             border-color .3s var(--ease),box-shadow .3s var(--ease);
 }
 .tabbar{position:fixed;left:50%;transform:translateX(-50%);
   backdrop-filter:blur(32px) saturate(190%) brightness(1.04);
@@ -334,14 +334,14 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
   opacity:0;transition:opacity .25s var(--ease);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),
-              inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16)}
+             inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16)}
 .tabbar.lifted::after,.seg.lifted::after{opacity:1}
 
 .tabbar.lifted,.seg.lifted{
   background:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 100%), rgba(26,26,36,0.3);
   border-color:rgba(255,255,255,.36);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(0,0,0,.4),
-              0 0 30px rgba(255,255,255,.14),0 18px 46px rgba(0,0,0,.6)}
+             0 0 30px rgba(255,255,255,.14),0 18px 46px rgba(0,0,0,.6)}
 .tabbar.lifted{transform:translateX(-50%) scale(1.055)}
 .seg.lifted{transform:scale(1.045)}
 @media (min-width:1000px){ .tabbar.lifted{transform:scale(1.055)} }
@@ -350,11 +350,11 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   transition:none !important;
   will-change:transform;
   background:linear-gradient(180deg, rgba(186,206,238,0.28) 0%, rgba(150,175,215,0.16) 100%),
-              rgba(24,30,46,0.5) !important;
+             rgba(24,30,46,0.5) !important;
   backdrop-filter:blur(20px) saturate(190%) brightness(1.15);
   -webkit-backdrop-filter:blur(20px) saturate(190%) brightness(1.15);
   box-shadow:0 4px 14px -4px rgba(0,0,0,.45),
-              0 14px 32px -14px rgba(0,0,0,.55) !important}
+             0 14px 32px -14px rgba(0,0,0,.55) !important}
 .grabbing button.on{color:var(--text) !important}
 .grabbing .pill::before{opacity:0}
 .grabbing button{color:var(--text) !important}
@@ -571,7 +571,7 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 }
 @media (min-width:1600px){
   body{padding-left:calc(48px + env(safe-area-inset-left));
-        padding-right:calc(44px + env(safe-area-inset-right));gap:32px}
+       padding-right:calc(44px + env(safe-area-inset-right));gap:32px}
   #side{flex:0 0 400px;width:400px}
   .rows{gap:0 24px}
 }
@@ -637,6 +637,9 @@ var WD = ['日','月','火','水','木','金','土'];
 var NONCO = ['テストセンター','テストセンター受験','Webテスト'];
 function isCo(it){return NONCO.indexOf(it.c)<0}
 
+/* 終了時刻が入っていない予定を、開始から何時間「開催中」とみなすか */
+var EV_GRACE_MS = 2*3600*1000;
+
 var DATA = {items:[],events:[]};
 var openCo = null, tab = 'info';
 var TERM = '夏インターン';
@@ -662,7 +665,7 @@ function ensureShell(){
     '<div class="seg" id="seg"><span class="pill"></span>'+
     TERMS.map(function(t,i){
       return '<button id="sg'+i+'" onclick="setTerm(\''+t+'\')">'+
-              '<span>'+t+'</span><span class="sgn"></span></button>';
+             '<span>'+t+'</span><span class="sgn"></span></button>';
     }).join('')+'</div>';
   initLiquid();
 }
@@ -733,7 +736,7 @@ function evAllDay(e){
 }
 function evEndAt(e){ return e.end ? D(e.end) : null }
 
-/* 終了時刻未指定の通常イベントは、開始から2時間はアクティブとみなす */
+/* 終わるまでは「これから」として扱う。終了時刻が無い予定は開始から一定時間を開催中とみなす */
 function evActive(e){
   var end=evEndAt(e);
   if(end){
@@ -746,7 +749,7 @@ function evActive(e){
   }
   var dStart=D(e.at);
   if(!dStart) return false;
-  return new Date(dStart.getTime() + 2*3600*1000) > new Date();
+  return new Date(dStart.getTime() + EV_GRACE_MS) > new Date();
 }
 function evOngoing(e){ return evActive(e) && !rem(e.at) }
 function nextEv(c){var f=evOf(c).filter(evActive);return f[0]||null}
@@ -781,91 +784,323 @@ function todayStr(){
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
 }
 
-/* ============ ロゴ ============ */
+/* ============ ロゴ（手動保護 ＆ 多段フォールバック） ============ */
+/* Clearbit のロゴAPI（logo.clearbit.com）は 2025年12月8日に停止済みのため使わない。
+   Wikidata の公式ロゴ → 公式サイトのファビコン → Wikipedia の画像、の順で当たる。
+   Google のファビコンは見つからない場合でも地球儀の代替画像を返すので、
+   「取れたか」の判定には使わず、最後の受け皿としてだけ置く */
 var LOGOS = {}, tried = {};
+var MANUAL_LOGOS = {};
+try {
+  MANUAL_LOGOS = JSON.parse(localStorage.getItem('sk_manual_logos') || '{}');
+} catch(e){}
+
+function saveManualLogo(co, url){
+  if(url){
+    MANUAL_LOGOS[co] = url;
+    LOGOS[co] = url;
+  } else {
+    delete MANUAL_LOGOS[co];
+    delete LOGOS[co];
+  }
+  try{
+    localStorage.setItem('sk_manual_logos', JSON.stringify(MANUAL_LOGOS));
+  }catch(e){}
+}
+function isManual(co){ return !!MANUAL_LOGOS[co] }
+
+function cleanCoName(name){
+  if(!name) return '';
+  return String(name)
+    .replace(/[\(（](?:株|有|社|合|資)[\)）]/g, '')
+    .replace(/株式会社|有限会社|合同会社|合資会社|合名会社/g, '')
+    .replace(/グループ|ホールディングス|HD/ig, '')
+    .trim();
+}
+
+function extractDomain(url){
+  if(!url) return null;
+  try{
+    var m = String(url).match(/https?:\/\/(?:www\.)?([^\/\?#:]+)/i);
+    return m ? m[1].toLowerCase() : null;
+  }catch(e){ return null; }
+}
+
+/* co.jp のように「実質2階層」の接尾辞。ここまでを企業のドメインとみなす */
+var SLD_SUFFIX = ['co.jp','ne.jp','or.jp','ac.jp','go.jp','gr.jp','co.uk','com.au','co.kr','com.cn','com.tw','co.th','com.sg'];
+function apexOf(host){
+  var p = String(host).split('.');
+  if(p.length <= 2) return host;
+  var n = (SLD_SUFFIX.indexOf(p.slice(-2).join('.')) >= 0) ? 3 : 2;
+  return p.slice(-n).join('.');
+}
+
+/* マイページURLは採用管理システムのものであることが多い。
+   そこからロゴを取ると別会社の印になるので、企業ドメインとしては使わない */
+var ATS_HINTS = ['rikunabi','mynavi','recruit.co.jp','en-japan','doda','wantedly','openwork',
+  'jobcan','hrmos','herp','talentio','sonar','i-web','axol','e-syutsugan','entryweb',
+  'career-tasu','onecareer','offerbox','unistyle','gyakukyujin','shukatsu','job-','saiyo',
+  'workscircle','goodfind','type.jp','athuman','jinzai','recme','ats-','successfactors',
+  'taleo','workday','greenhouse','lever.co','smartrecruiters'];
+function looksLikeAts(host){
+  if(!host) return true;
+  var h = String(host).toLowerCase();
+  for(var i=0;i<ATS_HINTS.length;i++) if(h.indexOf(ATS_HINTS[i])>=0) return true;
+  return false;
+}
+
+/* 候補ドメインを重複なく並べる。サブドメイン付きと、その上位ドメインの両方を試す */
+function pushDomain(list, host){
+  if(!host || looksLikeAts(host)) return list;
+  [host, apexOf(host)].forEach(function(d){
+    if(d && list.indexOf(d) < 0) list.push(d);
+  });
+  return list;
+}
+function logoDomains(it){
+  var list = [];
+  pushDomain(list, it.dom ? String(it.dom).replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0].toLowerCase() : null);
+  pushDomain(list, extractDomain(it.url));
+  return list;
+}
+
+function ddgIcon(dom){ return 'https://icons.duckduckgo.com/ip3/'+encodeURIComponent(dom)+'.ico' }
+function gIcon(dom){ return 'https://www.google.com/s2/favicons?domain='+encodeURIComponent(dom)+'&sz=256' }
+function siteIcon(dom){ return 'https://'+dom+'/favicon.ico' }
+
+function probeImage(url, timeoutMs){
+  return new Promise(function(resolve){
+    if(!url) return resolve(false);
+    var img = new Image();
+    var done = false;
+    var timer = setTimeout(function(){
+      if(done) return;
+      done = true;
+      img.src = '';
+      resolve(false);
+    }, timeoutMs || 3500);
+    img.onload = function(){
+      if(done) return;
+      done = true;
+      clearTimeout(timer);
+      /* 1×1 の透明画像を返すサービスがあるので、極端に小さいものは失敗扱いにする */
+      resolve(!(img.naturalWidth <= 2 || img.naturalHeight <= 2));
+    };
+    img.onerror = function(){
+      if(done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(false);
+    };
+    img.src = url;
+  });
+}
+
+function getLogoUrl(it){
+  if(MANUAL_LOGOS[it.c]) return MANUAL_LOGOS[it.c];
+  if(LOGOS[it.c] && LOGOS[it.c] !== 'none') return LOGOS[it.c];
+  var doms = logoDomains(it);
+  if(doms.length) return ddgIcon(doms[0]);
+  return null;
+}
+
 function logo(it,size){
   var s=size||28;
   var st='width:'+s+'px;height:'+s+'px;border-radius:'+(s/2)+'px';
-  var cached=LOGOS[it.c];
-  if(cached&&cached!=='none')
-    return '<div class="logo" style="'+st+'" data-co="'+esc(it.c)+'" data-sz="'+s+'">'+
-      '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="'+esc(cached)+'" onerror="logoErr(this)"></div>';
-  if(it.dom&&cached!=='none')
-    return '<div class="logo" style="'+st+'" data-co="'+esc(it.c)+'" data-sz="'+s+'">'+
-      '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="https://icons.duckduckgo.com/ip3/'+esc(it.dom)+'.ico" onerror="logoErr(this)"></div>';
+  var u = getLogoUrl(it);
+  var doms = logoDomains(it);
+  if(u) {
+    return '<div class="logo" style="'+st+'" data-co="'+esc(it.c)+'" data-sz="'+s+'" data-doms="'+esc(doms.join(','))+'">'+
+      '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="'+esc(u)+'" onerror="logoErr(this)"></div>';
+  }
   return monoLogo(it.c,s);
 }
+
 function monoLogo(name,s){
   return '<div class="logo mono" style="width:'+s+'px;height:'+s+'px;border-radius:'+(s/2)+'px" '+
     'data-co="'+esc(name)+'" data-sz="'+s+'">'+
     '<span style="font-size:'+Math.round(s*0.42)+'px">'+esc(String(name).slice(0,1))+'</span></div>';
 }
+
+/* 表示中に読み込みが失敗したら、その場で次の候補へ差し替える */
 function logoErr(img){
   var box=img.parentNode;
-  if(box&&box.dataset) box.outerHTML=monoLogo(box.dataset.co, parseFloat(box.dataset.sz)||28);
+  if(!box || !box.dataset) return;
+  var co = box.dataset.co;
+  var s = parseFloat(box.dataset.sz) || 28;
+
+  /* 手動指定のURLが壊れている場合は、勝手に別の画像へ差し替えない */
+  if(MANUAL_LOGOS[co]){
+    box.outerHTML = monoLogo(co, s);
+    return;
+  }
+
+  var doms = (box.dataset.doms||'').split(',').filter(function(x){return !!x});
+  var step = parseInt(box.dataset.step || '0', 10);
+  var chain = [];
+  doms.forEach(function(d){ chain.push(ddgIcon(d)) });
+  doms.forEach(function(d){ chain.push(gIcon(d)) });
+
+  if(step < chain.length){
+    box.dataset.step = String(step+1);
+    img.src = chain[step];
+    return;
+  }
+  box.outerHTML = monoLogo(co, s);
 }
-function wdLogo(name){
+
+/* Wikidata：上位2件まで見て、公式ロゴ(P154)と公式サイト(P856)を拾う */
+function wdSearch(q){
   var s='https://www.wikidata.org/w/api.php?action=wbsearchentities&search='+
-    encodeURIComponent(name)+'&language=ja&uselang=ja&type=item&limit=1&format=json&origin=*';
+    encodeURIComponent(q)+'&language=ja&uselang=ja&type=item&limit=2&format=json&origin=*';
   return fetch(s).then(function(r){return r.json()}).then(function(j){
-    var id=j.search&&j.search[0]&&j.search[0].id;
-    if(!id)return null;
-    return fetch('https://www.wikidata.org/w/api.php?action=wbgetclaims&entity='+id+
-      '&property=P154&format=json&origin=*').then(function(r){return r.json()}).then(function(j2){
-      var c=j2.claims&&j2.claims.P154&&j2.claims.P154[0];
-      var f=c&&c.mainsnak&&c.mainsnak.datavalue&&c.mainsnak.datavalue.value;
-      return f?'https://commons.wikimedia.org/wiki/Special:FilePath/'+encodeURIComponent(f)+'?width=240':null;
-    });
+    return (j.search||[]).map(function(x){return x.id});
+  }).catch(function(){return []});
+}
+function wdClaims(id){
+  return fetch('https://www.wikidata.org/w/api.php?action=wbgetclaims&entity='+id+
+    '&property=P154|P856&format=json&origin=*').then(function(r){return r.json()}).then(function(j2){
+    var claims = j2.claims || {};
+    var logoClaim = claims.P154 && claims.P154[0];
+    var logoFile = logoClaim && logoClaim.mainsnak && logoClaim.mainsnak.datavalue && logoClaim.mainsnak.datavalue.value;
+    var logoUrl = logoFile ? 'https://commons.wikimedia.org/wiki/Special:FilePath/'+encodeURIComponent(logoFile)+'?width=240' : null;
+
+    var siteClaim = claims.P856 && claims.P856[0];
+    var siteUrl = siteClaim && siteClaim.mainsnak && siteClaim.mainsnak.datavalue && siteClaim.mainsnak.datavalue.value;
+
+    return { logoUrl: logoUrl, domain: extractDomain(siteUrl) };
   }).catch(function(){return null});
 }
+async function wdLogoAndSite(name){
+  var queries = [cleanCoName(name)];
+  if(queries[0] !== name) queries.push(name);
+  var out = { logoUrl:null, domain:null };
+  for(var q=0;q<queries.length;q++){
+    var ids = await wdSearch(queries[q]);
+    for(var i=0;i<ids.length;i++){
+      var c = await wdClaims(ids[i]);
+      if(!c) continue;
+      if(!out.logoUrl && c.logoUrl) out.logoUrl = c.logoUrl;
+      if(!out.domain && c.domain) out.domain = c.domain;
+      if(out.logoUrl && out.domain) return out;
+    }
+    if(out.logoUrl || out.domain) return out;
+  }
+  return out;
+}
+
 function wpThumb(name){
-  var q='https://ja.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+
-    encodeURIComponent(name)+'&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=200&format=json&origin=*';
-  return fetch(q).then(function(r){return r.json()}).then(function(j){
+  var q = cleanCoName(name);
+  var s='https://ja.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+
+    encodeURIComponent(q)+'&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=200&format=json&origin=*';
+  return fetch(s).then(function(r){return r.json()}).then(function(j){
     var p=j&&j.query&&j.query.pages;
     if(p)for(var k in p){if(p[k].thumbnail&&p[k].thumbnail.source)return p[k].thumbnail.source}
     return null;
   }).catch(function(){return null});
 }
+
+async function resolveBestLogo(it){
+  var doms = logoDomains(it);
+
+  /* 1. Wikidata の公式ロゴ（P154）。いちばん「ロゴらしい」画像が返る */
+  var wd = await wdLogoAndSite(it.c);
+  if(wd){
+    if(wd.logoUrl && await probeImage(wd.logoUrl, 3000)) return wd.logoUrl;
+    if(wd.domain) doms = pushDomain(doms, wd.domain);
+  }
+
+  /* 2. 公式サイトのファビコン。DuckDuckGo は該当が無ければ失敗するので判定に使える */
+  for(var i=0;i<doms.length;i++){
+    var ddg = ddgIcon(doms[i]);
+    if(await probeImage(ddg, 2500)) return ddg;
+  }
+
+  /* 3. サイト直下の favicon.ico */
+  for(var k=0;k<doms.length;k++){
+    var fav = siteIcon(doms[k]);
+    if(await probeImage(fav, 2500)) return fav;
+  }
+
+  /* 4. Wikipedia の代表画像。社屋の写真が返ることもあるので後ろに置く */
+  var wt = await wpThumb(it.c);
+  if(wt && await probeImage(wt, 3000)) return wt;
+
+  /* 5. 最後の受け皿。Google は必ず何かを返すため、成否は判定しない */
+  if(doms.length) return gIcon(doms[0]);
+
+  return 'none';
+}
+
+/* Wikidata と Wikipedia へ一度に投げすぎない。3件ずつ順に流す */
+var _logoQueue=[], _logoRunning=0;
+function pumpLogoQueue(){
+  while(_logoRunning<3 && _logoQueue.length){
+    var task=_logoQueue.shift();
+    _logoRunning++;
+    task().then(function(){ _logoRunning--; pumpLogoQueue(); },
+                function(){ _logoRunning--; pumpLogoQueue(); });
+  }
+}
+function queueLogo(task){ _logoQueue.push(task); pumpLogoQueue(); }
+
 function hydrateLogos(){
   DATA.items.forEach(function(it){
-    if(!isCo(it)){tried[it.c]=1;return}
-    if(LOGOS[it.c]||tried[it.c])return;
-    tried[it.c]=1;
-    wdLogo(it.c).then(function(u){return u||wpThumb(it.c)}).then(function(u){
-      var url=u||'none';
-      LOGOS[it.c]=url;
-      api('apiSaveLogo',[it.c,url]).catch(function(){});
-      if(url!=='none')paintLogo(it.c,url);
+    if(!isCo(it)) return;
+    if(isManual(it.c) || LOGOS[it.c] || tried[it.c]) return;
+    tried[it.c] = 1;
+
+    queueLogo(function(){
+      return resolveBestLogo(it).then(function(url){
+        /* 待っている間に手動設定された場合は絶対に上書きしない */
+        if(isManual(it.c)) return;
+        LOGOS[it.c] = url;
+        api('apiSaveLogo', [it.c, url]).catch(function(){});
+        if(url !== 'none') paintLogo(it.c, url);
+      });
     });
   });
 }
+
 function refetchLogo(co){
-  delete LOGOS[co]; delete tried[co]; tried[co]=1;
-  wdLogo(co).then(function(u){return u||wpThumb(co)}).then(function(u){
-    var url=u||'none';
-    LOGOS[co]=url;
-    api('apiSaveLogo',[co,url]).catch(function(){});
+  saveManualLogo(co, '');
+  delete LOGOS[co];
+  delete tried[co];
+  tried[co] = 1;
+  var it = byCo(co) || { c: co, dom: '' };
+  toast('ロゴを探しています…', true);
+
+  resolveBestLogo(it).then(function(url){
+    if(isManual(co)) return;
+    LOGOS[co] = url;
+    api('apiSaveLogo', [co, url]).catch(function(){});
     render(false);
-    toast(url==='none'?'ロゴが見つかりませんでした':'ロゴを取り直しました',url!=='none');
+    toast(url === 'none' ? 'ロゴが見つかりませんでした' : 'ロゴを取り直しました', url !== 'none');
   });
 }
+
 function setLogoUrl(co){
   var el=document.getElementById('logoUrl');
   var v=el?el.value.trim():'';
   if(!v){toast('画像URLを入れてください');return}
-  LOGOS[co]=v; tried[co]=1;
+  if(!/^https?:\/\//i.test(v)){toast('画像URLは https:// から始めてください');return}
+  saveManualLogo(co, v);
+  tried[co]=1;
   api('apiSaveLogo',[co,v]).catch(function(){});
   render(false);
-  toast('ロゴを設定しました',true);
+  toast('ロゴを設定しました（更新後も保持されます）',true);
 }
+
 function paintLogo(co,url){
+  /* 手動指定がある会社は、後から届いた自動取得の結果で塗り替えない */
+  if(MANUAL_LOGOS[co] && MANUAL_LOGOS[co] !== url) return;
   var list=document.querySelectorAll('[data-co]');
   for(var i=0;i<list.length;i++){
     var b=list[i];
     if(b.dataset.co!==co)continue;
     var s=parseFloat(b.dataset.sz)||28;
     b.className='logo';
+    b.dataset.step='0';
     b.style.cssText='width:'+s+'px;height:'+s+'px;border-radius:'+(s/2)+'px';
     b.innerHTML='<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="'+esc(url)+'" onerror="logoErr(this)">';
   }
@@ -929,8 +1164,11 @@ function cacheLoad(){
 }
 function applyData(j,cb){
   DATA=j;
+  applyPendingRoute();          /* 保存待ちのルート編集を、届いたデータの上に戻す */
   if(j&&j.items&&j.items.length){ cacheSave(j); staleHide(); }
   if(DATA.logos)for(var k in DATA.logos)if(!LOGOS[k])LOGOS[k]=DATA.logos[k];
+  /* サーバーのデータよりも手動設定ロゴを優先する */
+  for(var mk in MANUAL_LOGOS) LOGOS[mk] = MANUAL_LOGOS[mk];
   render(false); hydrateLogos(); if(cb)cb();
 }
 function resetUi(){
@@ -945,6 +1183,7 @@ function resetUi(){
   if(side){ side.dataset.co=''; side.innerHTML=''; }
 }
 function call(fn,args,cb){
+  flushRoute();
   busy(true);
   api(fn,args).then(function(j){ busy(false); applyData(j,cb); })
   .catch(function(e){
@@ -994,19 +1233,21 @@ function scheduleSync(){
   syncTimer=setTimeout(function(){
     if(!CFG.ep)return;
     api('apiGetData',[]).then(function(j){
-      if(j&&j.items){ DATA.items=j.items; DATA.events=j.events; cacheSave(j); render(false); }
+      if(j&&j.items){ adoptServer(j); render(false); }
     }).catch(function(){});
   },4000);
 }
 function opt(mutate,fn,args,label){
+  flushRoute();
   var snap=JSON.stringify(DATA.items);
   mutate();
   render(false);
   api(fn,args).then(function(d){
-    if(d&&d.items){ DATA.items=d.items; DATA.events=d.events; cacheSave(d); render(false); }
+    if(d&&d.items){ adoptServer(d); render(false); }
     else { cacheSave(DATA); scheduleSync(); }
   }).catch(function(){
     DATA.items=JSON.parse(snap);
+    applyPendingRoute();
     render(false);
     toast('保存できませんでした。通信を確認してください');
   });
@@ -1023,7 +1264,6 @@ function doDone(co){
       'apiMarkDone',[co,TERM],'結果待ちに移しました');
 }
 
-/* 通過時に最終段階へ正しく進める */
 function doPass(co){
   var cur=find_(co);
   if(!cur)return;
@@ -1040,6 +1280,7 @@ function doPass(co){
       it.status = goal;
       it.on = todayStr();
       it.due = null;
+      it.since = null;
     } else {
       it.stage = r[i+1];
       it.status = '対応中';
@@ -1267,15 +1508,23 @@ function render(pageChanged){
 
   if(hero){
     var it=hero.it||{c:hero.c,dom:''};
-    var isHeroActiveEvent = (hero.kind==='event' && evActive(hero.ev));
-    var head=hero.kind==='due'?'次の締切':(isHeroActiveEvent&&evOngoing(hero.ev)?'開催中の'+hero.ev.kind:'次の'+hero.ev.kind);
+    var heroLive = (hero.kind==='event' && evOngoing(hero.ev));
+    var head=hero.kind==='due'?'次の締切':(heroLive?'開催中の'+hero.ev.kind:'次の'+hero.ev.kind);
     var stage=hero.kind==='due'?it.stage:hero.ev.kind;
+    /* 開催中の予定は終了時刻まで「開催中」と出す。終了時刻が無い場合は開始＋猶予まで */
+    var heroUntil = '';
+    if(hero.kind==='event'){
+      var he=evEndAt(hero.ev);
+      var hd=D(hero.at);
+      var lim = he ? he : (hd ? new Date(hd.getTime()+EV_GRACE_MS) : null);
+      heroUntil = lim ? String(lim.getTime()) : '';
+    }
     h+='<div class="hero" data-act="open" data-co="'+esc(hero.c)+'">'+
       '<div class="lab" style="margin:0">'+head+'</div>'+
       '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'+logo(it,36)+'<h1>'+esc(hero.c)+'</h1></div>'+
       '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.06em">'+
         esc(stage)+' '+fdate(hero.at)+((hero.kind==='due'&&it.timeUnset)?'':' '+ftime(hero.at))+'</div>'+
-      '<div class="cd" id="heroCd" data-at="'+esc(hero.at)+'" data-active-ev="'+(isHeroActiveEvent?'1':'0')+'"></div></div>';
+      '<div class="cd" id="heroCd" data-at="'+esc(hero.at)+'" data-until="'+esc(heroUntil)+'"></div></div>';
   } else if(!DATA.items.length){
     h+='<div class="emptyNote">シートからデータを取得できていません。<br>'+
        'Sheet1 に行があるか、接続設定が正しいかを確認してください。'+
@@ -1331,7 +1580,7 @@ function render(pageChanged){
     if(g.k==='end'||g.k==='skip')return;
     var isHidden = (FILT!=='all' && FILT!==g.k);
     h+='<section class="lane'+(isHidden?' is-filt-hidden':'')+'" data-lane="'+g.k+'">'+
-       '<div class="lab" style="color:'+g.col+'">'+g.lab+' '+g.n+'件</div>'+
+       '<div class="lab" style="color:'+g.col+'">'+g.lab+'\u3000'+g.n+'件</div>'+
        '<div class="rows">'+rows[g.k]()+'</div></section>';
   });
   if(ended.length){
@@ -1368,13 +1617,23 @@ function tickHero(){
   if(!el)return;
   var r=rem(el.dataset.at);
   if(!r){
-    var isEvent = el.dataset.activeEv === '1';
-    var want = isEvent ? 'live' : 'expired';
-    if(el.dataset.rendered!==want){
-      el.dataset.rendered=want;
-      el.innerHTML= isEvent
-        ? '<b style="font-size:42px;color:var(--go)">開催中</b>'
-        : '<b style="font-size:42px;color:var(--dim)">期限切れ</b>';
+    /* 開催中の予定は「期限切れ」にせず、終了時刻を過ぎたら一覧ごと組み直す */
+    var until = parseInt(el.dataset.until||'0',10);
+    if(until){
+      if(until > Date.now()){
+        if(el.dataset.rendered!=='live'){
+          el.dataset.rendered='live';
+          el.innerHTML='<b style="font-size:42px;color:var(--go)">開催中</b>';
+        }
+        return;
+      }
+      el.dataset.until='';
+      render(false);
+      return;
+    }
+    if(el.dataset.rendered!=='expired'){
+      el.dataset.rendered='expired';
+      el.innerHTML='<b style="font-size:42px;color:var(--dim)">期限切れ</b>';
     }
     return;
   }
@@ -1449,6 +1708,7 @@ function sheetOpened(){
 function closeOverlay(){
   var box=document.getElementById('sheet');
   var sh=box.querySelector('.sheet');
+  var wasOpen=!!openCo;
   if(!isWide()) openCo=null;
   document.body.classList.remove('sheet-open');
   document.body.style.removeProperty('--bgs');
@@ -1457,9 +1717,10 @@ function closeOverlay(){
     DISMISSING=false;
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
+    if(wasOpen) render(false);
     return;
   }
-  if(!sh){ if(locked){locked=false;lockScroll(false)} return }
+  if(!sh){ if(locked){locked=false;lockScroll(false)} if(wasOpen) render(false); return }
   var c=sh.querySelector('.card');
   if(c) c.classList.add('noblur');
   sh.classList.remove('is-active');
@@ -1467,9 +1728,10 @@ function closeOverlay(){
   setTimeout(function(){
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
+    if(wasOpen) render(false);
   },300);
 }
-function closeSide(){ openCo=null; sideEmpty(); }
+function closeSide(){ openCo=null; sideEmpty(); render(false); }
 function closeDetail(){ if(isWide()) closeSide(); else closeSheet(); }
 function closeSheet(e){
   if(e&&e.target!==e.currentTarget)return;
@@ -1680,13 +1942,15 @@ function renderTabContent(it){
         (already?'本選考に登録済み':'本選考に引き継ぐ')+'</button>';
     }
 
+    var currentLogoVal = MANUAL_LOGOS[it.c] || (LOGOS[it.c] && LOGOS[it.c] !== 'none' ? LOGOS[it.c] : '');
     h+='<div style="margin-top:22px">'+
-      '<div class="lab" style="margin:0 0 8px">ロゴ</div>'+
+      '<div class="lab" style="margin:0 0 8px">ロゴ（手動URLは自動更新されず固定されます）</div>'+
       '<div style="display:flex;gap:8px">'+
-      '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+
-        esc(LOGOS[it.c]&&LOGOS[it.c]!=='none'?LOGOS[it.c]:'')+'">'+
+      '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+esc(currentLogoVal)+'">'+
       '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="logo-set" data-co="'+esc(it.c)+'">適用</button></div>'+
-      '<button class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">Wikidataから取り直す</button></div>';
+      '<button class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">自動で取り直す</button>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">'+
+      'Wikidataの公式ロゴ、公式サイトのファビコン、Wikipediaの画像の順に探します。</div></div>';
 
     h+='<div style="margin-top:22px">'+
       '<div class="lab" style="margin:0 0 8px">マイページ</div>'+
@@ -1839,18 +2103,94 @@ function sideEmpty(){
     'color:rgba(255,255,255,.14)">就活</div><div>左の一覧から会社を選ぶと<br>ここに詳細が出ます</div></div>';
 }
 
-/* ルート編集 */
+/* ============ ルート編集（画面は即時、通信はまとめて） ============ */
+/* 未送信の編集(_pendingRoute)と、送信したが応答待ちの編集(_routeInFlight)を分けて持つ。
+   この2つは、途中で届いたサーバーのデータに必ず上書きし直す。
+   そうしないと、保存が終わる前に来た取得結果で「追加した段階が消える」 */
+var _routeTimer = null;
+var _pendingRoute = null;
+var _routeInFlight = null;
+var _listTimer = null;
+
+function applyPendingRoute(){
+  [_routeInFlight, _pendingRoute].forEach(function(p){
+    if(!p) return;
+    for(var i=0;i<DATA.items.length;i++){
+      var x=DATA.items[i];
+      if(x.c===p.co && (x.term||'夏インターン')===p.term){
+        x.route = p.arr.slice();
+        if(p.stage){ x.stage = p.stage; if(x.lost) x.lost = p.stage; }
+      }
+    }
+  });
+}
+/* サーバーから来た一覧を取り込む共通口。未確定の編集はここで必ず生き残らせる */
+function adoptServer(d){
+  DATA.items = d.items;
+  DATA.events = d.events;
+  applyPendingRoute();
+  cacheSave(DATA);
+}
+
+function scheduleListRefresh(){
+  clearTimeout(_listTimer);
+  _listTimer = setTimeout(function(){ render(false) }, 320);
+}
+
+function sendRoute(){
+  var p = _pendingRoute;
+  if(!p) return;
+  _pendingRoute = null;
+  _routeInFlight = p;
+  clearTimeout(_routeTimer);
+  _routeTimer = null;
+
+  api('apiSetRoute', [p.co, p.term, p.arr, p.stage]).then(function(d){
+    if(_routeInFlight === p) _routeInFlight = null;
+    if(_pendingRoute) return;              /* 送信中に次の編集が来ていたら結果を捨てる */
+    if(d && d.items){ adoptServer(d); render(false); }
+    else { cacheSave(DATA); scheduleSync(); }
+  }).catch(function(){
+    if(_routeInFlight === p) _routeInFlight = null;
+    if(_pendingRoute) return;
+    DATA.items = JSON.parse(p.snap);
+    cacheSave(DATA);
+    render(false);
+    toast('ルートを保存できませんでした。通信を確認してください');
+  });
+}
+/* 他の保存や再取得の前に、溜めている編集を先に送り切る */
+function flushRoute(){ if(_pendingRoute) sendRoute(); }
+
 function saveRoute(arr,stage,label){
   var co=openCo;
-  opt(function(){
-    var it=find_(co); if(!it)return;
-    it.route=arr.slice();
-    if(stage){
-      it.stage=stage;
-      if(it.lost) it.lost=stage;
-    }
-  },'apiSetRoute',[co,TERM,arr,stage||''],label);
+  var it=find_(co);
+  if(!it) return;
+
+  /* 連続操作の途中で失敗したときは、その一連の操作を始める前まで戻す */
+  var baseSnap = _pendingRoute ? _pendingRoute.snap : JSON.stringify(DATA.items);
+
+  it.route = arr.slice();
+  if(stage){
+    it.stage = stage;
+    if(it.lost) it.lost = stage;
+  }
+  cacheSave(DATA);
+
+  /* 詳細だけ即座に描き直し、重い一覧の作り直しはまとめて後回しにする */
+  paintDetail(it);
+  scheduleListRefresh();
+
+  _pendingRoute = { co: co, term: TERM, arr: arr.slice(), stage: stage || '', snap: baseSnap };
+  clearTimeout(_routeTimer);
+  _routeTimer = setTimeout(sendRoute, 400);
+
+  if(label) toast(label, true);
 }
+/* 画面を離れる直前に取りこぼさない */
+window.addEventListener('pagehide', flushRoute);
+document.addEventListener('visibilitychange', function(){ if(document.hidden) flushRoute() });
+
 function mv(i,d){
   var it=byCo(openCo); if(!it)return;
   var r=routeOf(it).slice(), j=i+d;
@@ -2239,6 +2579,7 @@ function renderPassport(pageChanged){
     .sort(function(a,b){return b.d-a.d});
   var avg=waits.length?Math.round(waits.reduce(function(a,b){return a+b.d},0)/waits.length):0;
 
+  /* 段階名の並び順ではなく、その会社のルート内での相対進捗で比べる */
   var deepest='—', deepestRate=-1;
   LIST.forEach(function(it){
     var r=routeOf(it), i=r.indexOf(it.lost||it.stage);
@@ -2371,6 +2712,7 @@ function doSetup(){
 }
 function resetCfg(){
   if(!confirm('接続設定を消してやり直しますか。'))return;
+  /* 手動で入れたロゴは接続設定ではないので消さない */
   try{localStorage.removeItem('sk_ep');localStorage.removeItem('sk_key');
       localStorage.removeItem('sk_cache');localStorage.removeItem('sk_ui_state');}catch(e){}
   CFG={ep:'',key:''};
