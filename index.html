@@ -1094,7 +1094,9 @@ function setLogoUrl(co){
 function paintLogo(co,url){
   /* 手動指定がある会社は、後から届いた自動取得の結果で塗り替えない */
   if(MANUAL_LOGOS[co] && MANUAL_LOGOS[co] !== url) return;
-  var list=document.querySelectorAll('[data-co]');
+  /* data-co はタイル(.row)・見出し(.hero)・検索結果にも付いている。
+     .logo に限定しないと、カードそのものを28pxの丸アイコンで潰してしまう */
+  var list=document.querySelectorAll('.logo[data-co]');
   for(var i=0;i<list.length;i++){
     var b=list[i];
     if(b.dataset.co!==co)continue;
@@ -1715,6 +1717,7 @@ function closeOverlay(){
 
   if(DISMISSING){
     DISMISSING=false;
+    clearTimeout(window._closeT);
     box.innerHTML='';
     if(locked){locked=false;lockScroll(false)}
     if(wasOpen) render(false);
@@ -1725,8 +1728,12 @@ function closeOverlay(){
   if(c) c.classList.add('noblur');
   sh.classList.remove('is-active');
   sh.classList.add('out');
-  setTimeout(function(){
-    box.innerHTML='';
+  clearTimeout(window._closeT);
+  window._closeT=setTimeout(function(){
+    /* 300msの間に別のシートが開いていたら、この後片付けは何もしない。
+       閉じかけの残骸だけを消す */
+    if(sh.parentNode===box) box.innerHTML='';
+    else return;
     if(locked){locked=false;lockScroll(false)}
     if(wasOpen) render(false);
   },300);
@@ -2079,6 +2086,7 @@ function paintDetail(it){
     if(np){ np.style.animation='none'; np.scrollTop=y; }
     return;
   }
+  clearTimeout(window._closeT);
   box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card noblur">'+fullHtml+'</div></div>';
   requestAnimationFrame(function(){
     var sh=box.querySelector('.sheet');
@@ -2295,6 +2303,7 @@ function delEv(uid){
 /* ============ 検索 ============ */
 function openSearch(){
   var box=document.getElementById('sheet');
+  clearTimeout(window._closeT);
   box.innerHTML='<div class="sheet spot" onclick="closeSheet(event)"><div class="spotbox">'+
     '<input id="q" placeholder="会社名を入力" autocomplete="off">'+
     '<div id="qres"></div></div></div>';
@@ -2370,6 +2379,7 @@ document.addEventListener('click',function(e){
 /* ============ 追加 ============ */
 function openAdd(){
   openCo=null;
+  clearTimeout(window._closeT);
   document.getElementById('sheet').innerHTML=
     '<div class="sheet" onclick="closeSheet(event)"><div class="card" id="addCard" style="height:auto;max-height:88dvh;overflow-y:auto">'+
     '<div class="grab"></div><div style="font-size:18px;font-weight:700">選考を追加</div>'+
