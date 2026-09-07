@@ -1682,7 +1682,8 @@ function render(pageChanged){
 
   var events=agenda.filter(function(a){return a.kind==='event' && a!==hero});
   var todo=LIST.filter(function(x){
-      return stOf(x)==='todo' && !(hero && hero.kind==='due' && hero.c===x.c);
+      /* 名前ではなく行そのもので照合する。見出しに出した1件だけを外す */
+      return stOf(x)==='todo' && !(hero && hero.kind==='due' && hero.it===x);
     }).sort(function(a,b){return (D(a.due)||9e15)-(D(b.due)||9e15)});
   var fixed=LIST.filter(function(x){return stOf(x)==='fixed'});
   var waiting=LIST.filter(function(x){return stOf(x)==='waiting'})
@@ -1816,7 +1817,8 @@ window.addEventListener('resize',function(){
 function confirmFail(co){ if(confirm(co+' を選考終了にします。締切とカレンダー予定が消えます。')) doFail(co) }
 function carryOver(co){
   if(!confirm(co+' を本選考に引き継ぎます。会社名・URL・ID・ロゴをコピーした行を作ります。'))return;
-  call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
+  /* PCでは詳細が右パネルなので、画面幅を問わず閉じられる closeDetail を使う */
+  call('apiCarryOver',[co,TERM],function(){closeDetail();setTerm('本選考')});
 }
 /* ============ シート制御 ============ */
 var lockY=0, pushed=false, locked=false;
@@ -2551,7 +2553,11 @@ function searchRun(v){
   }).join('') : '<div class="qempty">見つかりません</div>';
 }
 function pick(co,term){
-  var jump=function(){ TERM=term; saveUiState(); openCo=co; tab='info'; render(true); renderDetail(); };
+  var jump=function(){
+    /* 閉じかけのシートの後片付けが、これから開く詳細に追いつかないよう先に止める */
+    clearTimeout(window._closeT);
+    TERM=term; saveUiState(); openCo=co; tab='info'; render(true); renderDetail();
+  };
   if(!isWide()&&pushed){
     var done=false;
     var after=function(){
