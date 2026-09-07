@@ -500,6 +500,13 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sugNote{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7}
 
+/* 日付＋時刻。時刻はスクロールで合わせず、一覧から選ぶ */
+.dtf{display:flex;gap:8px;align-items:center;margin-top:8px}
+.dtf .dtf-d{flex:1 1 auto;min-width:0;margin:0}
+.dtf .dtf-t{flex:0 0 auto;width:auto;margin:0;padding:13px 8px;text-align:center}
+.dtf .dtf-c{color:var(--muted);font-family:var(--mono);font-size:13px}
+.dtf.no-time .dtf-t,.dtf.no-time .dtf-c{display:none}
+
 /* ---------- toast / setup ---------- */
 .emptyNote{color:var(--dim);font-size:13px;line-height:1.9;text-align:center;padding:36px 0}
 .setup{display:flex;align-items:center;justify-content:center;min-height:70vh;padding:20px 0}
@@ -1418,57 +1425,45 @@ function saveInfo(co){
     it.url=url; it.id=id;
   },'apiSetInfo',[co,TERM,url,id],'マイページを保存しました');
 }
-/* datetime-local はスクロールで時刻を合わせにくい。
-   よく使う値をボタンで入れられるようにする */
+/* 日付欄と時刻のプルダウン。
+   datetime-local の時刻はホイールやタッチパッドだと飛びやすいので使わない */
 function pad2(n){ return ('0'+n).slice(-2) }
-function isoLocal(d){
-  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+
-    'T'+pad2(d.getHours())+':'+pad2(d.getMinutes());
-}
-function quickTime(id, hhmm){
-  var el=document.getElementById(id);
-  if(!el) return;
-  var base = D(el.value) || new Date();
-  var p = hhmm.split(':');
-  base.setHours(+p[0], +p[1], 0, 0);
-  el.value = isoLocal(base);
-}
-function quickDay(id, spec){
-  var el=document.getElementById(id);
-  if(!el) return;
-  var cur = D(el.value);
-  var d = new Date();
-  if(spec==='today'){ d=new Date(); }
-  else if(spec==='tomorrow'){ d=new Date(); d.setDate(d.getDate()+1); }
-  else if(spec==='week'){ d=new Date(); d.setDate(d.getDate()+7); }
-  else { /* +1 / -1 日 */
-    d = cur || new Date();
-    d.setDate(d.getDate() + (spec==='+1' ? 1 : -1));
+/* 分は30刻み。締切でよく使う 59 だけ例外で残す。
+   ホイールの1カチで次の候補に移れるよう、選択肢は絞る */
+var DT_MIN = ['00','30','59'];
+
+function dtField(id, iso, noTime){
+  var d = iso ? String(iso).slice(0,10) : '';
+  var hh = iso && String(iso).length>=16 ? String(iso).slice(11,13) : '';
+  var mm = iso && String(iso).length>=16 ? String(iso).slice(14,16) : '';
+  /* 5分刻みに無い値（例 23:59 以外の半端な分）も選べるよう、その値を足す */
+  var mins = DT_MIN.slice();
+  if(mm && mins.indexOf(mm)<0) mins.push(mm), mins.sort();
+
+  var h='<div class="dtf'+(noTime?' no-time':'')+'" id="'+id+'Wrap">'+
+    '<input class="f dtf-d" type="date" id="'+id+'D" value="'+esc(d)+'">'+
+    '<select class="f dtf-t" id="'+id+'H">';
+  for(var i=0;i<24;i++){
+    var v=pad2(i);
+    h+='<option value="'+v+'"'+(v===hh?' selected':'')+'>'+v+'</option>';
   }
-  /* 時刻は今入っているものを引き継ぐ。無ければ 23:59 */
-  if(cur) d.setHours(cur.getHours(), cur.getMinutes(), 0, 0);
-  else d.setHours(23, 59, 0, 0);
-  el.value = isoLocal(d);
+  h+='</select><span class="dtf-c">:</span><select class="f dtf-t" id="'+id+'M">';
+  mins.forEach(function(v){
+    h+='<option value="'+v+'"'+(v===mm?' selected':'')+'>'+v+'</option>';
+  });
+  return h+'</select></div>';
 }
-/* 締切欄の下に並べる早押しボタン */
-function quickRow(id){
-  var b=function(act,v,lab){
-    return '<button class="gh" style="padding:5px 11px;font-size:11.5px" '+
-      'data-act="'+act+'" data-co="'+id+'" data-v="'+v+'">'+lab+'</button>';
-  };
-  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+
-    b('q-day','today','今日')+b('q-day','tomorrow','明日')+b('q-day','week','1週間後')+
-    b('q-day','-1','−1日')+b('q-day','+1','＋1日')+
-    '</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'+
-    b('q-time','23:59','23:59')+b('q-time','12:00','12:00')+b('q-time','17:00','17:00')+
-    b('q-time','18:00','18:00')+b('q-time','09:00','9:00')+
-    '</div>';
+/* 入力を 2026-09-23T23:59 の形で取り出す。日付が空なら空文字 */
+function dtValue(id){
+  var d=document.getElementById(id+'D');
+  if(!d || !d.value) return '';
+  var hEl=document.getElementById(id+'H'), mEl=document.getElementById(id+'M');
+  var hh=hEl?hEl.value:'00', mm=mEl?mEl.value:'00';
+  return d.value+'T'+hh+':'+mm;
 }
 
 function setDue(co){
-  var el=document.getElementById('coDue');
-  var v=el?el.value:'';
+  var v=dtValue('coDue');
   if(v&&!D(v)){toast('日時の形式が正しくありません');return}
   call('apiSetDue',[co,TERM,v],function(){toast(v?'締切を更新しました':'締切を未定にしました',true)});
 }
@@ -2047,10 +2042,9 @@ function renderTabContent(it){
       } else {
         h+='<div style="font-size:13px;color:var(--dim);margin:8px 0 12px">締切が未設定です</div>';
       }
-      h+='<div style="display:flex;gap:8px;margin-top:10px">'+
-        '<input class="f" type="datetime-local" id="coDue" style="flex:1 1 0;min-width:0;margin:0" value="'+esc(it.due||'')+'">'+
-        '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">保存</button></div>'+
-        quickRow('coDue')+'</div>';
+      h+=dtField('coDue', it.due||'')+
+        '<button class="gh" style="margin-top:8px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">締切を保存</button>'+
+        '</div>';
     }
     if(st==='waiting'){
       var d=since(it.since||(it.due?it.due.slice(0,10):null));
@@ -2160,19 +2154,9 @@ function renderTabContent(it){
         '<input type="checkbox" id="evAll" onchange="toggleAllDay()" '+
         'style="width:20px;height:20px;accent-color:var(--blue)">終日（時刻を使わない）</label>'+
       '<div class="lab" style="margin:14px 0 6px" id="evAtLab">開始日時</div>'+
-      '<input class="f" type="datetime-local" id="evAt">'+
-      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+
-        ['09:00','10:00','13:00','14:00','15:00'].map(function(t){
-          return '<button class="gh" style="padding:5px 11px;font-size:11.5px" '+
-            'data-act="q-time" data-co="evAt" data-v="'+t+'">'+t+'</button>';
-        }).join('')+'</div>'+
+      dtField('evAt','')+
       '<div class="lab" style="margin:12px 0 6px" id="evEndLab">終了日時（任意）</div>'+
-      '<input class="f" type="datetime-local" id="evEnd">'+
-      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+
-        ['12:00','15:00','16:00','17:00','17:30'].map(function(t){
-          return '<button class="gh" style="padding:5px 11px;font-size:11.5px" '+
-            'data-act="q-time" data-co="evEnd" data-v="'+t+'">'+t+'</button>';
-        }).join('')+'</div>'+
+      dtField('evEnd','')+
       '<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px" id="evDailyWrap">'+
         '<input type="checkbox" id="evDaily" style="width:20px;height:20px;accent-color:var(--blue)">'+
         '毎日この時間帯（連日）</label>'+
@@ -2419,12 +2403,10 @@ function addCustomStage(){
 /* 予定 */
 function toggleAllDay(){
   var on=document.getElementById('evAll').checked;
+  /* 終日なら時刻のプルダウンを隠すだけ。入れた日付はそのまま残る */
   ['evAt','evEnd'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(!el)return;
-    var v=el.value;
-    el.type = on ? 'date' : 'datetime-local';
-    if(v) el.value = on ? v.slice(0,10) : (v.length===10 ? v+'T09:00' : v);
+    var w=document.getElementById(id+'Wrap');
+    if(w) w.className = on ? 'dtf no-time' : 'dtf';
   });
   var dw=document.getElementById('evDailyWrap');
   if(dw) dw.style.display = on ? 'none' : 'flex';
@@ -2441,14 +2423,16 @@ function toggleAllDay(){
 }
 function addEv(){
   var all=document.getElementById('evAll').checked;
-  var at=document.getElementById('evAt').value;
+  var at=dtValue('evAt');
+  if(all && at) at = at.slice(0,10)+'T00:00';
   if(!at){toast(all?'開始日を入れてください':'開始日時を入れてください');return}
-  var start=D(all?at+'T00:00':at);
+  var start=D(at);
   if(!start){toast('日時の形式が正しくありません');return}
 
-  var end=document.getElementById('evEnd').value;
+  var end=dtValue('evEnd');
+  if(all && end) end = end.slice(0,10)+'T00:00';
   if(end){
-    var e=D(all?end+'T00:00':end);
+    var e=D(end);
     if(!e){toast('終了の形式が正しくありません');return}
     if(all){
       if(new Date(e.getFullYear(),e.getMonth(),e.getDate())
@@ -2463,9 +2447,9 @@ function addEv(){
   var dailyEl=document.getElementById('evDaily');
   var daily = !all && !!(dailyEl && dailyEl.checked) && !!end;
   call('apiAddEvent',[openCo,TERM,document.getElementById('evKind').value,
-    all ? at+'T00:00' : at,
+    at,
     document.getElementById('evPlace').value,
-    end ? (all ? end+'T00:00' : end) : '',
+    end || '',
     all, daily],
     function(){toast(daily?'連日の予定を追加しました':'予定を追加しました',true)});
 }
@@ -2606,8 +2590,7 @@ function openAdd(){
     '<div class="lab">ログインID（任意）</div><input class="f" id="nI">'+
     '<div class="lab">ロゴ用ドメイン（任意）</div><input class="f" id="nD" placeholder="例：mitsubishicorp.com">'+
     '<div class="lab">段階</div><select class="f" id="nS">'+PALETTE.map(function(p){return '<option>'+esc(p)+'</option>'}).join('')+'</select>'+
-    '<div class="lab">締切（任意）</div><input class="f" type="datetime-local" id="nDue">'+
-    quickRow('nDue')+
+    '<div class="lab">締切（任意）</div>'+dtField('nDue','')+
     '<button class="big" style="background:#fff;color:#000" onclick="doAdd()">追加する</button></div></div>';
   requestAnimationFrame(function(){
     var sh=document.querySelector('#sheet .sheet');
@@ -2691,7 +2674,7 @@ function doAdd(){
   }
   call('apiAddCompany',[{c:c,url:document.getElementById('nU').value.trim(),
     id:document.getElementById('nI').value.trim(),dom:document.getElementById('nD').value.trim(),
-    stage:document.getElementById('nS').value,due:document.getElementById('nDue').value,term:TERM}],
+    stage:document.getElementById('nS').value,due:dtValue('nDue'),term:TERM}],
     function(){closeSheet();toast('追加しました',true)});
 }
 
@@ -2711,8 +2694,6 @@ var ACTS={
   delev: function(co,v){ delEv(v) },
   delco: function(co){ deleteCompany(co) },
   sugco: function(co,v){ applySuggestCo(co,v) },
-  'q-time': function(co,v){ quickTime(co,v) },
-  'q-day':  function(co,v){ quickDay(co,v) },
   'ren-save': function(co){ renameCompany(co) },
   pick:  function(co,v){ pick(co,v) }
 };
