@@ -75,7 +75,9 @@
 *::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:999px}
 
 html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:120px;
-  overflow-x:hidden;overscroll-behavior-x:none}
+  /* clip は hidden と違ってスクロール枠を作らない。
+     hidden にすると iOS で縦スクロールごと止まる */
+  overflow-x:clip;overscroll-behavior-x:none}
 body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
@@ -91,7 +93,7 @@ body::after{
 body{
   /* 斜めのスワイプで画面ごと横に動かないようにする。
      縦だけを指に追わせ、横スクロールが要る場所（チップ列）だけ後で戻す */
-  overscroll-behavior:none;overflow-x:hidden;touch-action:pan-y;
+  overscroll-behavior-y:none;overflow-x:clip;touch-action:pan-y;
   margin:0;background:transparent;color:var(--text);
   font-family:var(--body);font-variant-numeric:tabular-nums;
   padding:calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
