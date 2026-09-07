@@ -1673,6 +1673,39 @@ function carryOver(co){
   if(!confirm(co+' を本選考に引き継ぎます。会社名・URL・ID・ロゴをコピーした行を作ります。'))return;
   call('apiCarryOver',[co,TERM],function(){closeOverlay();setTerm('本選考')});
 }
+/* 会社ごと削除する。取り消せないので、二段階で確認する。
+   通信に失敗しても画面は壊さず、その場で知らせるだけにとどめる */
+function delCompany(co){
+  var it=find_(co);
+  var evn=evOf(co).length;
+  if(!confirm(co+'（'+TERM+'）を削除します。\n'+
+    '選考の記録'+(evn?'と予定'+evn+'件':'')+'がシートから消え、元には戻せません。'))return;
+  if(!confirm('本当に削除しますか。\n'+co+' の行を削除します。'))return;
+
+  flushRoute();
+  busy(true);
+  api('apiDeleteCompany',[co,TERM]).then(function(j){
+    busy(false);
+    openCo=null;
+    if(!isWide()&&pushed){ history.back(); }
+    else if(isWide()){ closeSide(); }
+    else { closeOverlay(); }
+    if(j&&j.items){ applyData(j); }
+    else {
+      /* 軽い応答のときは手元から先に消し、あとで取り直す */
+      DATA.items=DATA.items.filter(function(x){return !(x.c===co&&(x.term||'夏インターン')===TERM)});
+      DATA.events=(DATA.events||[]).filter(function(e){return !(e.c===co&&(e.term||'夏インターン')===TERM)});
+      cacheSave(DATA); render(false); scheduleSync();
+    }
+    toast(co+' を削除しました',true);
+  }).catch(function(e){
+    busy(false);
+    var m=(e&&e.message)?String(e.message):'';
+    toast(/unknown|not.*function|action/i.test(m)
+      ? '削除にはGAS側の apiDeleteCompany が必要です'
+      : '削除できませんでした。通信を確認してください');
+  });
+}
 
 /* ============ シート制御 ============ */
 var lockY=0, pushed=false, locked=false;
@@ -1973,6 +2006,23 @@ function renderTabContent(it){
     if(it.due) h+='<a class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="'+
       gcalUrl(it.c+' '+it.stage+' 締切',it.due,it.url,it.timeUnset)+'">Googleカレンダーに追加</a>';
     if(it.url) h+='<a class="big" style="background:#fff;color:#000" target="_blank" rel="noopener noreferrer" href="'+esc(it.url)+'">マイページを開く</a>';
+
+    /* 取り違えを防ぐため、他の操作から離して最下部に置く */
+    h+='<div style="margin-top:34px;padding-top:18px;border-top:1px solid var(--line-soft)">'+
+      '<div class="lab" style="margin:0 0 8px;color:var(--hot)">この会社を削除</div>'+
+      '<div style="font-size:11px;color:var(--dim);line-height:1.7">'+
+      esc(TERM)+'の行と、この会社の予定・カレンダー登録をまとめて消します。元に戻せません。</div>'+
+      '<button class="big" style="background:transparent;border:1px solid rgba(255,69,58,.5);color:var(--hot);font-weight:500" '+
+      'data-act="delco" data-co="'+esc(it.c)+'">削除する</button></div>';
+
+    /* 取り消せない操作なので、他のボタンから離して最後に置く */
+    h+='<div style="margin-top:34px;padding-top:18px;border-top:1px solid var(--line-soft)">'+
+      '<div class="lab" style="margin:0 0 8px;color:var(--hot)">この会社を削除</div>'+
+      '<div style="font-size:11px;color:var(--dim);line-height:1.8">'+
+      '選考が終わった会社は「見送り」や「選考終了」にしておけば一覧の下にたたまれます。'+
+      '削除すると記録も予定も戻せません。</div>'+
+      '<button class="big" style="background:transparent;border:1px solid rgba(255,69,58,.5);color:var(--hot);font-weight:500" '+
+      'data-act="delco" data-co="'+esc(it.c)+'">'+esc(it.c)+' を削除する</button></div>';
   }
 
   if(tab==='events'){
@@ -2300,6 +2350,29 @@ function delEv(uid){
   call('apiDeleteEvent',[uid],function(){toast('予定を削除しました',true)});
 }
 
+/* 会社ごと消す。取り返しがつかないので、社名を添えて2段階で確認する */
+function deleteCompany(co){
+  var it=find_(co);
+  if(!it){ toast('その会社が見つかりません'); return }
+  if(!confirm(co+'（'+TERM+'）を削除します。\n\nこの会社の予定とカレンダー登録も消えます。元に戻せません。'))return;
+  if(!confirm('本当に削除しますか。'))return;
+
+  flushRoute();
+  saveManualLogo(co,'');
+  delete LOGOS[co];
+  delete tried[co];
+
+  /* 先に詳細を閉じてから消す。開いたまま行が消えると描き直しが空振りする */
+  openCo=null;
+  if(isWide()) sideEmpty();
+  else if(pushed) history.back();
+  else closeOverlay();
+
+  setTimeout(function(){
+    call('apiDeleteCompany',[co,TERM],function(){toast(co+' を削除しました',true)});
+  },260);
+}
+
 /* ============ 検索 ============ */
 function openSearch(){
   var box=document.getElementById('sheet');
@@ -2422,6 +2495,8 @@ var ACTS={
   'logo-set':function(co){ setLogoUrl(co) },
   'logo-get':function(co){ refetchLogo(co) },
   delev: function(co,v){ delEv(v) },
+  delco: function(co){ deleteCompany(co) },
+  delco: function(co){ delCompany(co) },
   pick:  function(co,v){ pick(co,v) }
 };
 document.addEventListener('click',function(e){
