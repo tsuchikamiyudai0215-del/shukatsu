@@ -181,9 +181,10 @@ button,select,input{font-family:var(--body)}
   letter-spacing:.08em;padding:6px 11px;border-radius:var(--r-chip);
   background:rgba(255,255,255,.1);border:1px solid currentColor;line-height:1}
 .body1{min-width:0;flex:1}
-.meta{display:flex;align-items:center;gap:8px}
+.meta{display:flex;align-items:center;gap:8px;min-width:0}
 .meta em{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.66);font-style:normal;letter-spacing:.02em}
-.meta i{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.45);font-style:normal}
+.meta i{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.45);font-style:normal;
+  min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:8px}
 .name{font-size:17.5px;font-weight:650;letter-spacing:-.022em;line-height:1.2;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .meta{margin-top:6px}
@@ -802,11 +803,28 @@ function evWhen(e){
   return end ? fdate(e.at)+' '+ftime(e.at)+'〜'+ftime(e.end)
              : fdate(e.at)+' '+ftime(e.at);
 }
+/* 一覧のタイル用。連日や時間帯の細かい情報は詳細に任せ、ここは1行に収める */
+function evTile(e){
+  if(evDays(e)>1) return fdate(e.at)+'〜'+fdate(e.end);
+  if(evAllDay(e)) return fdate(e.at)+' 終日';
+  return fdate(e.at)+' '+ftime(e.at);
+}
 function evShort(e){
   var n=evDays(e);
   if(n>1) return fdate(e.at)+'〜'+fdate(e.end);
   if(evAllDay(e)) return fdate(e.at)+' 終日';
   return fdate(e.at)+' 実施';
+}
+/* タイルに出す表示名。会社名そのものは触らず、見せ方だけ短くする。
+   「株式会社」などの法人格と、幅を食う全角英数を落とす */
+function shortCo(name){
+  var v = String(name==null?'':name)
+    .replace(/株式会社|有限会社|合同会社|合資会社|合名会社/g,'')
+    .replace(/[（(](?:株|有|社|合|資)[)）]/g,'')
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0) })
+    .replace(/\s{2,}/g,' ')
+    .trim();
+  return v || String(name==null?'':name);
 }
 function todayStr(){
   var d=new Date(), p=function(v){return ('0'+v).slice(-2)};
@@ -1388,9 +1406,10 @@ function rowHtml(it){
     if(autoSent(it)) sub='<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>';
   } else if(st==='fixed'){
     var ev=nextEv(it.c), rr=ev?rem(ev.at):null;
+    /* 日数列は幅が狭いので、2行に折れない短い語にする */
     left=rr?dayCell(rr.d===0?'TODAY':rr.d,'var(--go)')
-           :(ev?'<span class="tag" style="color:var(--go)">開催<br>中</span>'
-               :'<span class="tag" style="color:var(--go)">参加<br>決定</span>');
+           :(ev?'<span class="tag" style="color:var(--go)">開催中</span>'
+               :'<span class="tag" style="color:var(--go)">参加</span>');
     right=ev?evShort(ev):(it.on?fdate(it.on)+' 確定':'');
   } else if(st==='offer'){
     left='<span class="tag" style="color:var(--go)">内定</span>';
@@ -1418,7 +1437,7 @@ function rowHtml(it){
     '" data-act="open" data-co="'+esc(it.c)+'">'+
     '<div class="main">'+logo(it,44)+
       '<div class="body1">'+
-        '<div class="name">'+esc(it.c)+'</div>'+
+        '<div class="name" title="'+esc(it.c)+'">'+esc(shortCo(it.c))+'</div>'+
         '<div class="meta">'+
           '<span class="stage">'+esc(it.lost||it.stage)+'</span>'+
           (isCo(it)?'':'<span class="stage mgmt">管理用</span>')+
@@ -1432,14 +1451,14 @@ function eventRowHtml(ev){
   var it=byCo(ev.c)||{c:ev.c,dom:''}, r=rem(ev.at);
   var left;
   if(r) left=dayCell(r.d===0?'TODAY':r.d, r.d<=2?'var(--hot)':'var(--text)');
-  else if(evActive(ev)) left='<span class="tag" style="color:var(--go)">開催<br>中</span>';
+  else if(evActive(ev)) left='<span class="tag" style="color:var(--go)">開催中</span>';
   else left='<span class="tag" style="color:var(--dim)">終了</span>';
   return '<div class="row" data-act="open" data-co="'+esc(ev.c)+'"><div class="main">'+logo(it,44)+
     '<div class="body1">'+
-      '<div class="name">'+esc(ev.c)+'</div>'+
+      '<div class="name" title="'+esc(ev.c)+'">'+esc(shortCo(ev.c))+'</div>'+
       '<div class="meta">'+
         '<span class="stage" style="color:var(--text)">'+esc(ev.kind)+'</span>'+
-        '<i>'+evWhen(ev)+'</i></div>'+
+        '<i>'+evTile(ev)+'</i></div>'+
       (ev.place?'<div class="sub" style="font-family:var(--body)">'+esc(ev.place)+'</div>':'')+
     '</div>'+
     '<div class="day">'+left+'</div>'+
@@ -2409,7 +2428,7 @@ function searchRun(v){
   var L=DATA.items.filter(function(i){return !t||i.c.indexOf(t)>=0}).slice(0,8);
   document.getElementById('qres').innerHTML = L.length? L.map(function(it){
     return '<button data-act="pick" data-co="'+esc(it.c)+'" data-v="'+esc(it.term||'夏インターン')+'">'+
-      logo(it,32)+'<span class="qn">'+esc(it.c)+'</span>'+
+      logo(it,32)+'<span class="qn">'+esc(shortCo(it.c))+'</span>'+
       '<span class="qs">'+esc(it.status||'')+' '+esc(it.stage||'')+'</span></button>';
   }).join('') : '<div class="qempty">見つかりません</div>';
 }
