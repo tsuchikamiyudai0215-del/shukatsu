@@ -968,13 +968,14 @@ function probeImage(url, timeoutMs){
       img.src = '';
       resolve(false);
     }, timeoutMs || 3500);
-    img.onload = function(){
+    /* 1×1 の透明画像を返すサービスがあるので、極端に小さいものは失敗扱いにする */
+    var settle = function(){
       if(done) return;
       done = true;
       clearTimeout(timer);
-      /* 1×1 の透明画像を返すサービスがあるので、極端に小さいものは失敗扱いにする */
-      resolve(!(img.naturalWidth <= 2 || img.naturalHeight <= 2));
+      resolve(img.naturalWidth > 2 && img.naturalHeight > 2);
     };
+    img.onload = settle;
     img.onerror = function(){
       if(done) return;
       done = true;
@@ -982,6 +983,8 @@ function probeImage(url, timeoutMs){
       resolve(false);
     };
     img.src = url;
+    /* 端末のキャッシュに残っていて、その場で読み終わっている場合 */
+    if(img.complete) settle();
   });
 }
 
@@ -1432,10 +1435,13 @@ function pad2(n){ return ('0'+n).slice(-2) }
    ホイールの1カチで次の候補に移れるよう、選択肢は絞る */
 var DT_MIN = ['00','30','59'];
 
-function dtField(id, iso, noTime){
+/* def は未入力のときに選んでおく時刻。締切は 23:59、予定は 10:00 が現実的 */
+function dtField(id, iso, def, noTime){
   var d = iso ? String(iso).slice(0,10) : '';
-  var hh = iso && String(iso).length>=16 ? String(iso).slice(11,13) : '';
-  var mm = iso && String(iso).length>=16 ? String(iso).slice(14,16) : '';
+  var has = iso && String(iso).length>=16;
+  var dv = String(def||'00:00');
+  var hh = has ? String(iso).slice(11,13) : dv.slice(0,2);
+  var mm = has ? String(iso).slice(14,16) : dv.slice(3,5);
   /* 5分刻みに無い値（例 23:59 以外の半端な分）も選べるよう、その値を足す */
   var mins = DT_MIN.slice();
   if(mm && mins.indexOf(mm)<0) mins.push(mm), mins.sort();
@@ -2042,7 +2048,7 @@ function renderTabContent(it){
       } else {
         h+='<div style="font-size:13px;color:var(--dim);margin:8px 0 12px">締切が未設定です</div>';
       }
-      h+=dtField('coDue', it.due||'')+
+      h+=dtField('coDue', it.due||'', '23:59')+
         '<button class="gh" style="margin-top:8px;color:var(--text)" data-act="setdue" data-co="'+esc(it.c)+'">締切を保存</button>'+
         '</div>';
     }
@@ -2154,9 +2160,9 @@ function renderTabContent(it){
         '<input type="checkbox" id="evAll" onchange="toggleAllDay()" '+
         'style="width:20px;height:20px;accent-color:var(--blue)">終日（時刻を使わない）</label>'+
       '<div class="lab" style="margin:14px 0 6px" id="evAtLab">開始日時</div>'+
-      dtField('evAt','')+
+      dtField('evAt','','10:00')+
       '<div class="lab" style="margin:12px 0 6px" id="evEndLab">終了日時（任意）</div>'+
-      dtField('evEnd','')+
+      dtField('evEnd','','17:00')+
       '<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px" id="evDailyWrap">'+
         '<input type="checkbox" id="evDaily" style="width:20px;height:20px;accent-color:var(--blue)">'+
         '毎日この時間帯（連日）</label>'+
@@ -2280,7 +2286,7 @@ var _listTimer = null;
 
 function applyPendingRoute(){
   [_routeInFlight, _pendingRoute].forEach(function(p){
-    if(!p) return;
+    if(!p || !Array.isArray(p.arr)) return;
     for(var i=0;i<DATA.items.length;i++){
       var x=DATA.items[i];
       if(x.c===p.co && (x.term||'夏インターン')===p.term){
@@ -2319,7 +2325,18 @@ function sendRoute(){
   }).catch(function(){
     if(_routeInFlight === p) _routeInFlight = null;
     if(_pendingRoute) return;
-    DATA.items = JSON.parse(p.snap);
+    /* 巻き戻すのはこの会社のルートだけ。
+       全体を差し戻すと、同時に走った別の会社の更新まで消えてしまう */
+    try{
+      var before = JSON.parse(p.snap).filter(function(x){
+        return x.c===p.co && (x.term||'夏インターン')===p.term;
+      })[0];
+      DATA.items.forEach(function(x){
+        if(x.c!==p.co || (x.term||'夏インターン')!==p.term) return;
+        x.route = before ? before.route : null;
+        if(before){ x.stage = before.stage; x.lost = before.lost; }
+      });
+    }catch(e){}
     cacheSave(DATA);
     render(false);
     toast('ルートを保存できませんでした。通信を確認してください');
@@ -2590,7 +2607,7 @@ function openAdd(){
     '<div class="lab">ログインID（任意）</div><input class="f" id="nI">'+
     '<div class="lab">ロゴ用ドメイン（任意）</div><input class="f" id="nD" placeholder="例：mitsubishicorp.com">'+
     '<div class="lab">段階</div><select class="f" id="nS">'+PALETTE.map(function(p){return '<option>'+esc(p)+'</option>'}).join('')+'</select>'+
-    '<div class="lab">締切（任意）</div>'+dtField('nDue','')+
+    '<div class="lab">締切（任意）</div>'+dtField('nDue','','23:59')+
     '<button class="big" style="background:#fff;color:#000" onclick="doAdd()">追加する</button></div></div>';
   requestAnimationFrame(function(){
     var sh=document.querySelector('#sheet .sheet');
