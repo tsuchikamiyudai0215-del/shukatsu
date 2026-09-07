@@ -163,6 +163,12 @@ button,select,input{font-family:var(--body)}
   background:linear-gradient(180deg, rgba(72,222,130,0.32) 0%, rgba(44,164,98,0.14) 100%), rgba(18,38,28,0.44);
   box-shadow:var(--glass-edge), 0 0 24px -8px rgba(48,209,88,.35)}
 .row.is-muted{--base-op:0.42}
+/* 締切まで2日以内。赤い数字だけでなく、面そのものにも熱を持たせる */
+.row.is-hot{
+  background:linear-gradient(180deg, rgba(255,110,100,0.16) 0%, rgba(180,50,45,0.07) 100%), rgba(40,22,24,0.44);
+  box-shadow:var(--glass-edge), 0 0 26px -12px rgba(255,69,58,.5)}
+/* 終わった会社はロゴも色を抜いて、視線が止まらないようにする */
+.row.is-muted .logo img{filter:grayscale(1) contrast(.9)}
 
 .row .main{padding:15px 17px 14px;display:flex;align-items:center;gap:13px;flex:1 1 auto}
 /* 会社名を主役にし、日数は右端で支える。ロゴは左の錨 */
@@ -171,6 +177,9 @@ button,select,input{font-family:var(--body)}
   text-shadow:0 1px 0 rgba(255,255,255,.16)}
 .day s{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em;margin-top:4px;display:block;text-decoration:none}
 .day .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;line-height:1.5}
+.day .today{display:inline-block;font-family:var(--disp);font-size:12.5px;font-weight:700;
+  letter-spacing:.08em;padding:6px 11px;border-radius:var(--r-chip);
+  background:rgba(255,255,255,.1);border:1px solid currentColor;line-height:1}
 .body1{min-width:0;flex:1}
 .meta{display:flex;align-items:center;gap:8px}
 .meta em{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.66);font-style:normal;letter-spacing:.02em}
@@ -442,6 +451,9 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .lanes{transition:opacity .2s var(--ease)}
 .lane{transition:opacity .2s var(--ease);margin-bottom:18px}
 .lane > .lab{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
+.lane .cnt{font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:0;
+  color:var(--text);background:rgba(255,255,255,.1);border-radius:var(--r-chip);
+  padding:2px 9px;margin-left:2px}
 .lane > .lab::before{content:'';width:3px;height:12px;border-radius:2px;
   background:currentColor;opacity:.8;flex:0 0 auto}
 .lane > .accord-btn{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
@@ -1364,7 +1376,7 @@ function autoSent(it){return it.status==='対応中'&&it.due&&!rem(it.due)}
 
 /* ============ 一覧描画 ============ */
 function dayCell(n,color,unit){
-  if(n==='TODAY') return '<b style="font-size:21px;color:'+color+'">TODAY</b>';
+  if(n==='TODAY') return '<span class="today" style="color:'+color+'">TODAY</span>';
   return '<b style="color:'+color+'">'+n+'</b><s>'+(unit||'DAYS')+'</s>';
 }
 function rowHtml(it){
@@ -1400,7 +1412,9 @@ function rowHtml(it){
      高さも揃わなくなる。操作は詳細シートに集約する */
   var acts='';
   var isMuted = (st==='fail'||st==='skip');
-  return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
+  var isHot = (st==='todo' && r && r.d<=2);
+  return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+
+    (isHot?' is-hot':'')+(isMuted?' is-muted':'')+
     '" data-act="open" data-co="'+esc(it.c)+'">'+
     '<div class="main">'+logo(it,44)+
       '<div class="body1">'+
@@ -1599,7 +1613,7 @@ function render(pageChanged){
     if(g.k==='end'||g.k==='skip')return;
     var isHidden = (FILT!=='all' && FILT!==g.k);
     h+='<section class="lane'+(isHidden?' is-filt-hidden':'')+'" data-lane="'+g.k+'">'+
-       '<div class="lab" style="color:'+g.col+'">'+g.lab+'\u3000'+g.n+'件</div>'+
+       '<div class="lab" style="color:'+g.col+'">'+g.lab+'<span class="cnt">'+g.n+'</span></div>'+
        '<div class="rows">'+rows[g.k]()+'</div></section>';
   });
   if(ended.length){
