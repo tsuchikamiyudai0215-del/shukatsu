@@ -74,7 +74,8 @@
 *::-webkit-scrollbar-track{background:transparent}
 *::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:999px}
 
-html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:120px}
+html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:120px;
+  overflow-x:hidden;overscroll-behavior-x:none}
 body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
@@ -88,7 +89,10 @@ body::after{
   background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'/%3E%3C/filter%3E%3Crect%20width='120'%20height='120'%20filter='url(%23n)'/%3E%3C/svg%3E");
 }
 body{
-  overscroll-behavior-y:none;margin:0;background:transparent;color:var(--text);
+  /* 斜めのスワイプで画面ごと横に動かないようにする。
+     縦だけを指に追わせ、横スクロールが要る場所（チップ列）だけ後で戻す */
+  overscroll-behavior:none;overflow-x:hidden;touch-action:pan-y;
+  margin:0;background:transparent;color:var(--text);
   font-family:var(--body);font-variant-numeric:tabular-nums;
   padding:calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
           calc(140px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
@@ -195,6 +199,7 @@ button,select,input{font-family:var(--body)}
 }
 .sheet.is-active{opacity:1;pointer-events:auto}
 .card{
+  touch-action:pan-y;
   position:relative;width:100%;max-width:480px;
   height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
   border-radius:var(--r-sheet);border:none;
@@ -235,7 +240,8 @@ button,select,input{font-family:var(--body)}
   transition:color .2s var(--ease),border-color .2s var(--ease),transform .42s var(--spring)}
 .tabs button:active{transform:scale(.94);transition:transform .1s var(--press)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
-.tab-pane{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+.tab-pane{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  touch-action:pan-y;-webkit-overflow-scrolling:touch;
   padding-bottom:32px;padding-right:4px;animation:tabPaneIn .42s var(--spring) both}
 @keyframes tabPaneIn{
   from{opacity:0;transform:translate3d(16px,0,0)}
@@ -401,14 +407,16 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:10px 16px 14px}
 .chips::before{content:'';position:absolute;z-index:-1;
-  left:-14px;right:-14px;top:-18px;bottom:-6px;
+  /* 画面の外まで伸ばすと、その分だけ横スクロールが生まれる */
+  left:0;right:0;top:-18px;bottom:-6px;
   background:linear-gradient(180deg,
     rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%);
   -webkit-mask-image:linear-gradient(90deg,
     transparent 0%, #000 7%, #000 93%, transparent 100%);
   mask-image:linear-gradient(90deg,
     transparent 0%, #000 7%, #000 93%, transparent 100%)}
-.chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}
+.chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0;
+  touch-action:pan-x}
 .chiprow::-webkit-scrollbar{display:none}
 .chiprow button{flex:0 0 auto;
   background:linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%), rgba(22,22,34,0.6);
@@ -542,6 +550,7 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
   .pcol{display:flex;flex-direction:column;gap:14px}
 }
 @media (min-width:1000px){
+  body{touch-action:auto}
   body.sheet-open #app{transform:none;filter:none;border-radius:0}
   body.sheet-open .tabbar{transform:none;opacity:1}
   body{display:flex;align-items:flex-start;gap:28px;width:100%;max-width:none;margin:0;
