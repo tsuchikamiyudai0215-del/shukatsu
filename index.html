@@ -145,12 +145,12 @@ button,select,input{font-family:var(--body)}
 .row[data-act]{cursor:pointer}
 .row{
   content-visibility:auto;
-  contain-intrinsic-size:auto 104px;
+  contain-intrinsic-size:auto 86px;
   contain:layout paint style;
   background:var(--surface);
   border:none;border-radius:var(--r-tile);
   box-shadow:var(--glass-edge);
-  margin-bottom:10px;overflow:hidden;cursor:pointer;
+  margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;
   opacity:var(--base-op, 1);
   transition:transform .5s var(--spring),opacity .2s var(--ease),background .2s var(--ease)}
@@ -164,7 +164,7 @@ button,select,input{font-family:var(--body)}
   box-shadow:var(--glass-edge), 0 0 24px -8px rgba(48,209,88,.35)}
 .row.is-muted{--base-op:0.42}
 
-.row .main{padding:15px 17px 13px;display:flex;align-items:center;gap:13px;flex:1 1 auto}
+.row .main{padding:15px 17px 14px;display:flex;align-items:center;gap:13px;flex:1 1 auto}
 /* 会社名を主役にし、日数は右端で支える。ロゴは左の錨 */
 .day{flex:0 0 auto;min-width:52px;text-align:right;margin-left:6px}
 .day b{font-family:var(--disp);font-size:33px;font-weight:600;letter-spacing:-.04em;line-height:1;display:block;
@@ -1396,15 +1396,9 @@ function rowHtml(it){
     left='<span class="tag" style="color:var(--dim)">未定</span>';
   }
 
+  /* タイルの中にはボタンを置かない。指には小さすぎて押し分けにくく、
+     高さも揃わなくなる。操作は詳細シートに集約する */
   var acts='';
-  if(st==='todo') acts='<div class="acts"><button class="gh" data-act="done" data-co="'+esc(it.c)+'">完了にする</button></div>';
-  if(st==='waiting'){
-    var rt=routeOf(it), last=rt.indexOf(it.stage)>=rt.length-2;
-    var goalLab = last ? (TERM==='夏インターン'?'参加決定':'内定') : '通過';
-    acts='<div class="acts">'+
-      '<button class="gh" style="border-color:rgba(48,209,88,.5);color:var(--go)" data-act="pass" data-co="'+esc(it.c)+'">'+goalLab+'</button>'+
-      '<button class="gh" data-act="fail" data-co="'+esc(it.c)+'">落選</button></div>';
-  }
   var isMuted = (st==='fail'||st==='skip');
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+(isMuted?' is-muted':'')+
     '" data-act="open" data-co="'+esc(it.c)+'">'+
