@@ -200,8 +200,12 @@ button,select,input{font-family:var(--body)}
   display:inline-block;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);
   transition:transform .42s var(--spring),background .16s var(--ease),color .16s var(--ease)}
 .gh:active{transform:scale(.9);transition:transform .1s var(--press)}
+/* 再描画のたびに img は作り直される。画像が乗る前に白い下地が見えると
+   一瞬光って見えるので、読み込めてから白くする */
 .logo{width:28px;height:28px;border-radius:14px;flex:0 0 auto;display:flex;align-items:center;
-  justify-content:center;overflow:hidden;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.4)}
+  justify-content:center;overflow:hidden;background:rgba(255,255,255,.06);
+  box-shadow:0 0 0 .5px rgba(0,0,0,.25);transition:background .12s var(--ease)}
+.logo.rdy{background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.4)}
 .logo img{width:86%;height:86%;object-fit:contain}
 .logo.mono{background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.25)}
 .logo.mono span{color:#EDEDF2;font-weight:600}
@@ -1002,8 +1006,9 @@ function logo(it,size){
   var u = getLogoUrl(it);
   var doms = logoDomains(it);
   if(u) {
-    return '<div class="logo" style="'+st+'" data-co="'+esc(it.c)+'" data-sz="'+s+'" data-doms="'+esc(doms.join(','))+'">'+
-      '<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="'+esc(u)+'" onerror="logoErr(this)"></div>';
+    return '<div class="logo'+(LOGO_OK[u]?' rdy':'')+'" style="'+st+'" data-co="'+esc(it.c)+'" data-sz="'+s+'" data-doms="'+esc(doms.join(','))+'">'+
+      '<img decoding="sync" referrerpolicy="no-referrer" src="'+esc(u)+'" '+
+      'onload="logoOk(this)" onerror="logoErr(this)"></div>';
   }
   return monoLogo(it.c,s);
 }
@@ -1012,6 +1017,15 @@ function monoLogo(name,s){
   return '<div class="logo mono" style="width:'+s+'px;height:'+s+'px;border-radius:'+(s/2)+'px" '+
     'data-co="'+esc(name)+'" data-sz="'+s+'">'+
     '<span style="font-size:'+Math.round(s*0.42)+'px">'+esc(String(name).slice(0,1))+'</span></div>';
+}
+
+/* 一度表示できたURLを覚えておく。次の描き直しでは最初から仕上がった状態で出せるので、
+   暗い下地 → 白地 のちらつきが起きない */
+var LOGO_OK = {};
+function logoOk(img){
+  if(img && img.src) LOGO_OK[img.src]=1;
+  var box=img.parentNode;
+  if(box && box.classList) box.classList.add('rdy');
 }
 
 /* 表示中に読み込みが失敗したら、その場で次の候補へ差し替える */
@@ -1035,6 +1049,7 @@ function logoErr(img){
 
   if(step < chain.length){
     box.dataset.step = String(step+1);
+    box.classList.remove('rdy');
     img.src = chain[step];
     return;
   }
@@ -1205,10 +1220,11 @@ function paintLogo(co,url){
     var b=list[i];
     if(b.dataset.co!==co)continue;
     var s=parseFloat(b.dataset.sz)||28;
-    b.className='logo';
+    b.className='logo'+(LOGO_OK[url]?' rdy':'');
     b.dataset.step='0';
     b.style.cssText='width:'+s+'px;height:'+s+'px;border-radius:'+(s/2)+'px';
-    b.innerHTML='<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="'+esc(url)+'" onerror="logoErr(this)">';
+    b.innerHTML='<img decoding="sync" referrerpolicy="no-referrer" src="'+esc(url)+'" '+
+      'onload="logoOk(this)" onerror="logoErr(this)">';
   }
 }
 
