@@ -3095,18 +3095,23 @@ function renderPassport(pageChanged){
       '<div class="pfoot">最も長いのは'+esc(waits[0].c)+'</div></div>');
   }
 
-  /* 業界別。段階の通し番号ぶんを「通過した選考」として数える */
+  /* 業界別。段階を進んだ回数と落選社数を混ぜると、
+     1社が3段階進んで落ちただけで「3勝1敗」になり、どの業界も高く出てしまう。
+     ここは社を単位にして、結果の内訳と、ルートのどこまで進めたかの平均で見る */
   var byInd={};
   LIST.forEach(function(it){
     if(stOf(it)==='skip') return;
     var key = String(it.ind||'').trim() || '未分類';
-    if(!byInd[key]) byInd[key]={n:0,p:0,f:0,w:0,got:0};
-    var o=byInd[key], r=routeOf(it), i=r.indexOf(it.lost||it.stage), st=stOf(it);
+    if(!byInd[key]) byInd[key]={n:0,got:0,fail:0,live:0,sum:0};
+    var o=byInd[key], st=stOf(it);
+    var r=routeOf(it), i=r.indexOf(it.lost||it.stage);
     o.n++;
-    if(i>0) o.p+=i;
-    if(st==='fail') o.f++;
-    else if(st==='offer'||st==='fixed'){ o.got++; o.p++; }
-    else o.w++;
+    if(st==='fail') o.fail++;
+    else if(st==='offer'||st==='fixed') o.got++;
+    else o.live++;
+    /* ルート内での相対位置。内定・参加決定は最後まで行ったものとして 100% */
+    if(st==='offer'||st==='fixed') o.sum+=1;
+    else if(i>=0 && r.length>1) o.sum += i/(r.length-1);
   });
   var indKeys=Object.keys(byInd).sort(function(a,b){
     if(a==='未分類') return 1;
@@ -3115,23 +3120,33 @@ function renderPassport(pageChanged){
   });
   if(indKeys.length && !(indKeys.length===1 && indKeys[0]==='未分類')){
     var indMax=1;
-    indKeys.forEach(function(k){ indMax=Math.max(indMax, byInd[k].p+byInd[k].f+byInd[k].w) });
-    var indCard='<div class="pcard po6 flat"><div class="ttl">業界別の通過率</div><div style="margin-top:14px">';
+    indKeys.forEach(function(k){ indMax=Math.max(indMax, byInd[k].n) });
+    var indCard='<div class="pcard po6 flat"><div class="ttl">業界別の進み方</div><div style="margin-top:14px">';
     indKeys.forEach(function(k){
-      var o=byInd[k], att=o.p+o.f, pc=att?Math.round(o.p/att*100):null;
+      var o=byInd[k];
+      var avg=Math.round(o.sum/o.n*100);
+      var done=o.got+o.fail;
+      /* 決着した社のうち、決定まで行った割合。決着が無ければ「—」 */
+      var pc = done ? Math.round(o.got/done*100) : null;
       indCard+='<div class="rateRow"><div class="rateHead">'+
         '<span>'+esc(k)+'<span class="cnt" style="margin-left:6px">'+o.n+'社</span></span>'+
         '<span class="rateNum" style="color:'+(pc===null?'var(--dim)':pc>=50?'var(--go)':'var(--hot)')+'">'+
-        (pc===null?'—':pc+'%')+'<i>'+o.p+'/'+att+'</i></span></div>'+
-        '<div class="bar" style="width:'+Math.max(18,(o.p+o.f+o.w)/indMax*100)+'%">'+
-        (o.p?'<div style="flex:'+o.p+';background:var(--go)"></div>':'')+
-        (o.f?'<div style="flex:'+o.f+';background:var(--fail)"></div>':'')+
-        (o.w?'<div style="flex:'+o.w+';background:var(--line)"></div>':'')+'</div></div>';
+        (pc===null?'—':pc+'%')+'<i>'+o.got+'/'+done+' 決着</i></span></div>'+
+        '<div class="bar" style="width:'+Math.max(18,o.n/indMax*100)+'%">'+
+        (o.got?'<div style="flex:'+o.got+';background:var(--go)"></div>':'')+
+        (o.live?'<div style="flex:'+o.live+';background:var(--line)"></div>':'')+
+        (o.fail?'<div style="flex:'+o.fail+';background:var(--fail)"></div>':'')+'</div>'+
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px">'+
+        '平均到達 '+avg+'％</div></div>';
     });
     indCard+='</div><div class="legend">'+
-      '<span><i style="background:var(--go)"></i>通過</span>'+
+      '<span><i style="background:var(--go)"></i>決定</span>'+
+      '<span><i style="background:var(--line)"></i>進行中</span>'+
       '<span><i style="background:var(--fail)"></i>終了</span>'+
-      '<span><i style="background:var(--line)"></i>進行中</span></div></div>';
+      '</div>'+
+      '<div style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.6">'+
+      '％は、決着した社のうち内定・参加決定まで行った割合。'+
+      '平均到達は、選考ルートのどこまで進めたかの平均です。</div></div>';
     cB.push(indCard);
   }
 
