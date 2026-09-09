@@ -3171,7 +3171,8 @@ function renderPassport(pageChanged){
     xCard+='</div><div style="font-size:10.5px;color:var(--dim);margin-top:10px;line-height:1.6">'+
       '通った回数 ÷ 結果が出た回数。結果待ちは分母に入りません。'+
       '詳細の業種欄を「NTT系」のようなグループ名で埋めると、その単位でも見られます。</div></div>';
-    cB.push(xCard);
+    /* 右の列だけが伸びて左が空くので、この大きなカードは左へ回す */
+    cA.push(xCard);
   }
 
   var brk='<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">';
