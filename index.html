@@ -399,7 +399,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .ptitle{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em;margin-bottom:12px}
 .pwrap{display:flex;flex-direction:column;gap:12px}
 .pcol{display:contents}
-.po1{order:1}.po2{order:2}.po3{order:3}.po4{order:4}.po5{order:5}.po6{order:6}.po6{order:6}
+.po1{order:1}.po2{order:2}.po3{order:3}.po4{order:4}.po5{order:5}.po6{order:6}.po7{order:7}.po6{order:6}
 .pcard{border-radius:var(--r-card);padding:20px;position:relative;overflow:hidden;
   border:1px solid rgba(255,255,255,0.16);box-shadow:var(--glass-edge)}
 .pcard.flat{background:var(--surface)}
@@ -423,6 +423,18 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
 .brkRow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;
   border-bottom:1px solid var(--line-soft);font-size:13px}
+
+/* 業界 × 段階 */
+.xBlk{padding:12px 0;border-bottom:1px solid var(--line-soft)}
+.xBlk:last-child{border-bottom:none;padding-bottom:2px}
+.xHd{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;margin-bottom:9px}
+.xGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:6px}
+.xCell{background:rgba(255,255,255,.05);border:1px solid var(--line-soft);
+  border-radius:12px;padding:7px 8px;text-align:center}
+.xCell span{display:block;font-family:var(--mono);font-size:9.5px;color:var(--muted);
+  letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xCell b{display:block;font-family:var(--disp);font-size:15px;font-weight:700;margin-top:3px}
+.xCell i{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);font-style:normal;margin-top:2px}
 .brkRow:last-child{border-bottom:none;padding-bottom:0}
 
 /* ---------- chips ---------- */
@@ -3148,6 +3160,54 @@ function renderPassport(pageChanged){
       '％は、決着した社のうち内定・参加決定まで行った割合。'+
       '平均到達は、選考ルートのどこまで進めたかの平均です。</div></div>';
     cB.push(indCard);
+  }
+
+  /* 業界 × 段階。どの業界のどの関門で落ちているかを見る。
+     数え方は段階別カードと同じで、1回の選考ごとの勝敗 */
+  var xs={};
+  LIST.forEach(function(it){
+    if(stOf(it)==='skip') return;
+    var key = String(it.ind||'').trim() || '未分類';
+    if(!xs[key]) xs[key]={n:0, st:{}};
+    var o=xs[key]; o.n++;
+    var r=routeOf(it), cur=it.lost||it.stage, i=r.indexOf(cur), st=stOf(it);
+    var bump=function(name,k){
+      if(!o.st[name]) o.st[name]={p:0,f:0};
+      o.st[name][k]++;
+    };
+    if(i<0){ bump(cur, st==='fail'?'f':'p'); return }
+    for(var k=0;k<i;k++) bump(r[k],'p');
+    if(st==='fail') bump(cur,'f');
+    else if(st==='offer'||st==='fixed') bump(cur,'p');
+  });
+  var xKeys=Object.keys(xs).sort(function(a,b){
+    if(a==='未分類') return 1;
+    if(b==='未分類') return -1;
+    return xs[b].n-xs[a].n;
+  });
+  if(xKeys.length && !(xKeys.length===1 && xKeys[0]==='未分類')){
+    var xOrder=DEFAULT_ROUTE.concat(PALETTE.filter(function(p){return DEFAULT_ROUTE.indexOf(p)<0}));
+    var xCard='<div class="pcard po7 flat"><div class="ttl">業界 × 段階の通過率</div>'+
+      '<div style="margin-top:12px">';
+    xKeys.forEach(function(k){
+      var o=xs[k];
+      var names=xOrder.filter(function(n){ return o.st[n] && (o.st[n].p+o.st[n].f)>0 });
+      if(!names.length) return;
+      xCard+='<div class="xBlk"><div class="xHd">'+esc(k)+
+        '<span class="cnt">'+o.n+'社</span></div><div class="xGrid">';
+      names.forEach(function(n){
+        var v=o.st[n], att=v.p+v.f, pc=Math.round(v.p/att*100);
+        var col = pc>=67?'var(--go)' : pc>=34?'var(--wait)' : 'var(--hot)';
+        xCard+='<div class="xCell"><span>'+esc(n)+'</span>'+
+          '<b style="color:'+col+'">'+pc+'%</b>'+
+          '<i>'+v.p+'/'+att+'</i></div>';
+      });
+      xCard+='</div></div>';
+    });
+    xCard+='</div><div style="font-size:10.5px;color:var(--dim);margin-top:10px;line-height:1.6">'+
+      '通った回数 ÷ 結果が出た回数。結果待ちは分母に入りません。'+
+      '「NTT系」のように業種欄をグループ名で埋めると、その単位でも見られます。</div></div>';
+    cB.push(xCard);
   }
 
   var brk='<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">';
