@@ -399,7 +399,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .ptitle{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em;margin-bottom:12px}
 .pwrap{display:flex;flex-direction:column;gap:12px}
 .pcol{display:contents}
-.po1{order:1}.po2{order:2}.po3{order:3}.po4{order:4}.po5{order:5}
+.po1{order:1}.po2{order:2}.po3{order:3}.po4{order:4}.po5{order:5}.po6{order:6}.po6{order:6}
 .pcard{border-radius:var(--r-card);padding:20px;position:relative;overflow:hidden;
   border:1px solid rgba(255,255,255,0.16);box-shadow:var(--glass-edge)}
 .pcard.flat{background:var(--surface)}
@@ -1198,6 +1198,9 @@ function refetchLogo(co){
   });
 }
 
+/* データURLはサーバーの保存領域に収まらないので、端末にだけ置く */
+function isDataUrl(v){ return /^data:/i.test(String(v||'')) }
+
 function setLogoUrl(co){
   var el=document.getElementById('logoUrl');
   var v=el?el.value.trim():'';
@@ -1208,6 +1211,44 @@ function setLogoUrl(co){
   api('apiSaveLogo',[co,v]).catch(function(){});
   render(false);
   toast('ロゴを設定しました（更新後も保持されます）',true);
+}
+
+/* 手元の画像ファイルからロゴを入れる。
+   96pxの正方形に縮めてから保存するので、写真を選んでも重くならない */
+function logoFromFile(input, co){
+  var f = input && input.files && input.files[0];
+  input.value='';
+  if(!f) return;
+  if(!/^image\//.test(f.type)){ toast('画像ファイルを選んでください'); return }
+  if(f.size > 8*1024*1024){ toast('画像が大きすぎます（8MBまで）'); return }
+
+  var fr = new FileReader();
+  fr.onerror = function(){ toast('画像を読み込めませんでした') };
+  fr.onload = function(){
+    var img = new Image();
+    img.onerror = function(){ toast('画像を読み込めませんでした') };
+    img.onload = function(){
+      try{
+        var N = 96;
+        var cv = document.createElement('canvas');
+        cv.width = N; cv.height = N;
+        var ctx = cv.getContext('2d');
+        /* 縦横比を保ったまま中央に収める */
+        var r = Math.min(N/img.naturalWidth, N/img.naturalHeight);
+        var w = Math.round(img.naturalWidth*r), h = Math.round(img.naturalHeight*r);
+        ctx.drawImage(img, Math.round((N-w)/2), Math.round((N-h)/2), w, h);
+        var url = cv.toDataURL('image/png');
+        saveManualLogo(co, url);
+        tried[co]=1;
+        render(false);
+        toast('ロゴを設定しました（この端末に保存されます）', true);
+      }catch(e){
+        toast('画像を変換できませんでした');
+      }
+    };
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(f);
 }
 
 function paintLogo(co,url){
@@ -2130,6 +2171,16 @@ function renderTabContent(it){
       'パスワードはこの端末にも画面にも保存しません。</div></div>';
 
     if(isCo(it)) h+='<div style="margin-top:22px">'+
+      '<div class="lab" style="margin:0 0 8px">業種</div>'+
+      '<div style="display:flex;gap:8px">'+
+      '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="indVal" list="indList" '+
+      'placeholder="例：IT・SIer" value="'+esc(it.ind||'')+'">'+
+      '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="ind-save" data-co="'+esc(it.c)+'">保存</button></div>'+
+      '<datalist id="indList">'+INDUSTRIES.map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">'+
+      '記録タブの「業界別の通過率」で使います。空欄のままでも構いません。</div></div>';
+
+    if(isCo(it)) h+='<div style="margin-top:22px">'+
       '<div class="lab" style="margin:0 0 8px">会社名</div>'+
       '<div style="display:flex;gap:8px">'+
       '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="renName" value="'+esc(it.c)+'">'+
@@ -2145,6 +2196,10 @@ function renderTabContent(it){
       '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="logoUrl" placeholder="画像URLを貼って上書き" value="'+esc(currentLogoVal)+'">'+
       '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="logo-set" data-co="'+esc(it.c)+'">適用</button></div>'+
       '<button class="gh" style="margin-top:8px" data-act="logo-get" data-co="'+esc(it.c)+'">自動で取り直す</button>'+
+      '<div style="margin-top:10px">'+
+        '<label class="gh" style="display:inline-block;cursor:pointer;color:var(--text)">画像ファイルから選ぶ'+
+        '<input type="file" accept="image/*" style="display:none" '+
+        'onchange="logoFromFile(this,\''+J(it.c)+'\')"></label></div>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">'+
       'Wikidataの公式ロゴ、公式サイトのファビコン、Wikipediaの画像の順に探します。</div></div>';
 
@@ -2679,6 +2734,18 @@ function applySuggestCo(label, id){
     if(nd && !nd.value.trim() && c.domain) nd.value=c.domain;
   });
 }
+var INDUSTRIES = ['IT・SIer','メーカー','インフラ','通信','航空','金融','商社','建設・不動産',
+  'コンサル','広告・メディア','運輸・物流','小売・サービス','医薬・化学','公務・団体'];
+
+function saveIndustry(co){
+  var el=document.getElementById('indVal');
+  var v=el?el.value.trim():'';
+  opt(function(){
+    var it=find_(co); if(!it)return;
+    it.ind=v;
+  },'apiSetIndustry',[co,TERM,v], v?('業種を「'+v+'」にしました'):'業種を空にしました');
+}
+
 /* 登録済みの会社名を手で直す */
 function renameCompany(co){
   var el=document.getElementById('renName');
@@ -2734,6 +2801,7 @@ var ACTS={
   delco: function(co){ deleteCompany(co) },
   sugco: function(co,v){ applySuggestCo(co,v) },
   'ren-save': function(co){ renameCompany(co) },
+  'ind-save': function(co){ saveIndustry(co) },
   pick:  function(co,v){ pick(co,v) }
 };
 document.addEventListener('click',function(e){
@@ -2865,6 +2933,49 @@ function initLiquid(){
 }
 
 /* ============ 記録 ============ */
+/* 業界は会社名からの推定。列を足さずに、だいたいの傾向をつかむためのもの。
+   上から順に見て最初に当たったものを採るので、細かい方を先に置く */
+var INDUSTRY = [
+  ['IT・SIer',    ['NTTデータ','ドコモソリューション','日鉄ソリューション','システム','ソリューション','ソフト','テクノロジ','テック','デジタル','情報サービス','富士通','日立','ＮＥＣ','NEC','SCSK','TIS','伊藤忠テク','電算']],
+  ['通信',        ['NTT','KDDI','ドコモ','ソフトバンク','通信','楽天モバイル']],
+  ['金融',        ['銀行','信託','証券','保険','カード','キャピタル','ファイナンス','フィナンシャル','リース','UFJ','ＵＦＪ','みずほ','三井住友','SBI','ＳＢＩ','セゾン','ニコス','SMFL','SMCC','日本政策','信金','信用金庫']],
+  ['航空・運輸',  ['航空','JAL','ＪＡＬ','ANA','ＡＮＡ','空港','鉄道','旅客','海運','汽船','商船','郵船','物流','運輸','交通','日本通運','近鉄']],
+  ['インフラ',    ['電力','ガス','石油','エネルギー','JERA','ＪＥＲＡ','電源','水道','鉄道建設']],
+  ['メーカー',    ['製作所','工業','重工','製鉄','化学','電機','自動車','フイルム','フィルム','精機','製薬','食品','飲料','パナソニック','キヤノン','キャノン','ソニー','東芝','三菱電機','川崎重','製造']],
+  ['商社',        ['商事','物産','商社','双日','丸紅','伊藤忠','豊田通商','JALUX','ＪＡＬＵＸ']],
+  ['不動産・建設',['不動産','建設','地所','住宅','ハウス','ゼネコン','大成','鹿島','清水建']],
+  ['コンサル',    ['総研','総合研究','研究所','コンサル','リサーチ','NRI','ＮＲＩ','シンクタンク']],
+  ['人材・広告',  ['人材','リクルート','パーソル','マイナビ','電通','博報堂','広告','旅行','HIS','ＨＩＳ']],
+  ['公共・その他',['郵政','日本郵便','公社','機構','公団','協会']]
+];
+function industryOf(name){
+  var n=String(name||'');
+  for(var i=0;i<INDUSTRY.length;i++){
+    var keys=INDUSTRY[i][1];
+    for(var j=0;j<keys.length;j++) if(n.indexOf(keys[j])>=0) return INDUSTRY[i][0];
+  }
+  return 'その他';
+}
+
+/* 業界ごとに、通過した選考数と終わった選考数を数える */
+function tallyIndustry(){
+  var m={};
+  ITEMS().forEach(function(it){
+    if(!isCo(it)) return;
+    var st=stOf(it);
+    if(st==='skip') return;
+    var k=industryOf(it.c);
+    if(!m[k]) m[k]={n:0,p:0,f:0,live:0};
+    m[k].n++;
+    var r=routeOf(it), i=r.indexOf(it.lost||it.stage);
+    if(i>0) m[k].p += i;                 /* そこまで来た＝手前を通過している */
+    if(st==='fail') m[k].f++;
+    else if(st==='offer'||st==='fixed'){ m[k].p++; m[k].live++; }
+    else m[k].live++;
+  });
+  return m;
+}
+
 function tally(){
   var t={};
   var bump=function(s,k){if(!t[s])t[s]={p:0,f:0,w:0};t[s][k]++};
@@ -2950,6 +3061,30 @@ function renderPassport(pageChanged){
     '<span><i style="background:var(--line)"></i>進行中</span></div></div>';
   cB.push(rate);
 
+  /* 業界別。母数が小さい業界は率が暴れるので、社数も並べて出す */
+  var ind=tallyIndustry();
+  var indKeys=Object.keys(ind).sort(function(a,b){return ind[b].n-ind[a].n});
+  if(indKeys.length){
+    var imax=1;
+    indKeys.forEach(function(k){ imax=Math.max(imax, ind[k].p+ind[k].f) });
+    var ic='<div class="pcard po6 flat"><div class="ttl">業界別（会社名からの推定）</div>'+
+      '<div style="margin-top:14px">';
+    indKeys.forEach(function(k){
+      var o=ind[k], att=o.p+o.f, pc=att?Math.round(o.p/att*100):null;
+      ic+='<div class="rateRow"><div class="rateHead">'+
+        '<span>'+esc(k)+'<span class="cnt" style="margin-left:7px">'+o.n+'社</span></span>'+
+        '<span class="rateNum" style="color:'+(pc===null?'var(--dim)':pc>=50?'var(--go)':'var(--hot)')+'">'+
+        (pc===null?'—':pc+'%')+'<i>'+o.p+'/'+att+'</i></span></div>'+
+        '<div class="bar" style="width:'+Math.max(18,att/imax*100)+'%">'+
+        (o.p?'<div style="flex:'+o.p+';background:var(--go)"></div>':'')+
+        (o.f?'<div style="flex:'+o.f+';background:var(--fail)"></div>':'')+
+        '</div></div>';
+    });
+    ic+='</div><div class="pfoot">通過した選考数 ÷（通過＋終了）。'+
+      '社名から機械的に振り分けているので、目安として見てください。</div></div>';
+    cB.push(ic);
+  }
+
   if(waits.length){
     cB.push('<div class="pcard po4" style="background:linear-gradient(155deg,rgba(52,116,190,.44) 0%,rgba(28,62,108,.5) 100%);color:#E4EFFF">'+
       '<div class="ttl">結果待ち</div>'+
@@ -2958,6 +3093,46 @@ function renderPassport(pageChanged){
         '<div><b>'+avg+'</b><span>平均経過日数</span></div>'+
         '<div><b>'+waits[0].d+'</b><span>最長</span></div></div>'+
       '<div class="pfoot">最も長いのは'+esc(waits[0].c)+'</div></div>');
+  }
+
+  /* 業界別。段階の通し番号ぶんを「通過した選考」として数える */
+  var byInd={};
+  LIST.forEach(function(it){
+    if(stOf(it)==='skip') return;
+    var key = String(it.ind||'').trim() || '未分類';
+    if(!byInd[key]) byInd[key]={n:0,p:0,f:0,w:0,got:0};
+    var o=byInd[key], r=routeOf(it), i=r.indexOf(it.lost||it.stage), st=stOf(it);
+    o.n++;
+    if(i>0) o.p+=i;
+    if(st==='fail') o.f++;
+    else if(st==='offer'||st==='fixed'){ o.got++; o.p++; }
+    else o.w++;
+  });
+  var indKeys=Object.keys(byInd).sort(function(a,b){
+    if(a==='未分類') return 1;
+    if(b==='未分類') return -1;
+    return byInd[b].n-byInd[a].n;
+  });
+  if(indKeys.length && !(indKeys.length===1 && indKeys[0]==='未分類')){
+    var indMax=1;
+    indKeys.forEach(function(k){ indMax=Math.max(indMax, byInd[k].p+byInd[k].f+byInd[k].w) });
+    var indCard='<div class="pcard po6 flat"><div class="ttl">業界別の通過率</div><div style="margin-top:14px">';
+    indKeys.forEach(function(k){
+      var o=byInd[k], att=o.p+o.f, pc=att?Math.round(o.p/att*100):null;
+      indCard+='<div class="rateRow"><div class="rateHead">'+
+        '<span>'+esc(k)+'<span class="cnt" style="margin-left:6px">'+o.n+'社</span></span>'+
+        '<span class="rateNum" style="color:'+(pc===null?'var(--dim)':pc>=50?'var(--go)':'var(--hot)')+'">'+
+        (pc===null?'—':pc+'%')+'<i>'+o.p+'/'+att+'</i></span></div>'+
+        '<div class="bar" style="width:'+Math.max(18,(o.p+o.f+o.w)/indMax*100)+'%">'+
+        (o.p?'<div style="flex:'+o.p+';background:var(--go)"></div>':'')+
+        (o.f?'<div style="flex:'+o.f+';background:var(--fail)"></div>':'')+
+        (o.w?'<div style="flex:'+o.w+';background:var(--line)"></div>':'')+'</div></div>';
+    });
+    indCard+='</div><div class="legend">'+
+      '<span><i style="background:var(--go)"></i>通過</span>'+
+      '<span><i style="background:var(--fail)"></i>終了</span>'+
+      '<span><i style="background:var(--line)"></i>進行中</span></div></div>';
+    cB.push(indCard);
   }
 
   var brk='<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">';
