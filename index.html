@@ -2146,12 +2146,28 @@ function renderTabContent(it){
         '</div>';
     }
 
+    /* 開いてすぐ使う導線を最上段に。スクロールせずに届く位置に置く */
+    if(it.url || it.folder){
+      h+='<div style="display:flex;gap:8px;margin-top:14px">';
+      if(it.url) h+='<a class="big" style="flex:1;margin:0;background:#fff;color:#000" '+
+        'target="_blank" rel="noopener noreferrer" href="'+esc(it.url)+'">マイページ</a>';
+      if(it.folder) h+='<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" '+
+        'target="_blank" rel="noopener noreferrer" href="'+esc(it.folder)+'">書類フォルダ</a>';
+      h+='</div>';
+    }
+    if(it.id) h+='<div class="kv" style="margin-top:12px"><span>ログインID</span>'+
+      '<span style="font-family:var(--mono);font-size:12.5px">'+esc(it.id)+'</span></div>';
+    if(it.on) h+='<div class="kv"><span>結果日</span><span>'+fdate(it.on)+'</span></div>';
+
+    /* よく押すものだけを先に並べる */
     if(st==='todo')
       h+='<button class="big" style="background:var(--blue);color:#fff" data-act="done" data-co="'+esc(it.c)+'">完了にして結果待ちへ</button>';
     if(st==='waiting'||st==='fail'||st==='offer'||st==='fixed'||st==='skip')
       h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="対応中">対応中に戻す</button>';
     if(st==='waiting')
       h+='<button class="big" style="background:rgba(255,255,255,.1);color:var(--muted);font-weight:500" data-act="status" data-co="'+esc(it.c)+'" data-v="参加決定">参加決定にする</button>';
+
+    /* ここから下はたまにしか使わない操作 */
     if(curIdx>0)
       h+='<button class="big" style="background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500" data-act="prev" data-co="'+esc(it.c)+'">1段階戻す（'+esc(rt[curIdx])+' → '+esc(rt[curIdx-1])+'）</button>';
     if(st==='todo')
@@ -2164,14 +2180,9 @@ function renderTabContent(it){
         (already?'本選考に登録済み':'本選考に引き継ぐ')+'</button>';
     }
 
-
-    /* 開いてすぐ使うもの。マイページへ飛ぶ導線とIDはここに置く */
-    if(it.url) h+='<a class="big" style="background:#fff;color:#000" target="_blank" rel="noopener noreferrer" href="'+esc(it.url)+'">マイページを開く</a>';
-    if(it.id) h+='<div class="kv" style="margin-top:14px"><span>ログインID</span>'+
-      '<span style="font-family:var(--mono);font-size:12.5px">'+esc(it.id)+'</span></div>';
-    if(it.on) h+='<div class="kv"><span>結果日</span><span>'+fdate(it.on)+'</span></div>';
     if(it.due) h+='<a class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="'+
       gcalUrl(it.c+' '+it.stage+' 締切',it.due,it.url,it.timeUnset)+'">Googleカレンダーに追加</a>';
+
 
     /* ここから下は、登録し直すときだけ触る欄 */
     h+='<div style="margin-top:30px;padding-top:16px;border-top:1px solid var(--line-soft)">'+
