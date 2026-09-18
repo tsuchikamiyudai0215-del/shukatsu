@@ -1403,6 +1403,12 @@ function load(){
     staleShow();
     api('apiGetData',[]).then(function(j){
       if(!j||!j.items) return;
+      if(isEditing()){
+        /* 書きかけを消さないよう、データだけ入れ替えて描き直しは見送る */
+        DATA=j; cacheSave(j); staleHide();
+        scheduleSync();
+        return;
+      }
       applyData(j);
       staleHide();
     }).catch(function(){
@@ -1427,6 +1433,8 @@ function scheduleSync(){
   clearTimeout(syncTimer);
   syncTimer=setTimeout(function(){
     if(!CFG.ep)return;
+    /* 何か入力している最中に取り直すと、書きかけが消える。落ち着くまで待つ */
+    if(isEditing()){ scheduleSync(); return; }
     api('apiGetData',[]).then(function(j){
       if(j&&j.items){ adoptServer(j); render(false); }
     }).catch(function(){});
@@ -1888,7 +1896,11 @@ function startTick(){ if(!heroTimer){ tickHero(); heroTimer=setInterval(tickHero
 function stopTick(){ if(heroTimer){ clearInterval(heroTimer); heroTimer=null } }
 document.addEventListener('visibilitychange',function(){
   if(document.hidden) stopTick();
-  else { startTick(); render(false); }
+  else {
+    startTick();
+    /* 入力中に戻ってきた場合は描き直さない。カーソルと書きかけを優先する */
+    if(!isEditing()) render(false);
+  }
 });
 window.addEventListener('pagehide',stopTick);
 window.addEventListener('pageshow',startTick);
@@ -2339,6 +2351,47 @@ function renderTabContent(it){
   return h;
 }
 
+/* 描き直しの前後で、入力中の値・カーソル位置・開いていた折りたたみを保つ。
+   別タブから戻ったときや、裏の再取得が走ったときに書きかけが消えないようにする */
+function snapFields(root){
+  if(!root) return null;
+  var m={vals:{}, focus:null, sel:null};
+  var list=root.querySelectorAll('input,select,textarea');
+  for(var i=0;i<list.length;i++){
+    var el=list[i];
+    if(!el.id) continue;
+    m.vals[el.id] = (el.type==='checkbox') ? el.checked : el.value;
+    if(el===document.activeElement){
+      m.focus=el.id;
+      try{ m.sel=[el.selectionStart, el.selectionEnd]; }catch(e){ m.sel=null; }
+    }
+  }
+  return m;
+}
+function restoreFields(root, m){
+  if(!root||!m) return;
+  for(var id in m.vals){
+    var el=root.querySelector('#'+CSS.escape(id));
+    if(!el) continue;
+    if(el.type==='checkbox') el.checked=m.vals[id];
+    else el.value=m.vals[id];
+  }
+  if(m.focus){
+    var f=root.querySelector('#'+CSS.escape(m.focus));
+    if(f){
+      try{
+        f.focus({preventScroll:true});
+        if(m.sel && f.setSelectionRange) f.setSelectionRange(m.sel[0], m.sel[1]);
+      }catch(e){}
+    }
+  }
+}
+/* 入力中かどうか。裏の再取得をここで待たせる */
+function isEditing(){
+  var a=document.activeElement;
+  return !!(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
+}
+
 function paintDetail(it){
   var st=stOf(it), col=st==='waiting'?'var(--wait)':(st==='offer'||st==='fixed')?'var(--go)':'var(--muted)';
   var LAB={todo:'対応中',waiting:'結果待ち',offer:'内定',fail:'選考終了',fixed:'参加決定',skip:'見送り'};
@@ -2363,10 +2416,12 @@ function paintDetail(it){
     if(sc && side.dataset.co===openCo){
       var sp=sc.querySelector('.tab-pane');
       var sy=sp?sp.scrollTop:0, sy2=side.scrollTop;
+      var snap2=snapFields(sc);
       sc.innerHTML=fullHtml;
       var np2=sc.querySelector('.tab-pane');
       if(np2){ np2.style.animation='none'; np2.scrollTop=sy; }
       side.scrollTop=sy2;
+      restoreFields(sc, snap2);
       return;
     }
     side.dataset.co=openCo;
@@ -2379,13 +2434,20 @@ function paintDetail(it){
   if(card){
     var pane=card.querySelector('.tab-pane');
     var y=pane?pane.scrollTop:0;
+    /* 同じ会社を描き直すときだけ、書きかけを戻す */
+    var same = (card.dataset.co===openCo);
+    var snap1 = same ? snapFields(card) : null;
     card.innerHTML=fullHtml;
+    card.dataset.co=openCo;
     var np=card.querySelector('.tab-pane');
     if(np){ np.style.animation='none'; np.scrollTop=y; }
+    restoreFields(card, snap1);
     return;
   }
   clearTimeout(window._closeT);
   box.innerHTML='<div class="sheet" onclick="closeSheet(event)"><div class="card noblur">'+fullHtml+'</div></div>';
+  var newCard=box.querySelector('.card');
+  if(newCard) newCard.dataset.co=openCo;
   requestAnimationFrame(function(){
     var sh=box.querySelector('.sheet');
     if(sh) sh.classList.add('is-active');
