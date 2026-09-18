@@ -516,6 +516,16 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sugNote{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7}
 
+/* 詳細の下半分。普段は畳んでおく */
+.setwrap{margin-top:30px;padding-top:6px;border-top:1px solid var(--line-soft)}
+.setwrap > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  padding:12px 0;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted);
+  transition:color .18s var(--ease)}
+.setwrap > summary::-webkit-details-marker{display:none}
+.setwrap > summary::after{content:'▸';margin-left:auto;font-size:11px;transition:transform .2s var(--ease)}
+.setwrap[open] > summary::after{transform:rotate(90deg)}
+.setwrap > summary:hover{color:var(--text)}
+
 /* 日付＋時刻。時刻はスクロールで合わせず、一覧から選ぶ */
 .dtf{display:flex;gap:8px;align-items:center;margin-top:8px}
 .dtf .dtf-d{flex:1 1 auto;min-width:0;margin:0}
@@ -708,6 +718,8 @@ var EV_GRACE_MS = 2*3600*1000;
 
 var DATA = {items:[],events:[]};
 var openCo = null, tab = 'info';
+/* 詳細の「この会社の設定」を開いたままにしておくか */
+var SET_OPEN = false;
 var TERM = '夏インターン';
 var TERMS = ['夏インターン','本選考'];
 var FILT = 'all', PAGE = 'list';
@@ -2184,8 +2196,11 @@ function renderTabContent(it){
       gcalUrl(it.c+' '+it.stage+' 締切',it.due,it.url,it.timeUnset)+'">Googleカレンダーに追加</a>';
 
 
-    /* ここから下は、登録し直すときだけ触る欄 */
-    h+='<div style="margin-top:30px;padding-top:16px;border-top:1px solid var(--line-soft)">'+
+    /* ここから下は、登録し直すときだけ触る欄。畳んでおく */
+    h+='<details class="setwrap"'+(SET_OPEN?' open':'')+' ontoggle="SET_OPEN=this.open">'+
+      '<summary>この会社の設定</summary>';
+
+    h+='<div style="margin-top:4px">'+
       '<div class="lab" style="margin:0 0 8px">マイページの登録</div>'+
       '<input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="'+esc(it.url||'')+'">'+
       '<input class="f" id="coId" placeholder="ログインID" value="'+esc(it.id||'')+'" style="margin-top:8px">'+
@@ -2212,6 +2227,16 @@ function renderTabContent(it){
       'シートの行と予定の記録、ロゴの割り当てをまとめて付け替えます。'+
       'タイルでは「株式会社」を省いて表示するので、正式名称で入れておけます。</div></div>';
 
+    if(isCo(it)) h+='<div style="margin-top:22px">'+
+      '<div class="lab" style="margin:0 0 8px">同じマイページで別の選考を追加</div>'+
+      '<div style="display:flex;gap:8px">'+
+      '<input class="f" style="flex:1 1 0;min-width:0;margin:0" id="splitName" '+
+      'placeholder="例：'+esc(shortCo(it.c))+'（業務企画職）">'+
+      '<button class="gh" style="padding:0 14px;color:var(--text)" data-act="split" data-co="'+esc(it.c)+'">追加</button></div>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">'+
+      'マイページURL・ログインID・ロゴ・業種をそのまま引き継いだ行を作ります。'+
+      'コース別・職種別に選考が分かれる会社を、別々に追跡できます。</div></div>';
+
     var currentLogoVal = MANUAL_LOGOS[it.c] || (LOGOS[it.c] && LOGOS[it.c] !== 'none' ? LOGOS[it.c] : '');
     h+='<div style="margin-top:22px">'+
       '<div class="lab" style="margin:0 0 8px">ロゴ（手動URLは自動更新されず固定されます）</div>'+
@@ -2233,6 +2258,8 @@ function renderTabContent(it){
       esc(TERM)+'の行と、この会社の予定・カレンダー登録をまとめて消します。元に戻せません。</div>'+
       '<button class="big" style="background:transparent;border:1px solid rgba(255,69,58,.5);color:var(--hot);font-weight:500" '+
       'data-act="delco" data-co="'+esc(it.c)+'">削除する</button></div>';
+
+    h+='</details>';
   }
 
   if(tab==='events'){
@@ -2769,6 +2796,30 @@ function saveIndustry(co){
   },'apiSetIndustry',[co,TERM,v], v?('業種を「'+v+'」にしました'):'業種を空にしました');
 }
 
+/* 同じマイページを使う別コースを、別の行として増やす。
+   JALの業務企画と客室のように、1つのIDで複数の選考が走る会社向け */
+function splitCompany(co){
+  var el=document.getElementById('splitName');
+  var v=el?el.value.trim():'';
+  if(!v){ toast('新しい選考の名前を入れてください'); return }
+  if(v===co){ toast('元の行と同じ名前です'); return }
+  if(DATA.items.some(function(x){return x.c===v&&(x.term||'夏インターン')===TERM})){
+    toast('その名前はすでに登録されています'); return;
+  }
+  var src=find_(co);
+  if(!src){ toast('元の会社が見つかりません'); return }
+  if(!confirm('「'+v+'」を追加します。\n\n'+co+' のマイページURL・ID・ロゴ・業種を引き継ぎます。'))return;
+
+  flushRoute();
+  /* ロゴは同じものを使う。取り直しの問い合わせを走らせない */
+  if(MANUAL_LOGOS[co]) saveManualLogo(v, MANUAL_LOGOS[co]);
+  else if(LOGOS[co]) LOGOS[v]=LOGOS[co];
+  tried[v]=1;
+
+  openCo=v;                                   /* 追加した行をそのまま開く */
+  call('apiSplitCompany',[co,TERM,v],function(){ toast(v+' を追加しました',true) });
+}
+
 /* 登録済みの会社名を手で直す */
 function renameCompany(co){
   var el=document.getElementById('renName');
@@ -2824,6 +2875,7 @@ var ACTS={
   delco: function(co){ deleteCompany(co) },
   sugco: function(co,v){ applySuggestCo(co,v) },
   'ren-save': function(co){ renameCompany(co) },
+  split: function(co){ splitCompany(co) },
   'ind-save': function(co){ saveIndustry(co) },
   pick:  function(co,v){ pick(co,v) }
 };
