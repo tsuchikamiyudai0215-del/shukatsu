@@ -302,7 +302,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   border:1px solid rgba(255,255,255,0.14);
   box-shadow:var(--glass-edge);
   transition:transform .5s var(--spring),background .3s var(--ease),
-             border-color .3s var(--ease),box-shadow .3s var(--ease);
+              border-color .3s var(--ease),box-shadow .3s var(--ease);
 }
 .tabbar{position:fixed;left:50%;transform:translateX(-50%);
   backdrop-filter:blur(32px) saturate(190%) brightness(1.04);
@@ -799,7 +799,6 @@ function since(s){
 function routeOf(it){return (it.route&&it.route.length)?it.route:DEFAULT_ROUTE}
 function isWide(){return window.innerWidth>=1000}
 
-/* DOM重複防止：操作された要素と同じペイン内から要素を探す */
 function getFieldInScope(btn, id){
   if(btn && btn.closest){
     var pane = btn.closest('.tab-pane') || btn.closest('.card');
@@ -1262,9 +1261,9 @@ function saveCfg(ep,key){
   try{ localStorage.setItem('sk_ep',ep); localStorage.setItem('sk_key',key); }catch(e){}
 }
 function api(action,args){
+  /* CORSプリフライトおよびリダイレクトエラーを防ぐためヘッダーを最適化 */
   return fetch(CFG.ep,{
     method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify({key:CFG.key,action:action,args:args||[]}),
     redirect:'follow'
   }).then(function(r){
@@ -1310,7 +1309,10 @@ function applyData(j,cb){
   if(j&&j.items&&j.items.length){ cacheSave(j); staleHide(); }
   if(DATA.logos)for(var k in DATA.logos)if(!LOGOS[k])LOGOS[k]=DATA.logos[k];
   for(var mk in MANUAL_LOGOS) LOGOS[mk] = MANUAL_LOGOS[mk];
-  render(false); hydrateLogos(); if(cb)cb();
+  /* シート編集中のDOMリセットを防ぐ */
+  if(!openCo) render(false);
+  hydrateLogos(); 
+  if(cb)cb();
 }
 function resetUi(){
   var box=document.getElementById('sheet');
@@ -1374,7 +1376,10 @@ function scheduleSync(){
   syncTimer=setTimeout(function(){
     if(!CFG.ep)return;
     api('apiGetData',[]).then(function(j){
-      if(j&&j.items){ adoptServer(j); render(false); }
+      if(j&&j.items){ 
+        adoptServer(j); 
+        if(!openCo) render(false); 
+      }
     }).catch(function(){});
   },4000);
 }
@@ -1382,14 +1387,19 @@ function opt(mutate,fn,args,label){
   flushRoute();
   var snap=JSON.stringify(DATA.items);
   mutate();
-  render(false);
+  if(!openCo) render(false);
   api(fn,args).then(function(d){
-    if(d&&d.items){ adoptServer(d); render(false); }
-    else { cacheSave(DATA); scheduleSync(); }
+    if(d&&d.items){ 
+      adoptServer(d); 
+      if(!openCo) render(false); 
+    } else { 
+      cacheSave(DATA); 
+      scheduleSync(); 
+    }
   }).catch(function(){
     DATA.items=JSON.parse(snap);
     applyPendingRoute();
-    render(false);
+    if(!openCo) render(false);
     toast('保存できませんでした。通信を確認してください');
   });
   if(label)toast(label,true);
@@ -1819,7 +1829,11 @@ function startTick(){ if(!heroTimer){ tickHero(); heroTimer=setInterval(tickHero
 function stopTick(){ if(heroTimer){ clearInterval(heroTimer); heroTimer=null } }
 document.addEventListener('visibilitychange',function(){
   if(document.hidden) stopTick();
-  else { startTick(); render(false); }
+  else { 
+    startTick(); 
+    /* タブ復帰時に入力中の内容が消えないよう、シート非表示時のみ全体再描画 */
+    if(!openCo) render(false); 
+  }
 });
 window.addEventListener('pagehide',stopTick);
 window.addEventListener('pageshow',startTick);
@@ -2366,7 +2380,7 @@ function adoptServer(d){
 
 function scheduleListRefresh(){
   clearTimeout(_listTimer);
-  _listTimer = setTimeout(function(){ render(false) }, 320);
+  _listTimer = setTimeout(function(){ if(!openCo) render(false); }, 320);
 }
 
 function sendRoute(){
@@ -2380,8 +2394,13 @@ function sendRoute(){
   api('apiSetRoute', [p.co, p.term, p.arr, p.stage]).then(function(d){
     if(_routeInFlight === p) _routeInFlight = null;
     if(_pendingRoute) return;
-    if(d && d.items){ adoptServer(d); render(false); }
-    else { cacheSave(DATA); scheduleSync(); }
+    if(d && d.items){ 
+      adoptServer(d); 
+      if(!openCo) render(false); 
+    } else { 
+      cacheSave(DATA); 
+      scheduleSync(); 
+    }
   }).catch(function(){
     if(_routeInFlight === p) _routeInFlight = null;
     if(_pendingRoute) return;
@@ -2396,7 +2415,7 @@ function sendRoute(){
       });
     }catch(e){}
     cacheSave(DATA);
-    render(false);
+    if(!openCo) render(false);
     toast('ルートを保存できませんでした。通信を確認してください');
   });
 }
@@ -3293,7 +3312,7 @@ function resetCfg(){
     if(dist>110 && locked && CFG.ep){
       var p=el();
       if(p){ p.classList.add('spin'); p.style.opacity='1';
-             p.style.transform='translate3d(-50%,40px,0) scale(1)'; }
+              p.style.transform='translate3d(-50%,40px,0) scale(1)'; }
       api('apiGetData',[]).then(function(j){
         if(j&&j.items){ applyData(j); staleHide(); toast('最新に更新しました',true); }
         reset();
