@@ -272,6 +272,15 @@ button,select,input{font-family:var(--body)}
 .kv{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .kv span:first-child{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
 .kv span:last-child{font-size:13px;text-align:right;word-break:break-all;margin-left:16px}
+/* タップでコピーできる行 */
+button.kv.idrow{width:100%;background:none;border:none;border-bottom:1px solid var(--line-soft);
+  cursor:pointer;color:var(--text);align-items:center;
+  transition:background .16s var(--ease),transform .42s var(--spring)}
+button.kv.idrow:active{transform:scale(.985);background:rgba(255,255,255,.06);
+  transition:transform .1s var(--press)}
+.idval{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12.5px}
+.idval i{font-family:var(--body);font-style:normal;font-size:10.5px;color:var(--muted);
+  border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex:0 0 auto}
 .f{width:100%;background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.15);border-radius:var(--r-field);
   padding:13px 15px;color:var(--text);font-size:14px;outline:none;
   box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
@@ -720,6 +729,61 @@ var DATA = {items:[],events:[]};
 var openCo = null, tab = 'info';
 /* 詳細の「この会社の設定」を開いたままにしておくか */
 var SET_OPEN = false;
+/* マイページを Chrome で開くか（この端末だけの設定） */
+var OPEN_IN_CHROME = false;
+try{ OPEN_IN_CHROME = localStorage.getItem('sk_chrome')==='1'; }catch(e){}
+/* 文字列を控え帳（クリップボード）へ。
+   採用管理システムは複数の会社で同じドメインを使うので、
+   パスワードマネージャーの候補から選ぶより、ここからコピーした方が早い */
+function copyText(text, label){
+  var done=function(){ toast((label||'')+'をコピーしました', true) };
+  var fail=function(){ toast('コピーできませんでした') };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, function(){ legacyCopy(text)?done():fail() });
+    return;
+  }
+  legacyCopy(text) ? done() : fail();
+}
+function legacyCopy(text){
+  try{
+    var ta=document.createElement('textarea');
+    ta.value=text;
+    ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    var ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }catch(e){ return false }
+}
+
+function setOpenInChrome(on){
+  OPEN_IN_CHROME = !!on;
+  try{ localStorage.setItem('sk_chrome', OPEN_IN_CHROME?'1':'0'); }catch(e){}
+  renderDetail();
+  toast(OPEN_IN_CHROME?'マイページを Chrome で開きます':'標準のブラウザで開きます', true);
+}
+/* Chrome を名指しで開くURLに置き換える。
+   iOS は googlechrome(s)://、Android は intent:// を使う。
+   PC やその他の環境ではそのまま返す */
+function extHref(url){
+  if(!OPEN_IN_CHROME || !url) return url;
+  var ua = navigator.userAgent || '';
+  if(/iPhone|iPad|iPod/i.test(ua)){
+    if(/^https:\/\//i.test(url)) return 'googlechromes://'+url.slice(8);
+    if(/^http:\/\//i.test(url))  return 'googlechrome://'+url.slice(7);
+    return url;
+  }
+  if(/Android/i.test(ua)){
+    var m=url.match(/^https?:\/\/(.+)$/i);
+    if(!m) return url;
+    var scheme = /^https/i.test(url) ? 'https' : 'http';
+    return 'intent://'+m[1]+'#Intent;scheme='+scheme+';package=com.android.chrome;end';
+  }
+  return url;
+}
 var TERM = '夏インターン';
 var TERMS = ['夏インターン','本選考'];
 var FILT = 'all', PAGE = 'list';
@@ -1780,10 +1844,10 @@ function render(pageChanged){
     h+='<div style="color:var(--dim);font-size:14px;padding:20px 0">予定も締切もありません。</div>';
   }
 
-  var events=agenda.filter(function(a){return a.kind==='event' && a!==hero});
+  /* 見出しに出した1件も一覧には残す。絞り込んだときに見当たらなくなるため */
+  var events=agenda.filter(function(a){return a.kind==='event'});
   var todo=LIST.filter(function(x){
-      /* 名前ではなく行そのもので照合する。見出しに出した1件だけを外す */
-      return stOf(x)==='todo' && !(hero && hero.kind==='due' && hero.it===x);
+      return stOf(x)==='todo';
     }).sort(function(a,b){return (D(a.due)||9e15)-(D(b.due)||9e15)});
   var fixed=LIST.filter(function(x){return stOf(x)==='fixed'});
   var waiting=LIST.filter(function(x){return stOf(x)==='waiting'})
@@ -2185,13 +2249,15 @@ function renderTabContent(it){
     if(it.url || it.folder){
       h+='<div style="display:flex;gap:8px;margin-top:14px">';
       if(it.url) h+='<a class="big" style="flex:1;margin:0;background:#fff;color:#000" '+
-        'target="_blank" rel="noopener noreferrer" href="'+esc(it.url)+'">マイページ</a>';
+        'target="_blank" rel="noopener noreferrer" href="'+esc(extHref(it.url))+'">マイページ</a>';
       if(it.folder) h+='<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" '+
         'target="_blank" rel="noopener noreferrer" href="'+esc(it.folder)+'">書類フォルダ</a>';
       h+='</div>';
     }
-    if(it.id) h+='<div class="kv" style="margin-top:12px"><span>ログインID</span>'+
-      '<span style="font-family:var(--mono);font-size:12.5px">'+esc(it.id)+'</span></div>';
+    if(it.id) h+='<button class="kv idrow" style="margin-top:12px" data-act="copy" '+
+      'data-co="'+esc(it.id)+'" data-v="ログインID">'+
+      '<span>ログインID</span>'+
+      '<span class="idval">'+esc(it.id)+'<i>コピー</i></span></button>';
     if(it.on) h+='<div class="kv"><span>結果日</span><span>'+fdate(it.on)+'</span></div>';
 
     /* よく押すものだけを先に並べる */
@@ -2229,7 +2295,13 @@ function renderTabContent(it){
       '<input class="f" id="coId" placeholder="ログインID" value="'+esc(it.id||'')+'" style="margin-top:8px">'+
       '<button class="gh" style="margin-top:8px" data-act="setinfo" data-co="'+esc(it.c)+'">保存</button>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">'+
-      'パスワードはこの端末にも画面にも保存しません。</div></div>';
+      'パスワードはこの端末にも画面にも保存しません。</div>'+
+      '<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px">'+
+        '<input type="checkbox" id="chromeSw" '+(OPEN_IN_CHROME?'checked ':'')+
+        'onchange="setOpenInChrome(this.checked)" style="width:20px;height:20px;accent-color:var(--blue)">'+
+        'マイページを Chrome で開く</label>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7">'+
+      'この端末だけの設定です。Chrome が入っていないと何も起きないので、その場合は外してください。</div></div>';
 
     if(isCo(it)) h+='<div style="margin-top:22px">'+
       '<div class="lab" style="margin:0 0 8px">業種</div>'+
@@ -2949,6 +3021,7 @@ var ACTS={
   sugco: function(co,v){ applySuggestCo(co,v) },
   'ren-save': function(co){ renameCompany(co) },
   split: function(co){ splitCompany(co) },
+  copy: function(co,v){ copyText(co, v) },
   'ind-save': function(co){ saveIndustry(co) },
   pick:  function(co,v){ pick(co,v) }
 };
