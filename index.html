@@ -1135,6 +1135,9 @@ function logoErr(img){
   doms.forEach(function(d){ chain.push(ddgIcon(d)) });
   doms.forEach(function(d){ chain.push(gIcon(d)) });
 
+  /* いま失敗したURLと同じ候補は飛ばす。最初の表示と同じURLを二度引かない */
+  var failed = img.getAttribute('src');
+  while(step < chain.length && chain[step] === failed) step++;
   if(step < chain.length){
     box.dataset.step = String(step+1);
     box.classList.remove('rdy');
@@ -1286,9 +1289,6 @@ function refetchLogo(co){
   });
 }
 
-/* データURLはサーバーの保存領域に収まらないので、端末にだけ置く */
-function isDataUrl(v){ return /^data:/i.test(String(v||'')) }
-
 function setLogoUrl(co){
   var el=document.getElementById('logoUrl');
   var v=el?el.value.trim():'';
@@ -1302,7 +1302,8 @@ function setLogoUrl(co){
 }
 
 /* 手元の画像ファイルからロゴを入れる。
-   96pxの正方形に縮めてから保存するので、写真を選んでも重くならない */
+   96pxの正方形に縮めてから保存するので、写真を選んでも重くならない。
+   データURLはサーバーの保存領域に収まらないので、端末にだけ置く */
 function logoFromFile(input, co){
   var f = input && input.files && input.files[0];
   input.value='';
@@ -1421,13 +1422,17 @@ function cacheSave(j){
 function cacheLoad(){
   try{ return JSON.parse(localStorage.getItem('sk_cache')||'null'); }catch(e){ return null }
 }
+function mergeLogos(src){
+  if(src) for(var k in src) if(!LOGOS[k]) LOGOS[k]=src[k];
+  /* サーバーのデータよりも手動設定ロゴを優先する */
+  for(var mk in MANUAL_LOGOS) LOGOS[mk] = MANUAL_LOGOS[mk];
+}
 function applyData(j,cb){
   DATA=j;
   applyPendingRoute();          /* 保存待ちのルート編集を、届いたデータの上に戻す */
-  if(j&&j.items&&j.items.length){ cacheSave(j); staleHide(); }
-  if(DATA.logos)for(var k in DATA.logos)if(!LOGOS[k])LOGOS[k]=DATA.logos[k];
-  /* サーバーのデータよりも手動設定ロゴを優先する */
-  for(var mk in MANUAL_LOGOS) LOGOS[mk] = MANUAL_LOGOS[mk];
+  /* 0件でも保存する。全件削除したあとに古い一覧が起動時に出ないように */
+  if(j&&Array.isArray(j.items)){ cacheSave(j); staleHide(); }
+  mergeLogos(DATA.logos);
   render(false); hydrateLogos(); if(cb)cb();
 }
 function resetUi(){
@@ -1446,7 +1451,14 @@ function call(fn,args,cb){
   busy(true);
   api(fn,args).then(function(j){ busy(false); applyData(j,cb); })
   .catch(function(e){
-    busy(false); hideSplash(); resetUi();
+    busy(false);
+    /* 一覧を出したあとの書き込み失敗は、画面を残してトーストで知らせる */
+    if(booted && DATA && Array.isArray(DATA.items) && DATA.items.length){
+      toast('保存できませんでした'+(e&&e.message?'：'+e.message:''));
+      render(false);
+      return;
+    }
+    hideSplash(); resetUi();
     document.getElementById('app').innerHTML=
       '<div style="color:var(--dim);font-size:13px;line-height:1.9;padding:40px 0">'+
       '読み込めませんでした。<br>'+esc(e&&e.message?e.message:'')+
@@ -1468,8 +1480,11 @@ function load(){
     api('apiGetData',[]).then(function(j){
       if(!j||!j.items) return;
       if(isEditing()){
-        /* 書きかけを消さないよう、データだけ入れ替えて描き直しは見送る */
-        DATA=j; cacheSave(j); staleHide();
+        /* 書きかけを消さないよう、データだけ入れ替えて描き直しは見送る。
+           保存待ちのルート編集とロゴはここでも引き継ぐ */
+        adoptServer(j);
+        mergeLogos(j.logos);
+        staleHide();
         scheduleSync();
         return;
       }
@@ -1581,6 +1596,8 @@ function doStatus(co,st){
     it.status=st;
     if(st==='結果待ち'&&!it.since)it.since=todayStr();
     if(st==='対応中'){it.lost='';it.on=null;}
+    /* サーバー側で締切とカレンダー予定を片付けるので、画面側でも外す */
+    if(st==='見送り'){it.due=null;it.timeUnset=true;}
   },'apiSetStatus',[co,TERM,st],st+'にしました');
 }
 function saveInfo(co){
@@ -1606,9 +1623,9 @@ function dtField(id, iso, def, noTime){
   var dv = String(def||'00:00');
   var hh = has ? String(iso).slice(11,13) : dv.slice(0,2);
   var mm = has ? String(iso).slice(14,16) : dv.slice(3,5);
-  /* 5分刻みに無い値（例 23:59 以外の半端な分）も選べるよう、その値を足す */
+  /* 候補に無い分（例 15）も選べるよう、その値を足す */
   var mins = DT_MIN.slice();
-  if(mm && mins.indexOf(mm)<0) mins.push(mm), mins.sort();
+  if(mm && mins.indexOf(mm)<0){ mins.push(mm); mins.sort(); }
 
   var h='<div class="dtf'+(noTime?' no-time':'')+'" id="'+id+'Wrap">'+
     '<input class="f dtf-d" type="date" id="'+id+'D" value="'+esc(d)+'">'+
@@ -1646,10 +1663,11 @@ function stOf(it){
   if(s==='内定') return (TERM==='夏インターン') ? 'fixed' : 'offer';
   if(s==='参加決定') return 'fixed';
   if(s==='結果待ち') return 'waiting';
-  if(s==='対応中'&&it.due&&!rem(it.due)) return 'waiting';
+  /* Gmail から取り込んだ行など、状態が空の行も対応中として扱う */
+  if((s==='対応中'||s==='')&&it.due&&!rem(it.due)) return 'waiting';
   return 'todo';
 }
-function autoSent(it){return it.status==='対応中'&&it.due&&!rem(it.due)}
+function autoSent(it){var s=it.status||'';return (s==='対応中'||s==='')&&it.due&&!rem(it.due)}
 
 /* ============ 一覧描画 ============ */
 function dayCell(n,color,unit){
@@ -1688,7 +1706,6 @@ function rowHtml(it){
 
   /* タイルの中にはボタンを置かない。指には小さすぎて押し分けにくく、
      高さも揃わなくなる。操作は詳細シートに集約する */
-  var acts='';
   var isMuted = (st==='fail'||st==='skip');
   var isHot = (st==='todo' && r && r.d<=2);
   return '<div class="row'+(st==='fixed'?' is-fixed':st==='offer'?' is-offer':'')+
@@ -1703,7 +1720,7 @@ function rowHtml(it){
           '<i>'+right+'</i></div>'+sub+
       '</div>'+
       '<div class="day">'+left+'</div>'+
-    '</div>'+acts+'</div>';
+    '</div></div>';
 }
 
 function eventRowHtml(ev){
@@ -1867,6 +1884,8 @@ function render(pageChanged){
     {k:'end',   lab:'終了',    col:'var(--dim)',  n:ended.length},
     {k:'skip',  lab:'見送り',  col:'var(--dim)',  n:skipped.length}
   ].filter(function(g){return g.n>0});
+  /* 保存していた絞り込みの行き先が空になったら、すべてに戻す（真っ白な一覧を防ぐ） */
+  if(FILT!=='all' && !G.some(function(g){return g.k===FILT})){ FILT='all'; saveUiState(); }
 
   h+='<div class="chips"><div class="chiprow">';
   h+='<button data-filt="all" class="'+(FILT==='all'?'on':'')+'" onclick="setFilt(\'all\')">すべて'+
@@ -1946,6 +1965,8 @@ function tickHero(){
     if(el.dataset.rendered!=='expired'){
       el.dataset.rendered='expired';
       el.innerHTML='<b style="font-size:42px;color:var(--dim)">期限切れ</b>';
+      /* 締切を過ぎた会社は結果待ちへ移るので、一覧と見出しを組み直す */
+      if(!isEditing()) setTimeout(function(){ render(false) }, 1200);
     }
     return;
   }
@@ -1959,19 +1980,20 @@ var heroTimer=null;
 function startTick(){ if(!heroTimer){ tickHero(); heroTimer=setInterval(tickHero,1000) } }
 function stopTick(){ if(heroTimer){ clearInterval(heroTimer); heroTimer=null } }
 document.addEventListener('visibilitychange',function(){
-  if(document.hidden) stopTick();
+  if(document.hidden){ stopTick(); flushRoute(); }
   else {
     startTick();
     /* 入力中に戻ってきた場合は描き直さない。カーソルと書きかけを優先する */
     if(!isEditing()) render(false);
   }
 });
-window.addEventListener('pagehide',stopTick);
+window.addEventListener('pagehide',function(){ stopTick(); flushRoute(); });
 window.addEventListener('pageshow',startTick);
 startTick();
 
 var wasWide=isWide();
 window.addEventListener('resize',function(){
+  syncPills();
   var w=isWide();
   if(w===wasWide)return;
   wasWide=w;
@@ -2282,7 +2304,7 @@ function renderTabContent(it){
     }
 
     if(it.due) h+='<a class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="'+
-      gcalUrl(it.c+' '+it.stage+' 締切',it.due,it.url,it.timeUnset)+'">Googleカレンダーに追加</a>';
+      esc(gcalUrl(it.c+' '+it.stage+' 締切',it.due,it.url,it.timeUnset))+'">Googleカレンダーに追加</a>';
 
 
     /* ここから下は、登録し直すときだけ触る欄。畳んでおく */
@@ -2638,9 +2660,6 @@ function saveRoute(arr,stage,label){
 
   if(label) toast(label, true);
 }
-/* 画面を離れる直前に取りこぼさない */
-window.addEventListener('pagehide', flushRoute);
-document.addEventListener('visibilitychange', function(){ if(document.hidden) flushRoute() });
 
 function mv(i,d){
   var it=byCo(openCo); if(!it)return;
@@ -2848,19 +2867,18 @@ document.addEventListener('keydown',function(e){
     else if(isWide()&&openCo) closeSide();
   }
 });
+/* PCで右パネルの外を押したら閉じる。押し始めと離した場所の両方が外のときだけ */
+var OUTSIDE_SEL='#side,.row,.hero,.stripitem,.tabbar,.chips,.seg';
 var outsideDown=false;
 document.addEventListener('pointerdown',function(e){
   var t=e.target;
-  outsideDown = !(t.closest&&(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
-    t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg')));
+  outsideDown = !(t.closest && t.closest(OUTSIDE_SEL));
 },true);
 document.addEventListener('click',function(e){
   if(!isWide()||!openCo)return;
   if(document.getElementById('sheet').innerHTML)return;
   if(!outsideDown)return;
-  var t=e.target;
-  if(t.closest('#side')||t.closest('.row')||t.closest('.hero')||
-     t.closest('.stripitem')||t.closest('.tabbar')||t.closest('.chips')||t.closest('.seg'))return;
+  if(e.target.closest && e.target.closest(OUTSIDE_SEL))return;
   closeSide();
 });
 
@@ -3029,11 +3047,10 @@ document.addEventListener('click',function(e){
   var el=e.target.closest ? e.target.closest('[data-act]') : null;
   if(!el)return;
   var act=el.getAttribute('data-act');
-  var fn=ACTS[act];
-  if(!fn)return;
+  if(!Object.prototype.hasOwnProperty.call(ACTS,act))return;
   if(act!=='open') e.stopPropagation();
   e.preventDefault();
-  fn(el.getAttribute('data-co')||'', el.getAttribute('data-v')||'');
+  ACTS[act](el.getAttribute('data-co')||'', el.getAttribute('data-v')||'');
 },false);
 
 /* ============ リキッドグラス操作 ============ */
@@ -3182,6 +3199,14 @@ function indOf(it){
   var v=String(it && it.ind || '').trim();
   return v || industryOf(it && it.c);
 }
+/* 業界名の並び。件数の多い順、「その他」は最後 */
+function sortIndKeys(map){
+  return Object.keys(map).sort(function(a,b){
+    if(a==='その他') return 1;
+    if(b==='その他') return -1;
+    return map[b].n-map[a].n;
+  });
+}
 
 
 function tally(){
@@ -3206,19 +3231,22 @@ function renderPassport(pageChanged){
   var max=1; rows.forEach(function(s){max=Math.max(max,t[s].p+t[s].f+t[s].w)});
 
   var LIST=ITEMS().filter(isCo);
-  var live=LIST.filter(function(i){return ['todo','waiting','fixed','offer'].indexOf(stOf(i))>=0});
-  var fails=LIST.filter(function(i){return stOf(i)==='fail'});
-  var entered=LIST.filter(function(i){return stOf(i)!=='skip'});
-  var skipped=LIST.filter(function(i){return stOf(i)==='skip'});
+  /* 状態ごとの振り分けは1回だけ計算して使い回す */
+  var ST=LIST.map(stOf);
+  var countSt=function(k){ var n=0; for(var i=0;i<ST.length;i++) if(ST[i]===k) n++; return n; };
+  var live=LIST.filter(function(_,i){return ['todo','waiting','fixed','offer'].indexOf(ST[i])>=0});
+  var fails=LIST.filter(function(_,i){return ST[i]==='fail'});
+  var entered=LIST.filter(function(_,i){return ST[i]!=='skip'});
+  var skipped=LIST.filter(function(_,i){return ST[i]==='skip'});
   var passes=0; rows.forEach(function(s){passes+=t[s].p});
 
   var worst=null;
   rows.forEach(function(s){ if(!worst||t[s].f>t[worst].f) worst=s });
 
-  var waits=LIST.filter(function(i){return stOf(i)==='waiting'})
+  var waits=LIST.filter(function(_,i){return ST[i]==='waiting'})
     .map(function(i){return {c:i.c, d:since(i.since||(i.due?i.due.slice(0,10):null))||0}})
     .sort(function(a,b){return b.d-a.d});
-  var avg=waits.length?Math.round(waits.reduce(function(a,b){return a+b.d},0)/waits.length):0;
+  var waitAvg=waits.length?Math.round(waits.reduce(function(a,b){return a+b.d},0)/waits.length):0;
 
   /* 段階名の並び順ではなく、その会社のルート内での相対進捗で比べる */
   var deepest='—', deepestRate=-1;
@@ -3274,7 +3302,7 @@ function renderPassport(pageChanged){
       '<div class="ttl">結果待ち</div>'+
       '<div class="pgrid">'+
         '<div><b>'+waits.length+'</b><span>社</span></div>'+
-        '<div><b>'+avg+'</b><span>平均経過日数</span></div>'+
+        '<div><b>'+waitAvg+'</b><span>平均経過日数</span></div>'+
         '<div><b>'+waits[0].d+'</b><span>最長</span></div></div>'+
       '<div class="pfoot">最も長いのは'+esc(waits[0].c)+'</div></div>');
   }
@@ -3283,11 +3311,12 @@ function renderPassport(pageChanged){
      1社が3段階進んで落ちただけで「3勝1敗」になり、どの業界も高く出てしまう。
      ここは社を単位にして、結果の内訳と、ルートのどこまで進めたかの平均で見る */
   var byInd={};
-  LIST.forEach(function(it){
-    if(stOf(it)==='skip') return;
+  LIST.forEach(function(it,idx){
+    var st=ST[idx];
+    if(st==='skip') return;
     var key = indOf(it);
     if(!byInd[key]) byInd[key]={n:0,got:0,fail:0,live:0,sum:0};
-    var o=byInd[key], st=stOf(it);
+    var o=byInd[key];
     var r=routeOf(it), i=r.indexOf(it.lost||it.stage);
     o.n++;
     if(st==='fail') o.fail++;
@@ -3297,18 +3326,14 @@ function renderPassport(pageChanged){
     if(st==='offer'||st==='fixed') o.sum+=1;
     else if(i>=0 && r.length>1) o.sum += i/(r.length-1);
   });
-  var i2Keys=Object.keys(byInd).sort(function(a,b){
-    if(a==='その他') return 1;
-    if(b==='その他') return -1;
-    return byInd[b].n-byInd[a].n;
-  });
+  var i2Keys=sortIndKeys(byInd);
   if(i2Keys.length){
     var indMax=1;
     i2Keys.forEach(function(k){ indMax=Math.max(indMax, byInd[k].n) });
     var indCard='<div class="pcard po6 flat"><div class="ttl">業界別の進み方</div><div style="margin-top:14px">';
     i2Keys.forEach(function(k){
       var o=byInd[k];
-      var avg=Math.round(o.sum/o.n*100);
+      var reach=Math.round(o.sum/o.n*100);
       var done=o.got+o.fail;
       /* 決着した社のうち、決定まで行った割合。決着が無ければ「—」 */
       var pc = done ? Math.round(o.got/done*100) : null;
@@ -3321,7 +3346,7 @@ function renderPassport(pageChanged){
         (o.live?'<div style="flex:'+o.live+';background:var(--line)"></div>':'')+
         (o.fail?'<div style="flex:'+o.fail+';background:var(--fail)"></div>':'')+'</div>'+
         '<div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px">'+
-        '平均到達 '+avg+'％</div></div>';
+        '平均到達 '+reach+'％</div></div>';
     });
     indCard+='</div><div class="legend">'+
       '<span><i style="background:var(--go)"></i>決定</span>'+
@@ -3338,12 +3363,13 @@ function renderPassport(pageChanged){
   /* 業界 × 段階。どの業界のどの関門で落ちているかを見る。
      数え方は段階別カードと同じで、1回の選考ごとの勝敗 */
   var xs={};
-  LIST.forEach(function(it){
-    if(stOf(it)==='skip') return;
+  LIST.forEach(function(it,idx){
+    var st=ST[idx];
+    if(st==='skip') return;
     var key = indOf(it);
     if(!xs[key]) xs[key]={n:0, st:{}};
     var o=xs[key]; o.n++;
-    var r=routeOf(it), cur=it.lost||it.stage, i=r.indexOf(cur), st=stOf(it);
+    var r=routeOf(it), cur=it.lost||it.stage, i=r.indexOf(cur);
     var bump=function(name,k){
       if(!o.st[name]) o.st[name]={p:0,f:0};
       o.st[name][k]++;
@@ -3353,18 +3379,13 @@ function renderPassport(pageChanged){
     if(st==='fail') bump(cur,'f');
     else if(st==='offer'||st==='fixed') bump(cur,'p');
   });
-  var xKeys=Object.keys(xs).sort(function(a,b){
-    if(a==='その他') return 1;
-    if(b==='その他') return -1;
-    return xs[b].n-xs[a].n;
-  });
+  var xKeys=sortIndKeys(xs);
   if(xKeys.length){
-    var xOrder=DEFAULT_ROUTE.concat(PALETTE.filter(function(p){return DEFAULT_ROUTE.indexOf(p)<0}));
     var xCard='<div class="pcard po7 flat"><div class="ttl">業界 × 段階の通過率</div>'+
       '<div style="margin-top:12px">';
     xKeys.forEach(function(k){
       var o=xs[k];
-      var names=xOrder.filter(function(n){ return o.st[n] && (o.st[n].p+o.st[n].f)>0 });
+      var names=order.filter(function(n){ return o.st[n] && (o.st[n].p+o.st[n].f)>0 });
       if(!names.length) return;
       xCard+='<div class="xBlk"><div class="xHd">'+esc(k)+
         '<span class="cnt">'+o.n+'社</span></div><div class="xGrid">';
@@ -3387,7 +3408,7 @@ function renderPassport(pageChanged){
   var brk='<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">';
   var brkKeys = (TERM==='夏インターン') ? ['todo','waiting','fixed'] : ['todo','waiting','fixed','offer'];
   brkKeys.forEach(function(k){
-    var n=LIST.filter(function(i){return stOf(i)===k}).length;
+    var n=countSt(k);
     var lab={todo:'対応中',waiting:'結果待ち',fixed:'参加決定',offer:'内定'}[k];
     var c2={todo:'var(--blue)',waiting:'var(--wait)',fixed:'var(--go)',offer:'var(--go)'}[k];
     brk+='<div class="brkRow"><span>'+lab+'</span>'+
@@ -3402,8 +3423,8 @@ function renderPassport(pageChanged){
     '<div class="pcol">'+cB.join('')+'</div></div>';
 
   document.getElementById('view').innerHTML=h;
-  var pc=document.querySelectorAll('#view .pcard');
-  for(var q=0;q<pc.length;q++) pc[q].style.setProperty('--ei', q);
+  var cards=document.querySelectorAll('#view .pcard');
+  for(var q=0;q<cards.length;q++) cards[q].style.setProperty('--ei', q);
   if(pageChanged) markEnter(true);
   requestAnimationFrame(syncPills);
   if(isWide()&&!openCo)sideEmpty();
@@ -3540,7 +3561,6 @@ function resetCfg(){
 
 window.addEventListener('load',function(){ syncPills(); initLiquid();
   setTimeout(syncPills,80); setTimeout(syncPills,300); });
-window.addEventListener('resize',function(){ syncPills() });
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){syncPills()});
 
 if('serviceWorker' in navigator){
