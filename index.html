@@ -1446,12 +1446,14 @@ function resetUi(){
   var side=document.getElementById('side');
   if(side){ side.dataset.co=''; side.innerHTML=''; }
 }
-function call(fn,args,cb){
+/* onErr は書き込みが失敗したときの後始末（先回りして変えた状態を戻す） */
+function call(fn,args,cb,onErr){
   flushRoute();
   busy(true);
   api(fn,args).then(function(j){ busy(false); applyData(j,cb); })
   .catch(function(e){
     busy(false);
+    if(onErr){ try{ onErr(e); }catch(_){} }
     /* 一覧を出したあとの書き込み失敗は、画面を残してトーストで知らせる */
     if(booted && DATA && Array.isArray(DATA.items) && DATA.items.length){
       toast('保存できませんでした'+(e&&e.message?'：'+e.message:''));
@@ -2975,12 +2977,19 @@ function splitCompany(co){
 
   flushRoute();
   /* ロゴは同じものを使う。取り直しの問い合わせを走らせない */
+  var hadManual=!!MANUAL_LOGOS[v];
   if(MANUAL_LOGOS[co]) saveManualLogo(v, MANUAL_LOGOS[co]);
   else if(LOGOS[co]) LOGOS[v]=LOGOS[co];
   tried[v]=1;
 
   openCo=v;                                   /* 追加した行をそのまま開く */
-  call('apiSplitCompany',[co,TERM,v],function(){ toast(v+' を追加しました',true) });
+  call('apiSplitCompany',[co,TERM,v],function(){ toast(v+' を追加しました',true) },
+    function(){
+      /* 失敗したら元の会社を開いたままにし、先に付けたロゴの割り当てを外す */
+      openCo=co;
+      if(!hadManual && MANUAL_LOGOS[v]) saveManualLogo(v,'');
+      else if(!hadManual) delete LOGOS[v];
+    });
 }
 
 /* 登録済みの会社名を手で直す */
@@ -2995,18 +3004,23 @@ function renameCompany(co){
   if(!confirm(co+' を「'+v+'」に変更します。\n\nシートの行と予定の記録も付け替えます。'))return;
 
   flushRoute();
-  /* ロゴの割り当ても新しい名前へ移す */
-  if(MANUAL_LOGOS[co]){
-    var u=MANUAL_LOGOS[co];
+  /* ロゴの割り当ても新しい名前へ移す。失敗したら戻せるよう元の値を控える */
+  var mOld=MANUAL_LOGOS[co], lOld=LOGOS[co];
+  if(mOld){
     saveManualLogo(co,'');
-    saveManualLogo(v,u);
-  } else if(LOGOS[co]){
-    LOGOS[v]=LOGOS[co];
+    saveManualLogo(v,mOld);
+  } else if(lOld){
+    LOGOS[v]=lOld;
     delete LOGOS[co];
   }
   tried[v]=1;
   openCo=v;                                   /* 変更後の行を開いたままにする */
-  call('apiRenameCompany',[co,TERM,v],function(){ toast('会社名を変更しました',true) });
+  call('apiRenameCompany',[co,TERM,v],function(){ toast('会社名を変更しました',true) },
+    function(){
+      openCo=co;
+      if(mOld){ saveManualLogo(v,''); saveManualLogo(co,mOld); }
+      else if(lOld){ delete LOGOS[v]; LOGOS[co]=lOld; }
+    });
 }
 
 function doAdd(){
