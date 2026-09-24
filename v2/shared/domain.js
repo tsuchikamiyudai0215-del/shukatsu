@@ -367,6 +367,28 @@ var Domain = (function () {
     return c;
   }
 
+  /**
+   * 状態に合わない値を片付けた写しを返す。移行のときに、旧版の名残を消すのに使う。
+   * apply の各操作が残す値と同じ決まりにしてある：
+   *   対応中      … 提出日・結果日・落ちた段階を持たない
+   *   結果待ち    … 結果日・落ちた段階を持たない（締切は対応中に戻したときのために残す）
+   *   内定・参加決定 … 締切・落ちた段階を持たない
+   *   落選        … 締切を持たない。落ちた段階が空なら今の段階で落ちたとみなす
+   *   見送り      … 締切・結果日・落ちた段階を持たない
+   */
+  function normalize(company) {
+    var c = copy(company);
+    var s = STATUSES.indexOf(c.status) >= 0 ? c.status : 'todo';
+    c.status = s;
+    if (s !== 'failed') c.lostStage = '';
+    if (s === 'todo') { c.submittedAt = ''; c.resultAt = ''; }
+    if (s === 'waiting' || s === 'skipped') c.resultAt = '';
+    if (s !== 'todo' && s !== 'waiting') clearDue(c);
+    if (s === 'failed' && !c.lostStage) c.lostStage = str(c.stage);
+    if (!str(c.dueAt)) c.dueHasTime = false;
+    return c;
+  }
+
   /* 同じ区分に同じ名前の会社があれば返す。exceptId は改名中の本人を除くため */
   function duplicateOf(companies, name, term, exceptId) {
     var n = str(name).trim(), t = str(term).trim() || DEFAULT_TERM;
@@ -728,6 +750,7 @@ var Domain = (function () {
     carryOver: carryOver,
     split: split,
     duplicateOf: duplicateOf,
+    normalize: normalize,
     createEvent: createEvent,
 
     routeOf: routeOf,

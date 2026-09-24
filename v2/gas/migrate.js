@@ -4,6 +4,7 @@
  * ・旧版のシートは書き換えない。うまくいかなかったら、新しい2枚を消せばやり直せる。
  * ・旧版は I列と「状態」列の2か所で状態を持っていた。画面に出ていたのは「状態」列なので、
  *   そちらを優先し、空のときだけ I列から決める。
+ * ・状態に合わない値（対応中の結果日、参加決定の締切など）は Domain.normalize で片付ける。
  * ・パスワード（D列）は pw 列へ移す。
  * ・結果発表の予定日（N列）は機能ごと外したので移さない。
  * ・今あるカレンダー予定の ID は、本番に切り替えるとき（ALLOW_PRODUCTION=yes）だけ引き継ぐ。
@@ -85,8 +86,7 @@ function migrate_() {
       status: status,
       stage: stage,
       route: route.length >= 2 ? route : Domain.DEFAULT_ROUTE.slice(),
-      /* 落選なのに落ちた段階が空の行は、今の段階で落ちたとみなす */
-      lostStage: status === 'failed' ? (lost || stage) : '',
+      lostStage: lost,
       dueAt: due.dueAt,
       dueHasTime: due.dueHasTime,
       submittedAt: legacyWall_(byHead(r, '提出日'), tz, false),
@@ -102,6 +102,8 @@ function migrate_() {
       cal: {},
       updatedAt: now
     };
+    /* 旧版は状態を変えても前の結果日や締切が残ることがあったので、状態に合わせて片付ける */
+    c = Domain.normalize(c);
 
     if (carry) {
       var dueId = str_(at(r, LEGACY_COL.eventId)).trim();

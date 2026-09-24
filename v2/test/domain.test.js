@@ -282,6 +282,31 @@ test('追加：既定の値と、URL・ID・ドメイン・段階・締切', () 
   assert.throws(() => D.create('', { name: 'F社' }), /ID/);
 });
 
+test('状態に合わない値を片付ける（旧版の名残）', () => {
+  const junk = { submittedAt: '2026-09-01', resultAt: '2026-07-23', lostStage: 'ES', dueAt: '2026-10-01T10:00', dueHasTime: true };
+  const n = (status) => D.normalize(co(Object.assign({ status, stage: '面接' }, junk)));
+  assert.deepEqual(pick(n('todo')), ['todo', '', '', '', '2026-10-01T10:00', true]);
+  assert.deepEqual(pick(n('waiting')), ['waiting', '2026-09-01', '', '', '2026-10-01T10:00', true]);
+  assert.deepEqual(pick(n('joined')), ['joined', '2026-09-01', '2026-07-23', '', '', false]);
+  assert.deepEqual(pick(n('offer')), ['offer', '2026-09-01', '2026-07-23', '', '', false]);
+  assert.deepEqual(pick(n('failed')), ['failed', '2026-09-01', '2026-07-23', 'ES', '', false]);
+  assert.deepEqual(pick(n('skipped')), ['skipped', '2026-09-01', '', '', '', false]);
+  assert.equal(D.normalize(co({ status: 'failed', stage: 'GD', lostStage: '' })).lostStage, 'GD');
+  assert.equal(D.normalize(co({ status: '' })).status, 'todo');
+  assert.equal(D.normalize(co({ dueAt: '', dueHasTime: true })).dueHasTime, false);
+  function pick(c) { return [c.status, c.submittedAt, c.resultAt, c.lostStage, c.dueAt, c.dueHasTime]; }
+});
+
+test('片付けたあとの値は、操作で作る値と食い違わない', () => {
+  const base = co({ stage: 'ES', dueAt: '2026-10-01T10:00', dueHasTime: true });
+  for (const type of ['pass', 'fail', 'done', 'skip', 'join']) {
+    const after = D.apply(base, { type }, NOW);
+    assert.deepEqual(D.normalize(after), after, type);
+  }
+  const failed = D.apply(base, { type: 'fail' }, NOW);
+  assert.deepEqual(D.normalize(D.apply(failed, { type: 'reopen' }, NOW)), D.apply(failed, { type: 'reopen' }, NOW));
+});
+
 test('同じ区分の重複を見つける。改名中の本人は除く', () => {
   const list = [co({ id: 'a', name: 'A社', term: '本選考' }), co({ id: 'b', name: 'B社', term: '夏インターン' })];
   assert.equal(D.duplicateOf(list, ' A社 ', '本選考').id, 'a');
