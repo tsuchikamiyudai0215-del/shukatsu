@@ -121,6 +121,40 @@ node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 
 ---
 
+## 7. ウェブアプリとして公開する・更新する
+
+公開の設定（実行するユーザーは自分、アクセスは全員）は `gas/appsscript.json` に書いてある。URL が知られても、`API_KEY` が無ければ全部弾く。
+
+初めて公開するとき（開発版は公開済み）
+
+```
+npx clasp create-deployment --description "v2 開発版"
+```
+
+デプロイ ID は `npx clasp list-deployments` で見られる（「v2 開発版」の行。`@HEAD` の行ではない）。公開リポジトリには書かない。
+
+コードを直したあとは、送ってから同じデプロイを新しい版に差し替える。こうすると URL は変わらない。
+
+```
+npm run push
+npx clasp create-deployment --deploymentId <デプロイ ID> --description "v2 開発版"
+```
+
+画面の接続設定には、`https://script.google.com/macros/s/<デプロイ ID>/exec` と `API_KEY` を入れる。
+
+## 8. 画面を手元で試す
+
+```
+node scripts/dev-server.js
+```
+
+`http://localhost:8787/v2/` で新版の画面が開く。
+
+- 接続設定に `http://localhost:8787/api` と鍵 `dev-key` を入れると、GAS のコードを模擬環境で動かした作り物のデータで試せる。Google には一切つながない
+- 接続設定に本物のウェブアプリの URL と鍵を入れれば、開発用シートのデータで試せる
+
+---
+
 ## 本番に切り替えるとき（7章の手順5。今はまだやらない）
 
 - `SHEET_ID` を本番シート、`CALENDAR_ID` を既定のカレンダー（自分の Gmail アドレス）、`DRIVE_PARENT_ID` を旧版の親フォルダにし、`ALLOW_PRODUCTION` を `yes` にする

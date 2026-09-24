@@ -469,6 +469,22 @@ test('行は id で探す。同じ名前が別の区分にあっても取り違�
   assert.equal(rows.find((x) => x.id === b.id).stage, '適性検査');
 });
 
+test('ロゴだけを書く：updatedAt もカレンダーも変えない', () => {
+  const T = mk();
+  const c = addCo(T, { dueAt: '2030-01-10T12:00' });
+  T.resetCalls();
+  const r = T.api('saveLogo', { id: c.id, logo: 'https://logo/a', manual: true });
+  assert.equal(r.ok, true);
+  assert.equal(r.company.logo, 'https://logo/a');
+  assert.equal(r.company.logoManual, true);
+  assert.equal(r.company.updatedAt, c.updatedAt);
+  assert.deepEqual(T.calCalls, { create: 0, update: 0, remove: 0, get: 0 });
+  // 自動で探して見つからなかった印
+  assert.equal(T.api('saveLogo', { id: c.id, logo: 'none', manual: false }).company.logoManual, false);
+  // ロゴを保存したあとでも、手元の updatedAt のまま操作できる
+  assert.equal(mutate(T, c, 'setIndustry', { industry: '金融' }).ok, true);
+});
+
 // ============================================================
 // パスワード
 // ============================================================

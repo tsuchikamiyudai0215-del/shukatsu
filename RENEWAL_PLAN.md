@@ -219,6 +219,7 @@ GASはESモジュールを読めない。そこで `domain.js` は、グロー�
 - `addCompany`、`carryOver({ id })`、`splitCompany({ id, name })`、`deleteCompany({ id })`、`addEvent`、`deleteEvent({ id })`
 - `getPassword({ id })`：1社分のパスワードだけを返す。キャッシュしない。ロックも取らない
 - `setPassword({ id, pw })`：パスワードを変える。`updatedAt` は変えない
+- `saveLogo({ id, logo, manual })`：ロゴの2列だけを書く。`updatedAt` もカレンダーも変えない（画面は開くたびに自動でロゴを探して保存するので、`updatedAt` を変えると同じ端末の操作とぶつかる）
 
 `mutate` は `updatedAt` が保存済みの値と違えば書かずに `conflict` を返し、最新の会社を添える。スマホとPCで同時に触ったときに、後から来た古い操作で上書きしないためである。ロックはルーターで1回だけ取る。
 
@@ -228,20 +229,30 @@ GASはESモジュールを読めない。そこで `domain.js` は、グロー�
 
 ```
 index.html          骨組みだけ
-css/app.css
-js/main.js          起動と画面の切り替え
+css/app.css         旧版の見た目をそのまま移したもの
+js/boot.js          ページから読む入口。start() を呼ぶだけ
+js/main.js          起動と画面の切り替え。クリックなどを1か所で受け、data-act の名前で処理を選ぶ
 js/api.js           通信
 js/store.js         データの保持、先に表示を変える処理、失敗時の巻き戻し、保存待ちの管理
 js/html.js          自動でエスケープするテンプレート関数（esc の付け忘れを無くす）
-js/views/list.js / detail.js / passport.js / add.js / search.js / setup.js
+js/state.js         表示中のページ・区分・絞り込みなど
+js/storage.js       端末の保存領域（キーは必ず sk2_ で始める）
+js/format.js        日時の見せ方と予定の読み方
+js/views/list.js / detail.js / passport.js / add.js / search.js / setup.js / fields.js
 js/ui/sheet.js      シートの開閉とスワイプ
 js/ui/liquid.js     下のタブバーと区分切り替えのつまみ
+js/ui/notice.js     トースト・「更新中…」・保存中の覆い・控え帳へのコピー
 js/logo.js
 shared/domain.js
 sw.js / manifest.json
 ```
 
 ビルド作業の要らないESモジュールで書き、GitHub Pages にそのまま置く。`window._xxx` に置いていたタイマーや状態は、それぞれのモジュールの中に閉じ込める。
+
+- HTML に `onclick` は書かない。ボタンには `data-act` を付け、`main.js` が名前で処理を選ぶ
+- `store.js` は会社ごとに「サーバーで確定した写し」と「未確定の操作の列」を持ち、画面には確定した写しに未確定の操作を `Domain.apply` でかけたものを出す。失敗した操作だけを列から外せば元に戻り、裏で最新が届いても未確定の操作は消えない。操作は会社ごとに1つずつ送る。ルートの編集は 400ms 待って1つにまとめる
+- 旧版と新版は同じオリジンに置くので、端末の保存領域もキャッシュも共有になる。新版の保存領域のキーは `sk2_`、`sw.js` のキャッシュ名は `shukatsu2-` で始め、旧版の分には触らない
+- `sw.js` は、画面のコードをネット優先で取る（ファイルが分かれているので、古い保存版を先に返すと新旧が混ざる）。ロゴと部品は保存版を先に返す
 
 ---
 
@@ -251,8 +262,10 @@ sw.js / manifest.json
 
 - `domain.test.js`：状態の変わり方、締切切れの扱い、あるべきカレンダー予定、集計（Node 標準の `node:test`）
 - `gas.test.js`：シート・カレンダー・ロックの模擬環境（`test/gas_mock.js`）で API と移行を通す。模擬環境では既定のカレンダーやユーザーのプロパティを呼ぶとエラーになり、並べ替えもできない
-- `ui.test.js`：jsdom で起動・一覧・詳細・主な操作
-- `sw.test.js`：オフラインとロゴの保存
+- `ui.test.js`：jsdom の上で本物の画面のコードを起動し、裏は模擬環境の GAS につないで、起動・一覧・詳細・主な操作を通す
+- `sw.test.js`：オフラインとロゴの保存。保存するコードの一覧が実際のファイルとそろっているか、旧版のキャッシュを消さないかも確かめる
+
+手元で画面を目で確かめるときは `node scripts/dev-server.js`（`v2/GAS_SETUP.md` の8）。
 
 2章のチェックリストのうち、画面で確かめられるものは `ui.test.js` にも1項目ずつ置く。
 

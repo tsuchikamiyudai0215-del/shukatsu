@@ -3,7 +3,7 @@
   "private": true,
   "description": "就活ボード（リニューアル版）",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test \"test/*.test.js\"",
     "sync": "node scripts/sync.js",
     "push": "node scripts/sync.js && clasp push --force"
   },
@@ -11,6 +11,7 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "@google/clasp": "^3.4.1"
+    "@google/clasp": "^3.4.1",
+    "jsdom": "^30.1.1"
   }
 }

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>就活</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="就活">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#020204">
+<meta name="referrer" content="no-referrer">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/app.css">
+<!-- 状態の変わり方。GAS と同じファイルで、グローバルに Domain を置く -->
+<script src="shared/domain.js"></script>
+<script type="module" src="js/boot.js"></script>
+</head>
+<body>
+
+<div id="splash">
+  <div class="mark">就活</div>
+  <div class="rule"></div>
+  <div class="sub">LOADING</div>
+</div>
+
+<div id="app"></div>
+
+<nav class="tabbar" id="tabbar">
+  <span class="pill" id="dockPill"></span>
+  <button id="tb-list" class="on" data-act="page" data-v="list">選考</button>
+  <button id="tb-pass" data-act="page" data-v="pass">記録</button>
+  <span class="sep"></span>
+  <button class="ico" data-act="search" aria-label="検索">⌕</button>
+  <button class="ico" data-act="add" aria-label="追加">+</button>
+</nav>
+
+<div id="side"></div>
+<div id="sheet"></div>
+<div id="ptr"><span class="ptrRing"></span></div>
+<div id="stale">更新中…</div>
+<div id="toast"></div>
+<div id="busy">SAVING…</div>
+
+</body>
+</html>

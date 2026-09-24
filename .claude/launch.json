@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "v2-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["v2/scripts/dev-server.js"],
+      "port": 8787
+    }
+  ]
+}

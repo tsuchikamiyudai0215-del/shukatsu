@@ -17,6 +17,7 @@ var ACTIONS = {
   getData:       { fn: getData_, read: true },
   getPassword:   { fn: getPassword_, read: true, lock: false },
   mutate:        { fn: mutate_ },
+  saveLogo:      { fn: saveLogo_ },
   addCompany:    { fn: addCompany_ },
   carryOver:     { fn: carryOver_ },
   splitCompany:  { fn: splitCompany_ },
@@ -235,6 +236,19 @@ function deleteEvent_(args) {
   if (!e) throw new Error('予定が見つかりません。');
   events_().removeMany([e.id]);
   return saveWithCalendar_(mustFind_(e.companyId), new Date());
+}
+
+/**
+ * ロゴだけを書く。画面は開くたびに自動でロゴを探して保存するので、
+ * updatedAt を変えると、同じ端末の操作とぶつかってしまう。見た目だけの値なので、ここでは変えない。
+ */
+function saveLogo_(args) {
+  var c = mustFind_(args.id);
+  var next = Domain.apply(c, { type: 'setLogo', logo: args.logo, manual: args.manual }, new Date());
+  companies_().write({ id: c.id, logo: next.logo, logoManual: next.logoManual });
+  c.logo = next.logo;
+  c.logoManual = next.logoManual;
+  return { ok: true, company: publicCompany_(c) };
 }
 
 /* パスワードは押したときに1社分だけ返す。キャッシュもしない。呼んだ時刻だけ実行ログに残す */
