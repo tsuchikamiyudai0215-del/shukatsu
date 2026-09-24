@@ -3,9 +3,14 @@
   "private": true,
   "description": "就活ボード（リニューアル版）",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "sync": "node scripts/sync.js",
+    "push": "node scripts/sync.js && clasp push"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1"
   }
 }

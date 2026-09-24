@@ -1,0 +1,3 @@
+node_modules/
+# clasp が作るプロジェクトの紐付け。スクリプト ID は秘密ではないが、公開リポジトリには置かない
+.clasp.json

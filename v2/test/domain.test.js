@@ -395,6 +395,42 @@ test('予定：連日は最大60日。終わりの時刻が開始より前なら
   assert.equal(items[0].end, '2026-01-01T19:00');
 });
 
+test('見送り・落選では、これから先の予定だけを外し、終わった予定は残す', () => {
+  const events = [
+    { id: 'past', companyId: 'c_1', kind: '説明会', startAt: '2026-09-20T10:00' },
+    { id: 'now', companyId: 'c_1', kind: '面接', startAt: '2026-09-24T11:30', endAt: '2026-09-24T12:30' },
+    { id: 'future', companyId: 'c_1', kind: '面接', startAt: '2026-10-01T10:00' },
+    { id: 'daily', companyId: 'c_1', kind: 'インターン', startAt: '2026-09-23T10:00', endAt: '2026-09-25T17:00', daily: true },
+    { id: 'allday', companyId: 'c_1', kind: 'インターン', startAt: '2026-09-23T00:00', allDay: true }
+  ];
+  const keys = (c) => D.desiredCalendar(c, events, NOW).map((i) => i.key);
+  const all = ['ev:past', 'ev:now', 'ev:future', 'ev:daily#0', 'ev:daily#1', 'ev:daily#2', 'ev:allday'];
+  assert.deepEqual(keys(co()), all);
+  for (const type of ['skip', 'fail']) {
+    const closed = D.apply(co(), { type }, NOW);
+    // 開催中（12:30 まで）と、連日の今日・あしたの分は外れる
+    assert.deepEqual(keys(closed), ['ev:past', 'ev:daily#0', 'ev:allday'], type);
+    assert.deepEqual(keys(D.apply(closed, { type: 'reopen' }, NOW)), all, type);
+  }
+  // 結果待ちや内定では予定をそのまま残す
+  assert.deepEqual(keys(co({ status: 'waiting' })), all);
+  assert.deepEqual(keys(co({ status: 'offer' })), all);
+});
+
+test('予定の入力をそろえる', () => {
+  const e = D.createEvent('e1', 'c_1', { kind: ' 面接 ', startAt: '2026-10-01T10:00', endAt: '2026-10-01T09:00', daily: true, place: ' 本社 ' });
+  assert.deepEqual(e, { id: 'e1', companyId: 'c_1', kind: '面接', startAt: '2026-10-01T10:00', endAt: '', allDay: false, daily: false, place: '本社' });
+  const a = D.createEvent('e2', 'c_1', { startAt: '2026-10-01', endAt: '2026-10-03', allDay: true, daily: true });
+  assert.equal(a.kind, '予定');
+  assert.equal(a.startAt, '2026-10-01T00:00');
+  assert.equal(a.endAt, '2026-10-03T00:00');
+  assert.equal(a.daily, false);
+  assert.equal(D.createEvent('e3', 'c_1', { startAt: '2026-10-01T10:00', endAt: '2026-10-03T17:00', daily: true }).daily, true);
+  assert.throws(() => D.createEvent('e4', 'c_1', { startAt: '' }), /形式/);
+  assert.throws(() => D.createEvent('e5', 'c_1', { startAt: '2026-10-01T10:00', endAt: 'x' }), /終わり/);
+  assert.throws(() => D.createEvent('e6', '', { startAt: '2026-10-01T10:00' }), /会社/);
+});
+
 test('予定：開始が読めないものは置かない', () => {
   assert.deepEqual(D.desiredCalendar(co(), [{ id: 'e', companyId: 'c_1', startAt: '' }]), []);
 });
@@ -413,10 +449,10 @@ test('差分：無いものは作り、違うものは直し、要らないも�
   assert.deepEqual(res.remove, [{ key: 'ev:old', id: 'g3' }]);
   assert.deepEqual(res.create, []);
 
-  // 見送りにすると、締切の予定は消す側に回る
+  // 見送りにすると、締切とこれから先の面接は消す側に回る
   const skipped = D.apply(c, { type: 'skip' }, NOW);
-  const res2 = D.calendarDiff(D.desiredCalendar(skipped, events), { due: 'g1', 'ev:e1': 'g2' });
-  assert.deepEqual(res2.remove, [{ key: 'due', id: 'g1' }]);
+  const res2 = D.calendarDiff(D.desiredCalendar(skipped, events, NOW), { due: 'g1', 'ev:e1': 'g2' });
+  assert.deepEqual(res2.remove, [{ key: 'due', id: 'g1' }, { key: 'ev:e1', id: 'g2' }]);
   assert.deepEqual(D.calendarDiff(want, {}).create.length, 2);
 });
 
