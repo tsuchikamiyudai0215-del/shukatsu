@@ -36,7 +36,9 @@ git checkout -- gas/appsscript.json
 npm run push
 ```
 
-`npm run push` は、`shared/domain.js` を `gas/` へ写して（`npm run sync`）から `clasp push` を行う。
+`npm run push` は、`shared/domain.js` を `gas/` へ写して（`npm run sync`）から `clasp push --force` を行う。
+`--force` を付けないと、向こうの `appsscript.json` と違うときに確認を求めて止まる（ターミナルからは答えられず「Skipping push.」になる）。
+`appsscript.json` はリポジトリの方を正しいものとして、毎回そちらで上書きする。
 
 ## 3. 開発用の Drive フォルダを作る
 

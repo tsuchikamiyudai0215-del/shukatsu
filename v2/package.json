@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node --test",
     "sync": "node scripts/sync.js",
-    "push": "node scripts/sync.js && clasp push"
+    "push": "node scripts/sync.js && clasp push --force"
   },
   "engines": {
     "node": ">=20"
