@@ -117,6 +117,37 @@ function removeAllCalendar_(company) {
   return failed;
 }
 
+/* 対応表が同じか。キーの並び順の違いは同じとみなす（並びが違うだけで書き直さないように） */
+function sameCal_(a, b) {
+  var ka = Object.keys(a).sort(), kb = Object.keys(b).sort();
+  if (ka.join('\n') !== kb.join('\n')) return false;
+  return ka.every(function (k) { return JSON.stringify(a[k]) === JSON.stringify(b[k]); });
+}
+
+/**
+ * 何も書き換えずに、各社のカレンダーの見込みを実行ログに出す。予定が作られないときの調べ物用。
+ * 締切の値は、見えない文字も分かるよう JSON の形で出す。パスワードは出さない。
+ */
+function inspectCalendar() {
+  resetRun_();
+  var now = new Date();
+  var allEvents = events_().all();
+  var cal = calendar_();
+  companies_().all().forEach(function (c) {
+    if (c.status !== 'todo' && !c.dueAt) return;
+    var evs = allEvents.filter(function (e) { return e.companyId === c.id; });
+    var desired = Domain.desiredCalendar(c, evs, now);
+    console.log([
+      c.name, 'status=' + JSON.stringify(c.status), 'dueAt=' + JSON.stringify(c.dueAt),
+      '読めるか=' + (Domain.parseWall(c.dueAt) != null), 'あるべき=' + desired.map(function (d) { return d.key; }).join(','),
+      '対応表=' + Object.keys(c.cal || {}).join(',')
+    ].join(' / '));
+  });
+  var list = cal.getEvents(new Date(2020, 0, 1), new Date(2035, 0, 1));
+  console.log('開発用カレンダーの予定：' + list.length + ' 件');
+  list.forEach(function (e) { console.log('  ' + e.getTitle()); });
+}
+
 /**
  * 全社のカレンダーをまとめて合わせる。移行のあとにエディタから実行する。
  * 時間切れ（6分）にならないよう、4分半で止める。もう合っている会社はカレンダーに問い合わせないので、
@@ -138,7 +169,7 @@ function syncAllCalendars() {
       var res = syncCalendar_(c, evs, now);
       failed += res.failed;
       done++;
-      if (JSON.stringify(res.cal) !== JSON.stringify(c.cal || {})) {
+      if (!sameCal_(res.cal, c.cal || {})) {
         c.cal = res.cal;
         table.write(c);
         changed++;

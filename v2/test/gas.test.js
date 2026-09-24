@@ -724,6 +724,19 @@ test('移行（本番へ切り替えるとき）：予定の ID を引き継ぎ�
   assert.equal(due.desc, 'マイページURL: https://a\nID: ida');
 });
 
+test('inspectCalendar は何も書き換えず、パスワードも出さない', () => {
+  const T = mk();
+  addCo(T, { name: 'A社', pw: 'topsecret', dueAt: '2030-01-10T12:00' });
+  const before = JSON.stringify(T.sheet('companies').d);
+  T.resetCalls();
+  T.run('inspectCalendar');
+  assert.equal(JSON.stringify(T.sheet('companies').d), before);
+  assert.deepEqual([T.calCalls.create, T.calCalls.update, T.calCalls.remove], [0, 0, 0]);
+  assert.ok(T.log.some((l) => l.includes('A社') && l.includes('あるべき=due') && l.includes('対応表=due')));
+  assert.ok(T.log.some((l) => l === '開発用カレンダーの予定：1 件'));
+  assert.equal(T.log.some((l) => l.includes('topsecret')), false);
+});
+
 test('全社の合わせ込みは時間切れの前に止まり、もう一度実行すると続きから進む', () => {
   const T = mk();
   for (let i = 0; i < 3; i++) addCo(T, { name: 'X' + i });

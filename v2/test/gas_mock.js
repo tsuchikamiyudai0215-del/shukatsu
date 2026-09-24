@@ -156,6 +156,10 @@ function mk(props) {
       isMyPrimaryCalendar: () => primary,
       createEvent(t, s, e, opt) { calCalls.create++; return mkEvent(id, t, s, e, opt, false); },
       createAllDayEvent(t, s, e, opt) { calCalls.create++; return mkEvent(id, t, s, e, opt, true); },
+      getEvents(s, e) {
+        return Object.values(allEvents).filter((x) => x.alive && x.calId === id && x.start < e && x.end > s)
+          .map((x) => ({ getTitle: () => x.title }));
+      },
       /* ほかのカレンダーの予定も返してしまう */
       getEventById(eid) { calCalls.get++; const e = allEvents[eid]; return e && e.alive ? e : null; }
     };
