@@ -1,4 +1,4 @@
-const vm=require('vm'),fs=require('fs');
+const vm=require('vm'),fs=require('fs'),path=require('path');
 process.env.TZ='Asia/Tokyo';
 function mk(){
 const log=[];
@@ -46,7 +46,7 @@ const ctx={console:{warn:(...a)=>log.push(a.join(' ')),log(){} },JSON,Math,Date,
  ContentService:{createTextOutput:s=>({s,setMimeType(){return this}}),MimeType:{JSON:'json'}},
  GmailApp:{}};
 vm.createContext(ctx);
-const src=['Code.gs','WebApp.gs','WebAppApi.gs'].map(f=>fs.readFileSync('/mnt/user-data/outputs/'+f,'utf8')).join('\n');
+const src=['Code.gs','WebApp.gs','WebAppApi.gs'].map(f=>fs.readFileSync(path.join(__dirname,'..','legacy-gas',f),'utf8')).join('\n');
 vm.runInContext(src+'\n;this.__={waRoute_,gmPickDate_,autoSort,waCols_}',ctx);
 return {ctx,sheets,Sheet,cal,log,api:(action,...args)=>JSON.parse(ctx.__.waRoute_({key:vm.runInContext('WA_KEY',ctx),action,args}).s),heldRef:()=>held};
 }

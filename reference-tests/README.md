@@ -7,4 +7,12 @@
 - `fe_test.js`：jsdom で画面を動かすテスト（21項目）
 - `sw_test.js`：sw.js のテスト（20項目）
 
-どれも旧版のファイルを `/mnt/user-data/outputs/` から読み込む作りになっている。使うときは読み込み先のパスを直すこと。`fe_test.js` は jsdom が必要（`npm i -D jsdom`）。
+読み込み先は、このリポジトリの旧版（`legacy-gas/`、`index.html`、`sw.js`）に合わせてある。リポジトリの一番上で動かす。
+
+```
+node reference-tests/gas_test.js
+node reference-tests/sw_test.js
+node reference-tests/fe_test.js
+```
+
+`fe_test.js` だけは jsdom が要る（`npm i -D jsdom`）。

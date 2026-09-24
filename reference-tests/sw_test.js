@@ -1,4 +1,4 @@
-const vm=require('vm'),fs=require('fs');
+const vm=require('vm'),fs=require('fs'),path=require('path');
 let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('✗ '+m)}};
 const ORIGIN='https://example.github.io',BASE=ORIGIN+'/app/';
 function env(net){
@@ -17,7 +17,7 @@ function env(net){
  const Req=function(u,o){return {url:new URL(u,BASE).href,...o}};
  const ctx={self,caches,fetch:(u,o)=>net(typeof u==='string'?u:u.url,o||{}),Request:Req,URL,Set,Promise,
   Response:{error:()=>({type:'error'}),redirect:(u,s)=>({type:'redirect',u,s})},console};
- vm.createContext(ctx);vm.runInContext(fs.readFileSync('/mnt/user-data/outputs/sw.js','utf8'),ctx);
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8'),ctx);
  async function fire(type,ev){const w=[];let rw;const e={...ev,waitUntil:p=>w.push(p),respondWith:p=>rw=p};L[type](e);const r=rw?await rw:undefined;await Promise.all(w.map(p=>Promise.resolve(p).catch(()=>{})));for(let i=0;i<3;i++)await Promise.all(w.map(p=>Promise.resolve(p).catch(()=>{})));return {r,handled:!!rw}}
  const req=(u,o={})=>({url:new URL(u,BASE).href,method:'GET',mode:o.mode||'no-cors',destination:o.destination||'',...o});
  return {stores,fire,req,ctx};

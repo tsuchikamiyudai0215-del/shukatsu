@@ -1,7 +1,7 @@
 process.env.TZ='Asia/Tokyo';
-const {JSDOM,VirtualConsole}=require('/tmp/node_modules/jsdom');
-const fs=require('fs');
-const html=fs.readFileSync('/mnt/user-data/outputs/index.html','utf8');
+const {JSDOM,VirtualConsole}=require('jsdom');
+const fs=require('fs'),path=require('path');
+const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const ALL=[];let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('✗ '+m)}};
 const iso=(ms)=>{const d=new Date(Date.now()+ms),p=n=>('0'+n).slice(-2);return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())};
 function data(){return {items:[

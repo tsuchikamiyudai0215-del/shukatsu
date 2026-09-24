@@ -178,11 +178,15 @@
 
 画面とGASの両方で同じファイルを読み込む。中身は、DOM にもシートにも触らない、入力から出力を返すだけの関数に限る。
 
-- `apply(company, op)`：`pass`（通過）、`fail`、`done`（結果待ちへ）、`reopen`（対応中に戻す）、`skip`、`prev`、`setDue`、`setRoute` などの操作を受け取り、新しい会社データを返す
+- `apply(company, op, now)`：`op` は `{ type: 'setDue', dueAt: '…' }` の形。`pass`（通過）、`fail`、`done`（結果待ちへ）、`reopen`（対応中に戻す）、`skip`、`join`（参加決定にする）、`prev`、`setDue`、`setRoute`、`setInfo`、`setIndustry`、`setDomain`、`setLogo`、`rename` を受け取り、新しい会社データを返す。元のデータは書き換えない。できない操作は、画面にそのまま出せる文言で Error を投げる
+- `create(id, fields)`、`carryOver(src, id)`、`split(src, id, newName)`、`duplicateOf(companies, name, term, exceptId)`：会社を作る処理と重複の確認。ID は呼び出し側で作って渡す
 - `viewStatus(company, now)`：締切切れの自動送りを含めた、画面上の状態
-- `desiredCalendar(company, events)`：その会社に本来あるべきカレンダー予定の一覧
-- `tally(companies)`：記録タブの集計
-- `industryOf(name)`、`shortName(name)`：業種推定と社名の短縮
+- `desiredCalendar(company, events)`：その会社に本来あるべきカレンダー予定の一覧。締切の予定は `status` が `todo` のときだけ置く。面接などの予定は、予定を消すまで状態に関係なく残す
+- `calendarDiff(desired, current)`：あるべき予定と作ってある予定を照らし、作る・直す・消す・そのまま、に分ける
+- `tally(companies, now)`：記録タブの集計（表示中の区分の分だけを渡す）
+- `industryOf(name)`、`industryFor(company)`、`shortName(name)`：業種推定と社名の短縮
+
+日時は日本時間の文字列（`2026-10-03T23:59`）で持ち、計算も日本時間で行う。端末や GAS のタイムゾーン設定に左右されない。最後まで通ったときの状態は、区分名に「インターン」が入っていれば `joined`、それ以外は `offer`。
 
 画面は操作時に `apply` で先に表示を変え、GASも同じ `apply` で保存する。計算が1つなので食い違わない。
 
@@ -230,7 +234,7 @@ sw.js / manifest.json
 
 ## 6. テスト
 
-`npm test` で全部回るようにする。
+`v2/` で `npm test` を回すと全部通るようにする。
 
 - `domain.test.js`：状態の変わり方、締切切れの扱い、あるべきカレンダー予定、集計（Node 標準の `node:test`）
 - `gas.test.js`：シート・カレンダー・ロックの模擬環境で API を通す（今回のチャットで作った `gas_mock.js` を土台にする）

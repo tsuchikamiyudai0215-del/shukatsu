@@ -1,0 +1,11 @@
+{
+  "name": "shukatsu-board-v2",
+  "private": true,
+  "description": "就活ボード（リニューアル版）",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
