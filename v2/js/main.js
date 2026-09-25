@@ -163,8 +163,14 @@ async function boot() {
 }
 
 async function connect() {
-  const err = readSetup();
-  if (err) { renderSetup(err); return; }
+  const { err, changed } = readSetup();
+  if (err) { renderSetup(err, true); return; }
+  if (changed) {
+    /* 別のシートにつなぎ直した。前のシートの会社は id が違うので、手元から捨てる */
+    store.clearData();
+    resetLogos();
+    ui.openId = null;
+  }
   renderConnecting();
   try {
     await store.refresh();
@@ -212,7 +218,11 @@ const actions = Object.assign({
     });
   },
   setup: () => connect(),
-  'setup-open': () => renderSetup(),
+  'setup-open': () => { ui.openId = null; dropSheet(); renderSetup('', true); },
+  'setup-cancel': () => {
+    setHtml(document.getElementById('app'), html``);
+    renderAll(true);
+  },
   reload: () => window.location.reload(),
   'reset-cfg': () => {
     if (!window.confirm('接続設定を消して、やり直しますか。')) return;

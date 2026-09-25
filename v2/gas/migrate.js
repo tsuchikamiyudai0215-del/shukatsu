@@ -225,6 +225,62 @@ function importLegacyLogos() {
 }
 
 // ============================================================
+// 切り替えを戻す
+// ============================================================
+
+/**
+ * 本番の切り替えを途中で戻すときに使う。エディタから実行する。
+ * 新版が作ったカレンダーの予定だけを消す。「新版が作った予定」は、companies の対応表にあって、
+ * 旧版のシート（Sheet1 の K列・O列、予定シートの E列）に載っていない予定のこと。
+ * 旧版の予定には触らない。旧版のシートと、companies・events の2枚のシートも消さない
+ * （2枚は、この関数のあとで手で消す）。
+ */
+function undoMigration() {
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var ss = spreadsheet_();
+    var legacy = {};
+    var add = function (v) { str_(v).split(',').forEach(function (s) { s = s.trim(); if (s) legacy[s] = true; }); };
+    var old = ss.getSheetByName(LEGACY_SHEET);
+    if (!old) throw new Error('旧版のシート「' + LEGACY_SHEET + '」が見つかりません。');
+    var last = old.getLastRow();
+    if (last >= 2) {
+      old.getRange(2, LEGACY_COL.eventId, last - 1, 1).getValues().forEach(function (r) { add(r[0]); });
+      old.getRange(2, LEGACY_COL.resultEventId, last - 1, 1).getValues().forEach(function (r) { add(r[0]); });
+    }
+    var es = ss.getSheetByName(LEGACY_EVENTS);
+    if (es && es.getLastRow() >= 2) es.getRange(2, 5, es.getLastRow() - 1, 1).getValues().forEach(function (r) { add(r[0]); });
+
+    var cal = calendar_();
+    var removed = 0, kept = 0, failed = 0;
+    companies_().all().forEach(function (c) {
+      Object.keys(c.cal || {}).forEach(function (k) {
+        var cur = c.cal[k];
+        var id = cur && typeof cur === 'object' ? cur.id : cur;
+        if (!id) return;
+        if (legacy[id]) { kept++; return; }
+        try {
+          var ev = ownEvent_(cal, id);
+          if (ev) { ev.deleteEvent(); removed++; }
+        } catch (e) {
+          failed++;
+          console.warn('予定を消せませんでした（' + c.name + ' / ' + k + '）：' + e);
+        }
+      });
+    });
+    bustCache_();
+    console.log('新版が作った予定を ' + removed + ' 件消しました。旧版の予定 ' + kept + ' 件はそのままです。' +
+      (failed ? '消せなかった予定 ' + failed + ' 件。' : '') +
+      'このあと companies と events の2枚のシートを手で消してください。');
+    return { removed: removed, kept: kept, failed: failed };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================================
 // パスワードの一括入力
 // ============================================================
 

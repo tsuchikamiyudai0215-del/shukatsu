@@ -143,6 +143,20 @@ function inspectCalendar() {
       '対応表=' + Object.keys(c.cal || {}).join(',')
     ].join(' / '));
   });
+  /* 対応表の予定が、このカレンダーで本当に見つかるか。本番で移したあと、syncAllCalendars の前に見る。
+     見つからない予定は、合わせるときに作り直すので、多ければ止めて確かめる */
+  var found = 0, missing = 0;
+  companies_().all().forEach(function (c) {
+    Object.keys(c.cal || {}).forEach(function (k) {
+      var cur = c.cal[k];
+      var id = cur && typeof cur === 'object' ? cur.id : cur;
+      if (!id) return;
+      if (ownEvent_(cal, id)) found++;
+      else { missing++; console.log('  見つからない予定：' + c.name + ' / ' + k); }
+    });
+  });
+  console.log('対応表の予定のうち、このカレンダーで見つかった ' + found + ' 件、見つからない ' + missing + ' 件');
+  if (allowProduction_()) return;   // 本番のカレンダーの予定を全部並べると長いので、開発中だけ出す
   var list = cal.getEvents(new Date(2020, 0, 1), new Date(2035, 0, 1));
   console.log('開発用カレンダーの予定：' + list.length + ' 件');
   list.forEach(function (e) { console.log('  ' + e.getTitle()); });

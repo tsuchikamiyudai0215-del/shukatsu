@@ -849,6 +849,48 @@ test('inspectCalendar は何も書き換えず、パスワードも出さない'
   assert.equal(T.log.some((l) => l.includes('topsecret')), false);
 });
 
+function prodSetup() {
+  const T = mk({ SHEET_ID: PROD_SHEET, CALENDAR_ID: PRIMARY_CAL, ALLOW_PRODUCTION: 'yes' });
+  const cal = T.calendars[PRIMARY_CAL];
+  const mkEv = (title, s, e) => cal.createEvent(title, jst(s), jst(e), { description: 'パスワード: pwa' });
+  const due = mkEv('【就活】A社 (最終面接) 締め切り', '2030-01-10T23:59', '2030-01-11T00:29');
+  const result = mkEv('【結果待ち】A社', '2030-02-01T00:00', '2030-02-01T01:00');
+  const ev = mkEv('【面接】A社', '2030-01-05T10:00', '2030-01-05T11:00');
+  const daily = [1, 2, 3].map((n) => mkEv('【インターン】A社（' + n + '/3日目）', `2030-08-0${n}T10:00`, `2030-08-0${n}T17:00`));
+  legacy(T, PROD_SHEET, { due: due.id, result: result.id, ev: ev.id, daily: daily.map((e) => e.id) });
+  return { T, legacyEvents: [due, result, ev, ...daily] };
+}
+
+test('本番で移したあと、inspectCalendar で引き継いだ予定が見つかるかを数える', () => {
+  const { T } = prodSetup();
+  T.run('migrate');
+  T.run('inspectCalendar');
+  assert.ok(T.log.includes('対応表の予定のうち、このカレンダーで見つかった 5 件、見つからない 0 件'));
+  assert.equal(T.log.some((l) => l.startsWith('開発用カレンダーの予定')), false);   // 本番では全部は並べない
+});
+
+test('本番で移したあと、別のカレンダーの予定を指していたら「見つからない」に数える', () => {
+  const { T, legacyEvents } = prodSetup();
+  legacyEvents.forEach((e) => { e.calId = 'someone-else@gmail.com'; });
+  T.run('migrate');
+  T.run('inspectCalendar');
+  assert.ok(T.log.includes('対応表の予定のうち、このカレンダーで見つかった 0 件、見つからない 5 件'));
+});
+
+test('切り替えを戻す：新版が作った予定だけを消し、旧版の予定は残す', () => {
+  const { T, legacyEvents } = prodSetup();
+  T.run('migrate');
+  T.run('syncAllCalendars');
+  const created = T.liveIn(PRIMARY_CAL).filter((e) => !legacyEvents.includes(e));
+  assert.equal(created.length, 2);        // テストセンターの締切と、本選考の説明会
+  const res = T.run('undoMigration');
+  assert.deepEqual(res, { removed: 2, kept: 5, failed: 0 });
+  assert.equal(created.every((e) => !e.alive), true);
+  assert.equal(legacyEvents.every((e) => e.alive), true);
+  assert.ok(T.log.some((l) => l.includes('companies と events の2枚のシートを手で消してください')));
+  assert.equal(T.heldLock(), false);
+});
+
 test('全社の合わせ込みは時間切れの前に止まり、もう一度実行すると続きから進む', () => {
   const T = mk();
   for (let i = 0; i < 3; i++) addCo(T, { name: 'X' + i });

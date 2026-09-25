@@ -13,6 +13,7 @@ const { mk } = require('./gas_mock.js');
 const PAGE = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8')
   .replace(/<script[\s\S]*?<\/script>/g, '');   // スクリプトはこちらで読み込む
 const EP = 'https://script.google.com/macros/s/test/exec';
+const EP2 = 'https://script.google.com/macros/s/production/exec';
 const Domain = require('../shared/domain.js');
 let main;
 
@@ -96,14 +97,17 @@ async function boot(opts = {}) {
 
   const calls = [];
   const net = { fail: opts.fail || null, delay: opts.delay || null, down: false };
+  /* EP は開発用、EP2 は本番に見立てた別のウェブアプリ（中身は別の模擬環境） */
+  const T2 = opts.other || null;
   w.fetch = async (url, o) => {
-    if (!String(url).startsWith(EP)) return { ok: true, json: async () => ({}) };
+    if (!String(url).startsWith('https://script.google.com/')) return { ok: true, json: async () => ({}) };
     const body = JSON.parse(o.body);
-    calls.push(Object.assign({ keepalive: !!o.keepalive }, body));
+    calls.push(Object.assign({ keepalive: !!o.keepalive, url: String(url) }, body));
     if (net.delay) await sleep(net.delay(body) || 0);
     if (net.down) throw new TypeError('offline');
     const msg = net.fail && net.fail(body);
-    const text = msg ? JSON.stringify({ ok: false, error: msg }) : T.ctx.route_(body);
+    const backend = String(url) === EP2 && T2 ? T2 : T;
+    const text = msg ? JSON.stringify({ ok: false, error: msg }) : backend.ctx.route_(body);
     return { ok: true, status: 200, text: async () => text };
   };
 
@@ -154,6 +158,53 @@ test('接続設定：未設定なら設定画面。URL の形と鍵を確かめ�
 test('接続設定：鍵が違えば、理由を添えて設定画面に戻す', async () => {
   const R = await boot({ key: 'wrong' });
   assert.match(R.$('.setupErr').textContent, /鍵が違います/);
+  R.stop();
+});
+
+test('接続先を変える：記録タブの下から開き、「やめる」で戻れる', async () => {
+  const R = await boot();
+  R.click('#tb-pass');
+  R.click('[data-act="setup-open"]');
+  assert.equal(R.$('#cfgEp').value, EP);
+  assert.equal(R.$('#tabbar').style.display, 'none');
+  R.click('[data-act="setup-cancel"]');
+  assert.ok(R.$('.ptitle'));
+  assert.equal(R.$('#tabbar').style.display, '');
+  R.stop();
+});
+
+test('接続先を変えたら、前のシートの控えと画像ロゴを捨て、旧版の手動ロゴを新しい id で写し直す', async () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgo=';
+  /* 本番に見立てた別のシート。同じ会社名でも id は違う */
+  const P = mk({ API_KEY: 'k2' });
+  const prodA = P.api('addCompany', { name: '株式会社エー', stage: 'ES' }).company;
+  P.api('saveLogo', { id: prodA.id, logo: 'none', manual: false });
+  const R = await boot({ other: P, ls: { sk_manual_logos: JSON.stringify({ '株式会社エー': PNG }) } });
+  assert.equal(JSON.parse(R.w.localStorage.getItem('sk2_file_logos'))[R.ids.a], PNG);
+  R.click('#tb-pass');
+  R.click('[data-act="setup-open"]');
+  R.$('#cfgEp').value = EP2;
+  R.$('#cfgKey').value = 'k2';
+  R.click('[data-act="setup"]');
+  await until(() => R.$('.ptitle') || R.rows().length);
+  R.click('#tb-list');
+  assert.deepEqual(R.rows(), ['エー']);
+  const files = JSON.parse(R.w.localStorage.getItem('sk2_file_logos'));
+  assert.deepEqual(Object.keys(files), [prodA.id]);            // 前のシートの id は捨て、新しい id で写し直した
+  assert.equal(R.$(`.row[data-id="${prodA.id}"] .logo img`).getAttribute('src'), PNG);
+  assert.equal(JSON.parse(R.w.localStorage.getItem('sk2_cache')).companies.length, 1);
+  assert.equal(R.calls[R.calls.length - 1].url, EP2);
+  R.stop();
+});
+
+test('同じ接続先のまま鍵だけ直したときは、端末の保存を捨てない', async () => {
+  const R = await boot();
+  R.click('#tb-pass');
+  R.click('[data-act="setup-open"]');
+  R.$('#cfgKey').value = 'k';
+  R.click('[data-act="setup"]');
+  await until(() => R.$('.ptitle'));
+  assert.equal(R.w.localStorage.getItem('sk2_legacy_logos_done'), '1');
   R.stop();
 });
 
@@ -707,6 +758,13 @@ test('旧版の手動ロゴが無ければ、何もせずに済んだ印だけ�
   assert.equal(R.w.localStorage.getItem('sk2_legacy_logos_done'), '1');
   assert.equal(R.w.localStorage.getItem('sk2_file_logos'), null);
   R.stop();
+});
+
+test('ロゴ探しに、採用管理システムのドメインは使わない', async () => {
+  const logo = await import(pathToFileURL(path.join(__dirname, '../js/logo.js')).href);
+  assert.deepEqual(logo.logoDomains({ url: 'https://axol.jp/zw/s/x/mypage', domain: '' }), []);
+  assert.deepEqual(logo.logoDomains({ url: 'https://job.mynavi.jp/x', domain: 'sample.co.jp' }), ['sample.co.jp']);
+  assert.deepEqual(logo.logoDomains({ url: '', domain: 'recruit.example.co.jp' }), ['recruit.example.co.jp', 'example.co.jp']);
 });
 
 test('新版の保存は sk2_ だけを使い、旧版の保存分には触らない', async () => {
