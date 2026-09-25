@@ -10,9 +10,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 
+/* 引数に紐付けのファイル（.clasp.prod.json など）を渡すと、そのプロジェクトへ送る。無ければ .clasp.json（開発用） */
+const project = process.argv[2];
+if (project && !/^\.clasp[\w.]*\.json$/.test(project)) throw new Error('紐付けのファイル名が正しくありません：' + project);
 const file = path.join(__dirname, '..', 'gas', 'util.js');
 const orig = fs.readFileSync(file, 'utf8');
-const run = () => execSync('npx clasp push --force', { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
+const run = () => execSync('npx clasp ' + (project ? '-P ' + project + ' ' : '') + 'push --force',
+  { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
 
 execSync('node scripts/sync.js', { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
 try {

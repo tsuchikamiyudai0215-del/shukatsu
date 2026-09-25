@@ -6,7 +6,9 @@
     "test": "node --test \"test/*.test.js\"",
     "sync": "node scripts/sync.js",
     "push": "node scripts/sync.js && clasp push --force",
-    "push:clean": "node scripts/push-clean.js"
+    "push:clean": "node scripts/push-clean.js",
+    "push:prod": "node scripts/sync.js && clasp -P .clasp.prod.json push --force",
+    "push:prod:clean": "node scripts/push-clean.js .clasp.prod.json"
   },
   "engines": {
     "node": ">=20"

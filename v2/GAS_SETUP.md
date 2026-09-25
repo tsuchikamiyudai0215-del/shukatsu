@@ -162,7 +162,7 @@ pw 列が空の行にだけ書き、すでに入っている行と管理用の�
    `push:clean` は、わざと1か所だけ変えて送り、元に戻してもう一度送るので、GAS の上が手元と同じになる
 6. 消えたかを確かめるときは、別の一時フォルダで `npx clasp clone <スクリプト ID> --rootDir .` を実行し、`fill-password.local.js` が無いことを見る（見終わったらフォルダごと消す）
 
-本番に切り替えるときも同じ手順で行う（`migrate()` のあと。`SHEET_ID` などは本番のものになっている）。
+本番に切り替えるときも同じ手順で行う（`migrate()` のあと）。送るときは `npm run push:prod`、消したあとは `npm run push:prod:clean` を使い、確かめる clone のスクリプト ID は `.clasp.prod.json` のものにする。
 
 ---
 
@@ -208,9 +208,11 @@ node scripts/dev-server.js
 ### 前日までにやること（旧版は使ってよい）
 
 1. RENEWAL_PLAN.md 2章のチェックリストがすべて埋まっていること
-2. 本番用の GAS プロジェクトを作る（Claude Code に頼む）
-   - 開発用の紐付け `.clasp.json` を `.clasp.dev.json` に控え、単独のプロジェクト「就活ボード v2」を作って `.clasp.prod.json` に控える。どちらも `.gitignore` に入れてある
-   - 送るときは、使う方を `.clasp.json` に写してから `npm run push` する
+2. 本番用の GAS プロジェクトを作る（済み。単独のプロジェクト「就活ボード v2」）
+   - 紐付けは、開発用を `.clasp.dev.json`、本番用を `.clasp.prod.json` に控えてある。どちらも `.gitignore` に入れてある
+   - `.clasp.json` はいつも開発用にしておく。`npm run push` は開発用へ送る
+   - 本番用へ送るときは `npm run push:prod`（手元で消したファイルを消すときは `npm run push:prod:clean`）
+   - 本番用のエディタは `npx clasp -P .clasp.prod.json open-script` で開く
 3. 本番用のスクリプトのプロパティを入れる（この時点では `ALLOW_PRODUCTION` は入れない）
    - `SHEET_ID`：本番シート（`1v-nnIz3` で始まるもの）
    - `CALENDAR_ID`：自分の Gmail アドレス（既定のカレンダーの ID）
@@ -218,7 +220,7 @@ node scripts/dev-server.js
    - `API_KEY`：開発用とは別の鍵を新しく作る（作り方は 4）
    - `LEGACY_LOGOS`：`legacy-logos.json` の中身（6-4 と同じ）
 4. `checkSetup` を実行して権限を許可する。`ALLOW_PRODUCTION` が無いので、「本番のシートを指しています」で止まれば正しい（本番には触っていない）
-5. 本番用のウェブアプリを公開しておく（7 の手順）。URL を控える。まだどの端末にも入れない
+5. 本番用のウェブアプリを公開しておく。`npx clasp -P .clasp.prod.json create-deployment --description "v2 本番"`。URL を控える。まだどの端末にも入れない
 6. 旧版の GAS の、時間で動くトリガーを止める。切り替えのあとに旧版が勝手に `Sheet1` やカレンダーを書き換えないようにするため
    1. 本番シートを開き、「拡張機能 → Apps Script」で旧版の GAS を開く
    2. 左の時計のアイコン「トリガー」を押して、トリガーの一覧を出す
