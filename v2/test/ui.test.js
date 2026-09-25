@@ -721,6 +721,46 @@ test('新版の保存は sk2_ だけを使い、旧版の保存分には触ら�
   R.stop();
 });
 
+test('動きは開いたとき・切り替えたときだけ。保存後の描き直しや裏の再取得では流れ直さない（スマホ）', async () => {
+  const R = await boot();
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  const head = () => R.$('#sheet .card-head');
+  const pane = () => R.$('#sheet .tab-pane');
+  assert.equal(head().style.animation, '');           // 開いたときは動く
+  R.$('#sheet #coDueD').value = '2030-04-01';
+  R.click('#sheet [data-act="set-due"]');
+  assert.equal(head().style.animation, 'none');       // 保存で描き直しても動かない
+  assert.equal(pane().style.animation, 'none');
+  assert.equal(R.$('#view').classList.contains('enter'), false);
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).dueAt === '2030-04-01T12:00');
+  await store.refresh();                               // 裏で最新を取っても動かない
+  assert.equal(head().style.animation, 'none');
+  assert.equal(R.$('#view').classList.contains('enter'), false);
+  R.click('#sheet [data-act="tab"][data-v="route"]');  // タブを切り替えたときは動く
+  assert.equal(pane().style.animation, '');
+  R.stop();
+});
+
+test('動きは開いたとき・切り替えたときだけ（PC）。区分を切り替えた直後の保存でも流れ直さない', async () => {
+  const R = await boot({ width: 1280 });
+  R.click(`.row[data-id="${R.ids.a}"]`);
+  assert.equal(R.$('#side .card-head').style.animation, '');
+  R.click('#sg1');
+  assert.ok(R.$('#view').classList.contains('enter'));  // 区分の切り替えは動く
+  R.click('#sg0');
+  R.click(`.row[data-id="${R.ids.b}"]`);               // 別の会社を開いたら動く
+  assert.equal(R.$('#side .card-head').style.animation, '');
+  R.click('#side [data-act="done"]');
+  assert.equal(R.$('#side .card-head').style.animation, 'none');
+  assert.equal(R.$('#view').classList.contains('enter'), false);
+  R.click(`.row[data-id="${R.ids.b}"]`);               // 同じ会社を開き直したときも動く
+  assert.equal(R.$('#side .card-head').style.animation, '');
+  R.click('#side [data-act="close-detail"]');          // 閉じても一覧は流れ直さない
+  assert.equal(R.$('#view').classList.contains('enter'), false);
+  R.stop();
+});
+
 test('どの画面を通っても、スクリプトのエラーを出さない', async () => {
   const R = await boot({ width: 1280 });
   R.click(`.row[data-id="${R.ids.a}"]`);

@@ -168,7 +168,8 @@ export function sideEmpty() {
   setHtml(el, html`<div id="sideEmpty"><div style="font-size:22px;font-weight:700;letter-spacing:.2em;color:rgba(255,255,255,.14)">就活</div><div>左の一覧から会社を選ぶと<br>ここに詳細が出ます。</div></div>`);
 }
 
-/* 同じ会社を描き直すときは、スクロール位置と書きかけの値を残す */
+/* 同じ会社を描き直すときは、スクロール位置と書きかけの値を残す。
+   見出しとタブの中身の動きも止める。保存のたびに流れ直すと、画面が跳ねて見えるので */
 function paintInto(card, c) {
   const same = card.dataset.id === c.id;
   const pane = card.querySelector('.tab-pane');
@@ -176,8 +177,12 @@ function paintInto(card, c) {
   const snap = same ? snapFields(card) : null;
   setHtml(card, fullHtml(c));
   card.dataset.id = c.id;
-  const np = card.querySelector('.tab-pane');
-  if (np && same) { np.style.animation = 'none'; np.scrollTop = y; }
+  if (same) {
+    const head = card.querySelector('.card-head');
+    const np = card.querySelector('.tab-pane');
+    if (head) head.style.animation = 'none';
+    if (np) { np.style.animation = 'none'; np.scrollTop = y; }
+  }
   restoreFields(card, snap);
 }
 
@@ -204,14 +209,17 @@ export function renderDetail() {
   showSheet(html`<div class="sheet"><div class="card noblur detail" data-id="${c.id}">${fullHtml(c)}</div></div>`);
 }
 
+/* 詳細を開く。同じ会社を開き直したときも、開いたときの動きは見せる */
 export function openDetail(id) {
   ui.openId = id;
   ui.tab = 'info';
+  const card = isWide() ? document.querySelector('#side .card') : null;
+  if (card) card.dataset.id = '';
   renderDetail();
 }
 
 export function closeDetail() {
-  if (isWide()) { ui.openId = null; sideEmpty(); rerenderAll(); } else closeSheet();
+  if (isWide()) { ui.openId = null; sideEmpty(); rerenderAll(false); } else closeSheet();
 }
 
 /* 詳細が今、画面に出ているか（スマホでは、ほかのシートが出ていることもある） */
@@ -391,7 +399,7 @@ export const detailActions = {
     ui.term = '本選考';
     ui.openId = r.company.id;
     ui.tab = 'info';
-    rerenderAll();
+    rerenderAll(true);     // 区分が切り替わるので、切り替えの動きを見せる
   },
   split: async () => {
     const c = current();
@@ -403,7 +411,7 @@ export const detailActions = {
     if (!r) return;
     ui.openId = r.company.id;
     ui.tab = 'info';
-    rerenderAll();
+    rerenderAll(false);
   },
   'delete-company': async () => {
     const c = current();
@@ -414,7 +422,7 @@ export const detailActions = {
     if (!r) return;
     forgetLogo(c.id);
     closeDetail();
-    rerenderAll();
+    rerenderAll(false);
   },
 
   'add-event': () => addEvent(),

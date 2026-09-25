@@ -762,6 +762,36 @@ test('旧版のロゴの取り込み：JSON として読めなければ止める
   assert.equal(T.heldLock(), false);
 });
 
+test('パスワードの一括入力：空の行にだけ入れる。入っている行と管理用の行は触らない。ログは件数だけ', () => {
+  const T = mk();
+  const a = addCo(T, { name: 'A社' });
+  const b = addCo(T, { name: 'B社', pw: 'keep-me' });
+  const m = addCo(T, { name: 'テストセンター', kind: 'mgmt' });
+  const c = addCo(T, { name: 'C社', term: '夏インターン', dueAt: '2030-01-10T12:00' });
+  T.resetCalls();
+  const n = T.ctx.fillEmptyPasswords_('dummy-fill');
+  assert.equal(n, 2);
+  const pw = (id) => T.api('getPassword', { id }).pw;
+  assert.equal(pw(a.id), 'dummy-fill');
+  assert.equal(pw(c.id), 'dummy-fill');
+  assert.equal(pw(b.id), 'keep-me');
+  assert.equal(pw(m.id), '');
+  assert.ok(T.log.includes('パスワードが空だった 2 社に入れました。'));
+  assert.equal(T.log.some((l) => l.includes('dummy-fill')), false);
+  assert.equal(T.api('getData', {}).companies.find((x) => x.id === c.id).updatedAt, c.updatedAt);
+  assert.deepEqual([T.calCalls.create, T.calCalls.update, T.calCalls.remove], [0, 0, 0]);
+  assert.equal(T.heldLock(), false);
+  // もう一度実行しても、入っている行は変えない
+  assert.equal(T.ctx.fillEmptyPasswords_('other'), 0);
+  assert.equal(pw(a.id), 'dummy-fill');
+  assert.throws(() => T.ctx.fillEmptyPasswords_(''), /空/);
+});
+
+test('gas/ の中の *.local.js は git に入らない', () => {
+  const ignore = fs.readFileSync(path.join(__dirname, '../../.gitignore'), 'utf8');
+  assert.match(ignore, /^v2\/gas\/\*\.local\.js$/m);
+});
+
 test('移行でも同じ決まりでロゴを入れる（写真と https でない値は入れない）', () => {
   const T = mk({ LEGACY_LOGOS: JSON.stringify({ 'A社': 'https://logo/a.png', 'テストセンター': 'SPI３' }) });
   legacy(T, DEV_SHEET);

@@ -224,6 +224,37 @@ function importLegacyLogos() {
   }
 }
 
+// ============================================================
+// パスワードの一括入力
+// ============================================================
+
+/**
+ * pw 列が空の会社に、同じパスワードをまとめて入れる。すでに入っている行と、管理用の行は触らない。
+ * パスワードの文字列はコードにもログにも残さないので、ここでは受け取るだけにする。
+ * 呼び出し元は、git に入れない一時ファイル（gas/*.local.js）に置き、実行したらすぐ消す（手順は GAS_SETUP.md の 6-5）。
+ * 実行ログに出すのは件数だけ。updatedAt もカレンダーも変えない。
+ */
+function fillEmptyPasswords_(pw) {
+  pw = str_(pw);
+  if (!pw) throw new Error('パスワードが空です。');
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var table = companies_();
+    var n = 0;
+    table.all().forEach(function (c) {
+      if (c.kind === 'mgmt' || str_(c.pw) !== '') return;
+      table.write({ id: c.id, pw: pw });
+      n++;
+    });
+    console.log('パスワードが空だった ' + n + ' 社に入れました。');
+    return n;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /* 旧版の見出し（区分・状態・提出日・ルート・ドメイン・業種）の列番号 */
 function legacyHead_(sheet) {
   var n = sheet.getLastColumn();

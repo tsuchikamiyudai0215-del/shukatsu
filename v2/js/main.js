@@ -87,6 +87,8 @@ function renderAll(pageChanged) {
   importLegacyManual(store.companies());
   ensureShell();
   syncPills();
+  /* 切り替えの直後（1秒ほど）に保存などで描き直すと、入場の動きがもう一度流れる。切り替え以外では先に外す */
+  if (!pageChanged) { const v = document.getElementById('view'); if (v) v.classList.remove('enter'); }
   if (ui.page === 'pass') renderPassport(); else renderList(() => { if (!isEditing()) renderAll(); });
   if (pageChanged) enter();
   if (ui.openId) {
@@ -355,7 +357,8 @@ export function start() {
   store.onChange(() => { if (hasConfig() && document.getElementById('view')) renderAll(); });
   store.onError(onStoreError);
   onLogoChange(() => renderAll());
-  onDetailRerender(() => renderAll(true));
+  /* 入場の動きを見せるのは、区分が切り替わるとき（本選考への引き継ぎ）だけ */
+  onDetailRerender((changed) => renderAll(!!changed));
   cleanups.push(initSheet(() => { if (!isWide()) ui.openId = null; renderAll(); }));
 
   listen(document, 'click', onClick);
