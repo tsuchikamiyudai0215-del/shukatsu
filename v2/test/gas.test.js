@@ -704,6 +704,72 @@ test('移行：旧版のロゴの記録を LEGACY_LOGOS から列へ移す', () 
   assert.equal(rows[0].logoManual, 'FALSE');
 });
 
+const LOGOS = JSON.stringify({
+  'A社': 'https://logo/a.png',
+  'B社': 'https://logo/b.png',
+  'C社': 'https://logo/c.png',
+  'テストセンター': 'SPI３',
+  '伊藤忠テクノソリューションズ': 'https://thumb.wikimedia.org/building.jpg',
+  '履修データセンター': 'https://upload.wikimedia.org/campus.jpg',
+  '無い社': 'https://logo/none.png'
+});
+
+test('旧版のロゴの取り込み：空か自動のものだけ上書きし、手で入れたものは残す。同じ名前の行には全部入れる', () => {
+  const T = mk({ LEGACY_LOGOS: LOGOS });
+  const a1 = addCo(T, { name: 'A社', term: '夏インターン' });
+  const a2 = addCo(T, { name: 'A社', term: '本選考' });
+  const b = addCo(T, { name: 'B社' });
+  const c = addCo(T, { name: 'C社' });
+  addCo(T, { name: 'テストセンター', kind: 'mgmt' });
+  addCo(T, { name: '伊藤忠テクノソリューションズ' });
+  T.api('saveLogo', { id: b.id, logo: 'https://auto/b.ico', manual: false });   // 画面が自動で見つけたもの
+  T.api('saveLogo', { id: c.id, logo: 'https://mine/c.png', manual: true });    // 手で入れたもの
+
+  const res = T.run('importLegacyLogos');
+  assert.equal(res.updated, 3);
+  assert.equal(res.kept, 1);
+  const logo = (id) => T.rows('companies').find((r) => r.id === id);
+  assert.equal(logo(a1.id).logo, 'https://logo/a.png');
+  assert.equal(logo(a2.id).logo, 'https://logo/a.png');
+  assert.equal(logo(b.id).logo, 'https://logo/b.png');
+  assert.equal(logo(b.id).logoManual, 'FALSE');
+  assert.equal(logo(c.id).logo, 'https://mine/c.png');
+  assert.equal(T.rows('companies').find((r) => r.name === 'テストセンター').logo, '');
+  assert.equal(T.rows('companies').find((r) => r.name === '伊藤忠テクノソリューションズ').logo, '');
+  // 写真の会社は、行が無くても「対応しなかった」には入れない（最初から外している）
+  assert.deepEqual(res.unmatched, ['無い社']);
+  assert.ok(T.log.some((l) => l.includes('同じ名前の行が無かった会社：無い社')));
+  assert.ok(T.log.some((l) => l.includes('テストセンター（https:// で始まらない）') && l.includes('伊藤忠テクノソリューションズ（写真なので外す）') && l.includes('履修データセンター（写真なので外す）')));
+  assert.equal(T.heldLock(), false);
+
+  // もう一度実行しても変わらない
+  const again = T.run('importLegacyLogos');
+  assert.deepEqual([again.updated, again.same], [0, 3]);
+});
+
+test('旧版のロゴの取り込み：updatedAt もカレンダーも変えない', () => {
+  const T = mk({ LEGACY_LOGOS: LOGOS });
+  const a = addCo(T, { name: 'A社', dueAt: '2030-01-10T12:00' });
+  T.resetCalls();
+  T.run('importLegacyLogos');
+  assert.equal(T.api('getData', {}).companies[0].updatedAt, a.updatedAt);
+  assert.deepEqual(T.calCalls, { create: 0, update: 0, remove: 0, get: 0 });
+});
+
+test('旧版のロゴの取り込み：JSON として読めなければ止める', () => {
+  const T = mk({ LEGACY_LOGOS: '{"A社": ' });
+  assert.throws(() => T.ctx.importLegacyLogos(), /JSON として読めません/);
+  assert.equal(T.heldLock(), false);
+});
+
+test('移行でも同じ決まりでロゴを入れる（写真と https でない値は入れない）', () => {
+  const T = mk({ LEGACY_LOGOS: JSON.stringify({ 'A社': 'https://logo/a.png', 'テストセンター': 'SPI３' }) });
+  legacy(T, DEV_SHEET);
+  T.run('migrate');
+  assert.equal(T.rows('companies').find((r) => r.name === 'テストセンター').logo, '');
+  assert.equal(T.rows('companies').find((r) => r.name === 'A社').logo, 'https://logo/a.png');
+});
+
 test('移行（本番へ切り替えるとき）：予定の ID を引き継ぎ、説明欄のパスワードを消す。作り直さない', () => {
   const T = mk({ SHEET_ID: PROD_SHEET, CALENDAR_ID: PRIMARY_CAL, ALLOW_PRODUCTION: 'yes' });
   const cal = T.calendars[PRIMARY_CAL];

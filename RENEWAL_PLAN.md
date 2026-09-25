@@ -86,6 +86,8 @@
 - [ ] 同時に3件までの順番待ち
 - [ ] 表示に失敗したら次の候補へ差し替える（同じURLは繰り返さない）
 - [ ] 一度表示できたURLを覚えて、描き直しのちらつきを防ぐ
+- [ ] 旧版のロゴの記録を取り込む（`importLegacyLogos`。写真と https でない値は外す）
+- [ ] 旧版の画面で手で入れたロゴ（端末の `sk_manual_logos`）を、新版を初めて開いたときに一度だけ写す（新しく足す機能）
 
 ### GAS側
 - [ ] 鍵による認証
@@ -219,6 +221,7 @@ GASはESモジュールを読めない。そこで `domain.js` は、グロー�
 - `addCompany`、`carryOver({ id })`、`splitCompany({ id, name })`、`deleteCompany({ id })`、`addEvent`、`deleteEvent({ id })`
 - `getPassword({ id })`：1社分のパスワードだけを返す。キャッシュしない。ロックも取らない
 - `setPassword({ id, pw })`：パスワードを変える。`updatedAt` は変えない
+- エディタから実行するもの：`checkSetup`、`migrate`、`syncAllCalendars`、`inspectCalendar`、`importLegacyLogos`（旧版のロゴの記録を取り込む。手順は `v2/GAS_SETUP.md` の 6-4）
 - `saveLogo({ id, logo, manual })`：ロゴの2列だけを書く。`updatedAt` もカレンダーも変えない（画面は開くたびに自動でロゴを探して保存するので、`updatedAt` を変えると同じ端末の操作とぶつかる）
 
 `mutate` は `updatedAt` が保存済みの値と違えば書かずに `conflict` を返し、最新の会社を添える。スマホとPCで同時に触ったときに、後から来た古い操作で上書きしないためである。ロックはルーターで1回だけ取る。

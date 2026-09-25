@@ -51,8 +51,7 @@ function migrate_() {
 
   var tz = ss.getSpreadsheetTimeZone();
   var carry = allowProduction_();
-  var logos = {};
-  try { logos = JSON.parse(prop_('LEGACY_LOGOS') || '{}'); } catch (e) { throw new Error('LEGACY_LOGOS が JSON として読めません。'); }
+  var logos = legacyLogoMap_().map;
   var now = nowIso_();
   var res = { companies: 0, events: 0, orphanEvents: 0, badEvents: 0, scrubbed: 0, carriedCalendar: carry };
 
@@ -159,6 +158,70 @@ function migrate_() {
   res.companies = list.length;
   res.events = evs.length;
   return res;
+}
+
+// ============================================================
+// 旧版のロゴの記録
+// ============================================================
+
+/* ロゴではなく建物の写真が入っていた会社。取り込まない */
+var LEGACY_LOGO_EXCLUDE = ['伊藤忠テクノソリューションズ', '履修データセンター'];
+
+/**
+ * スクリプトのプロパティ LEGACY_LOGOS（旧版のロゴの記録。会社名 → URL の JSON）を読み、
+ * 使えるものだけを返す。https:// で始まらない値（メモ書きなど）と、写真の会社は外す。
+ * 戻り値：{ map: 会社名 → URL, skipped: 外した会社名と理由 }
+ */
+function legacyLogoMap_() {
+  var raw = prop_('LEGACY_LOGOS');
+  var src;
+  try { src = JSON.parse(raw || '{}'); } catch (e) { throw new Error('LEGACY_LOGOS が JSON として読めません。'); }
+  if (!src || typeof src !== 'object' || Array.isArray(src)) throw new Error('LEGACY_LOGOS は「会社名: URL」の形の JSON にしてください。');
+  var map = {}, skipped = [];
+  Object.keys(src).forEach(function (name) {
+    var url = str_(src[name]).trim();
+    var key = str_(name).trim();
+    if (LEGACY_LOGO_EXCLUDE.indexOf(key) >= 0) { skipped.push(key + '（写真なので外す）'); return; }
+    if (!/^https:\/\//i.test(url)) { skipped.push(key + '（https:// で始まらない）'); return; }
+    map[key] = url;
+  });
+  return { map: map, skipped: skipped };
+}
+
+/**
+ * 旧版のロゴの記録を companies の logo 列へ取り込む。エディタから実行する。移行のあとに何度実行してもよい。
+ * 会社名で行を探し、同じ名前の行（夏インターンと本選考など）には全部入れる。
+ * logo 列が空か、画面が自動で見つけたもの（logoManual が FALSE）だけを上書きし、手で入れたものは残す。
+ * 取り込んだロゴは自動の扱いにしておく。表示に失敗したとき、画面が次の候補へ差し替えられるように。
+ */
+function importLegacyLogos() {
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var src = legacyLogoMap_();
+    var table = companies_();
+    var rows = table.all();
+    var updated = 0, kept = 0, same = 0;
+    var unmatched = [];
+    Object.keys(src.map).forEach(function (name) {
+      var hits = rows.filter(function (c) { return str_(c.name).trim() === name; });
+      if (!hits.length) { unmatched.push(name); return; }
+      hits.forEach(function (c) {
+        if (c.logoManual && c.logo) { kept++; return; }
+        if (c.logo === src.map[name]) { same++; return; }
+        table.write({ id: c.id, logo: src.map[name], logoManual: false });
+        updated++;
+      });
+    });
+    bustCache_();
+    console.log('ロゴを ' + updated + ' 行に入れました。手で入れたロゴを残した行 ' + kept + '、もう同じだった行 ' + same + '。');
+    if (src.skipped.length) console.log('取り込まなかった記録：' + src.skipped.join('、'));
+    if (unmatched.length) console.log('companies に同じ名前の行が無かった会社：' + unmatched.join('、'));
+    return { updated: updated, kept: kept, same: same, skipped: src.skipped, unmatched: unmatched };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* 旧版の見出し（区分・状態・提出日・ルート・ドメイン・業種）の列番号 */

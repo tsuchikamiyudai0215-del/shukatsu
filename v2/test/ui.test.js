@@ -674,6 +674,41 @@ test('ロゴの表示に失敗したら次の候補へ。同じ URL は繰り返
   R.stop();
 });
 
+test('旧版の画面で手で入れたロゴを、初めて開いたときに一度だけ写す。旧版の保存は消さない', async () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgo=';
+  const legacy = JSON.stringify({ '株式会社エー': PNG, 'エイチ本選考': 'https://logo.example/h.png', '無い社': PNG });
+  const R = await boot({ ls: { sk_manual_logos: legacy } });
+  /* 画像ファイルは端末にだけ写し、手動の扱いにする（自動のロゴ探しで上書きしない） */
+  const img = R.$(`.row[data-id="${R.ids.a}"] .logo img`);
+  assert.equal(img.getAttribute('src'), PNG);
+  assert.equal(JSON.parse(R.w.localStorage.getItem('sk2_file_logos'))[R.ids.a], PNG);
+  /* URL はシートにも手動として保存する */
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.h).logoManual === true);
+  assert.equal(R.T.api('getData', {}).companies.find((c) => c.id === R.ids.h).logo, 'https://logo.example/h.png');
+  /* 画像ファイルはシートには送らない */
+  assert.equal(R.calls.some((c) => JSON.stringify(c).includes('base64')), false);
+  assert.equal(R.w.localStorage.getItem('sk_manual_logos'), legacy);
+  assert.equal(R.w.localStorage.getItem('sk2_legacy_logos_done'), '1');
+  const saved = {};
+  for (let i = 0; i < R.w.localStorage.length; i++) saved[R.w.localStorage.key(i)] = R.w.localStorage.getItem(R.w.localStorage.key(i));
+  R.stop();
+
+  /* 2回目に開いたときは写さない（新版で変えたロゴを、旧版の値で戻さない） */
+  const changed = Object.assign({}, saved, { sk2_file_logos: '{}', sk_manual_logos: JSON.stringify({ 'ビー銀行': PNG }) });
+  delete changed.sk2_cache;
+  const R2 = await boot({ ls: changed });
+  assert.notEqual(R2.$(`.row[data-id="${R2.ids.b}"] .logo img`) && R2.$(`.row[data-id="${R2.ids.b}"] .logo img`).getAttribute('src'), PNG);
+  assert.equal(R2.w.localStorage.getItem('sk2_file_logos'), '{}');
+  R2.stop();
+});
+
+test('旧版の手動ロゴが無ければ、何もせずに済んだ印だけ付ける', async () => {
+  const R = await boot();
+  assert.equal(R.w.localStorage.getItem('sk2_legacy_logos_done'), '1');
+  assert.equal(R.w.localStorage.getItem('sk2_file_logos'), null);
+  R.stop();
+});
+
 test('新版の保存は sk2_ だけを使い、旧版の保存分には触らない', async () => {
   const R = await boot({ ls: { sk_cache: 'legacy', sk_ep: 'legacy-ep' } });
   R.click('#sg1');

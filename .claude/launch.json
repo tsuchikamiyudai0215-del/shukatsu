@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["v2/scripts/dev-server.js"],
       "port": 8787
+    },
+    {
+      "name": "v2-dev-8788",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "process.env.PORT='8788'; require('./v2/scripts/dev-server.js')"],
+      "port": 8788
     }
   ]
 }

@@ -18,6 +18,11 @@ export function get(key, fallback) {
   }
 }
 
+/* 旧版の保存を読む（sk2_ を付けずにそのままのキーで）。読むだけで、書いたり消したりはしない */
+export function getLegacy(key) {
+  try { return window.localStorage.getItem(key); } catch (e) { return null; }
+}
+
 export function set(key, value) {
   try { window.localStorage.setItem(PREFIX + key, String(value)); } catch (e) { /* 容量不足などは諦める */ }
 }

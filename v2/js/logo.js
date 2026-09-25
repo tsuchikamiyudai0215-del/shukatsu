@@ -327,6 +327,34 @@ export function fromFile(file, id) {
   });
 }
 
+/**
+ * 旧版の画面で手で入れたロゴ（旧版の端末保存 sk_manual_logos。会社名 → 画像）を、一度だけ新版へ写す。
+ * 旧版は会社名で、新版は id で覚えるので、会社の一覧が届いてから名前で対応させる（両方の区分に入れる）。
+ * 画像ファイル（data URL）はシートに入らない大きさなので、この端末の保存にだけ写す。手動の扱いになる。
+ * https の URL はシートにも手動として保存する。旧版の保存は消さない。
+ */
+export function importLegacyManual(list) {
+  if (storage.get('legacy_logos_done', '') === '1' || !list.length) return;
+  let src = null;
+  try { src = JSON.parse(storage.getLegacy('sk_manual_logos') || 'null'); } catch (e) { src = null; }
+  storage.set('legacy_logos_done', '1');
+  if (!src || typeof src !== 'object') return;
+  Object.keys(src).forEach((name) => {
+    const v = String(src[name] || '');
+    list.filter((c) => c.name === name).forEach((c) => {
+      if (/^data:image\//i.test(v)) {
+        L.files[c.id] = v;
+        L.tried.add(c.id);
+      } else if (/^https:\/\//i.test(v)) {
+        L.tried.add(c.id);
+        store.setLogoLocal(c.id, v, true);
+        store.saveLogo(c.id, v, true).catch(() => {});
+      }
+    });
+  });
+  storage.setJson('file_logos', L.files);
+}
+
 export function forgetLogo(id) {
   if (L.files[id]) { delete L.files[id]; storage.setJson('file_logos', L.files); }
 }

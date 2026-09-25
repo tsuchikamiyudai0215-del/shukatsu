@@ -9,7 +9,7 @@ import { html, setHtml } from './html.js';
 import { ui, resetUi, saveUi, TERMS, isWide } from './state.js';
 import * as store from './store.js';
 import { hasConfig, clearConfig } from './api.js';
-import { resetLogos, hydrate, logoLoaded, logoFailed, onLogoChange } from './logo.js';
+import { resetLogos, hydrate, logoLoaded, logoFailed, onLogoChange, importLegacyManual } from './logo.js';
 import { toast, staleShow, staleHide, busy, clearNoticeTimers } from './ui/notice.js';
 import { initSheet, closeSheet, closeThen, dropSheet, isSheetOpen } from './ui/sheet.js';
 import { attachLiquid } from './ui/liquid.js';
@@ -83,6 +83,8 @@ function enter() {
 /* 画面全体を描き直す。入力中は詳細だけ描き直しを待たせ、入力が終わってから描く */
 function renderAll(pageChanged) {
   if (!hasConfig()) { renderSetup(); return; }
+  /* 自動のロゴ探しより先に、旧版で手で入れたロゴを写しておく（写すのは最初の1回だけ） */
+  importLegacyManual(store.companies());
   ensureShell();
   syncPills();
   if (ui.page === 'pass') renderPassport(); else renderList(() => { if (!isEditing()) renderAll(); });
