@@ -657,3 +657,25 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
   .hero{padding-bottom:16px}
   .cd b{font-size:40px}
 }
+
+/* 選考ルートの編集。つながった段階は1つの枠に入れ、段階の間に「つなぐ／切る」を置く。
+   スマホで押し間違えないよう、ボタンは縦横とも36px以上にして、境目のボタンは行と別の段に置く */
+.rail u.lk{height:11px;margin:0 -1px}
+.rlist{margin-top:14px}
+.rgate{border:1px solid transparent;border-radius:var(--r-field);padding:0 10px}
+.rgate.linked{border-color:rgba(10,132,255,.5);background:rgba(10,132,255,.07)}
+.rlab{font-family:var(--mono);font-size:10px;color:var(--blue);letter-spacing:.04em;margin:6px 0 5px 4px}
+.rrow{display:flex;align-items:center;gap:6px;min-height:48px}
+.rnum{font-family:var(--mono);font-size:10px;color:var(--dim);width:16px;flex:0 0 auto}
+.rname{flex:1;min-width:0;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;
+  color:var(--muted);padding:12px 0;font-family:inherit}
+.rname.on{color:var(--text);font-weight:600}
+.rcur{font-family:var(--mono);font-size:9px;color:var(--blue);font-weight:400}
+.gh.rbtn{width:40px;height:36px;padding:0;flex:0 0 auto;font-size:14px;
+  display:inline-flex;align-items:center;justify-content:center}
+.gh.rbtn.rm{color:var(--hot)}
+.rjoint{display:flex;align-items:center;gap:10px;height:44px}
+.rjoint::before,.rjoint::after{content:'';flex:1;border-top:1px solid var(--line-soft)}
+.rgate.linked .rjoint::before,.rgate.linked .rjoint::after{border-top:1px dotted rgba(255,255,255,.2)}
+.rjoint .gh{min-width:76px;height:36px;padding:0 14px;font-size:11px}
+.rjoint.on .gh{color:var(--blue);border-color:rgba(10,132,255,.6)}

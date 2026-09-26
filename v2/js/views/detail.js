@@ -52,7 +52,10 @@ function railHtml(c) {
     const passed = idx >= 0 && i < idx, here = idx === i;
     const col = dead ? 'var(--dim)' : here ? 'var(--text)' : passed ? 'var(--muted)' : 'var(--line)';
     const sz = here ? 8 : 5;
-    return html`<div style="display:flex;align-items:center;${i === rt.length - 1 ? 'flex:0 0 auto' : 'flex:1'}"><i style="width:${sz}px;height:${sz}px;background:${col}${here && !dead ? ';box-shadow:0 0 0 4px rgba(255,255,255,.15)' : ''}"></i>${i < rt.length - 1 && html`<u style="background:${passed && !dead ? 'var(--muted)' : 'var(--line)'}"></u>`}</div>`;
+    /* つながった段階は、太い帯と点のまわりの輪で1つのまとまりに見せる */
+    const lk = Domain.isLinked(c, s), inGroup = lk || (i > 0 && Domain.isLinked(c, rt[i - 1]));
+    const ring = [here && !dead ? '0 0 0 4px rgba(255,255,255,.15)' : '', inGroup ? '0 0 0 ' + (here ? 5 : 3) + 'px rgba(10,132,255,.3)' : ''].filter(Boolean).join(',');
+    return html`<div style="display:flex;align-items:center;${i === rt.length - 1 ? 'flex:0 0 auto' : 'flex:1'}"><i style="width:${sz}px;height:${sz}px;background:${col}${ring ? ';box-shadow:' + ring : ''}"></i>${i < rt.length - 1 && html`<u class="${lk ? 'lk' : ''}" style="background:${lk ? 'rgba(10,132,255,.3)' : passed && !dead ? 'var(--muted)' : 'var(--line)'}"></u>`}</div>`;
   })}</div><div class="railtxt">${rt.map((s) => html`<span style="${s === cur ? 'color:var(--text)' : ''}">${s}</span>`)}</div>`;
 }
 
@@ -149,13 +152,24 @@ function eventsTab(c, now) {
 
 function routeTab(c) {
   const rt = Domain.routeOf(c), cur = Domain.position(c);
-  /* 「まとめ」は、その段階と次の段階の結果がまとめて出る印。最後の段階には次が無いので出さない */
-  const linkBtn = (s, i) => {
-    if (i === rt.length - 1) return html`<span style="width:58px;flex:0 0 auto"></span>`;
-    const on = Domain.isLinked(c, s);
-    return html`<button class="gh" style="padding:4px 9px;width:58px;${on ? 'color:var(--blue);border-color:rgba(10,132,255,.6)' : ''}" data-act="route-link" data-v="${i}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${s}と次の段階の結果をまとめる">まとめ</button>`;
+  const row = (s, i) => html`<div class="rrow"><span class="rnum">${i + 1}</span><button class="rname${cur === s ? ' on' : ''}" data-act="route-cur" data-v="${i}">${s}${cur === s && html` <span class="rcur">現在</span>`}</button><button class="gh rbtn" data-act="route-up" data-v="${i}" aria-label="上へ">↑</button><button class="gh rbtn" data-act="route-down" data-v="${i}" aria-label="下へ">↓</button><button class="gh rbtn rm" data-act="route-rm" data-v="${i}" aria-label="削除">×</button></div>`;
+  /* 段階 i と i+1 の境目。つなぐと、2つの結果が1回で出る扱いになる */
+  const joint = (i) => {
+    const on = Domain.isLinked(c, rt[i]), verb = on ? '切る' : 'つなぐ';
+    return html`<div class="rjoint${on ? ' on' : ''}"><button class="gh" data-act="route-link" data-v="${i}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${rt[i]}と${rt[i + 1]}を${verb}">${verb}</button></div>`;
   };
-  return html`<div style="margin-top:18px">${railHtml(c)}<div style="margin-top:14px">${rt.map((s, i) => html`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid ${Domain.isLinked(c, s) ? 'rgba(10,132,255,.35)' : 'var(--line-soft)'}"><span style="font-family:var(--mono);font-size:10px;color:var(--dim);width:16px">${i + 1}</span><button style="flex:1;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;color:${cur === s ? 'var(--text)' : 'var(--muted)'};font-weight:${cur === s ? 600 : 400}" data-act="route-cur" data-v="${i}">${s}${cur === s && html` <span style="font-family:var(--mono);font-size:9px;color:var(--blue)">現在</span>`}${Domain.isLinked(c, s) && html`<span style="display:block;font-family:var(--mono);font-size:9px;color:var(--blue);margin-top:2px">↓ 次とまとめて結果</span>`}</button>${linkBtn(s, i)}<button class="gh" style="padding:4px 9px" data-act="route-up" data-v="${i}" aria-label="上へ">↑</button><button class="gh" style="padding:4px 9px" data-act="route-down" data-v="${i}" aria-label="下へ">↓</button><button class="gh" style="padding:4px 9px;color:var(--hot)" data-act="route-rm" data-v="${i}" aria-label="削除">×</button></div>`)}</div><div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div><div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">段階名を押すと現在地になります。↑↓で並べ替え、×で削除。今の段階を消すと、次の段階が現在地になります。<br>「まとめ」を付けた段階は、次の段階と結果がまとめて出る扱いになります。出したら「提出して次へ」で、結果待ちを通らずに次の段階へ進めます。<br>自分で足した名前は、次から上の一覧にも出ます。</div></div>`;
+  /* つながった段階は1つの枠に入れ、枠の上に「ES＋テスト（結果は1回）」と出す */
+  let start = 0;
+  const gates = Domain.gatesOf(c).map((g, gi, all) => {
+    const s0 = start;
+    start += g.length;
+    const body = g.map((s, k) => html`${k > 0 && joint(s0 + k - 1)}${row(s, s0 + k)}`);
+    const box = g.length > 1
+      ? html`<div class="rlab">${g.join('＋')}（結果は1回）</div><div class="rgate linked">${body}</div>`
+      : html`<div class="rgate">${body}</div>`;
+    return html`${box}${gi < all.length - 1 && joint(start - 1)}`;
+  });
+  return html`<div style="margin-top:18px">${railHtml(c)}<div class="rlist">${gates}</div><div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div><div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">段階名を押すと現在地になります。↑↓で並べ替え、×で削除。今の段階を消すと、次の段階が現在地になります。<br>段階の間の「つなぐ」を押すと、枠に入った段階は結果が1回で出る扱いになります。出したら「提出して次へ」で、結果待ちを通らずに次の段階へ進めます。「切る」で元に戻ります。<br>自分で足した名前は、次から上の一覧にも出ます。</div></div>`;
 }
 
 function tabContent(c) {
@@ -466,9 +480,9 @@ export const detailActions = {
   },
   'route-link': (el) => {
     const c = current();
-    const name = Domain.routeOf(c)[+el.dataset.v];
+    const rt = Domain.routeOf(c), name = rt[+el.dataset.v], next = rt[+el.dataset.v + 1];
     const on = !Domain.isLinked(c, name);
-    act('setLink', { stage: name, on }, on ? name + ' を次の段階とまとめました。' : name + ' のまとめを外しました。');
+    act('setLink', { stage: name, on }, on ? name + ' と ' + next + ' をつなぎました。' : name + ' と ' + next + ' を切りました。');
   },
   'route-add': () => {
     const c = current();

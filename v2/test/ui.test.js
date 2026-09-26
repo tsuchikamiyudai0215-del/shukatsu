@@ -679,16 +679,25 @@ test('ルートタブ：現在地・並べ替え・削除・候補から追加�
   R.stop();
 });
 
-test('まとめの印：ルートタブで付け外しでき、最後の段階には出ない。印の段階では「提出して〇〇へ」を出す', async () => {
+test('つなぐ印：ルートタブの段階の間で付け外しでき、つながった段階は1つの枠と帯になる。印の段階では「提出して〇〇へ」を出す', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.a}"]`);                     // ES にいる会社
   assert.ok(R.$('#sheet [data-act="done"]'));
   R.click('#sheet [data-act="tab"][data-v="route"]');
   const n = Domain.LEGACY_ROUTE.length;
   assert.equal(R.$$('#sheet [data-act="route-link"]').length, n - 1);
-  R.click('#sheet [data-act="route-link"][data-v="1"]');      // ES と適性検査をまとめる
-  assert.equal(R.$('#sheet [data-act="route-link"][data-v="1"]').getAttribute('aria-pressed'), 'true');
-  assert.match(R.$('#sheet .tab-pane').textContent, /次とまとめて結果/);
+  assert.equal(R.$('#sheet [data-act="route-link"][data-v="1"]').textContent, 'つなぐ');
+  assert.equal(R.$$('#sheet .rgate.linked').length, 0);
+  R.click('#sheet [data-act="route-link"][data-v="1"]');      // ES と適性検査をつなぐ
+  const link = R.$('#sheet [data-act="route-link"][data-v="1"]');
+  assert.equal(link.getAttribute('aria-pressed'), 'true');
+  assert.equal(link.textContent, '切る');
+  /* つながった2つは1つの枠に入り、枠の上に見出しが付く。「切る」は枠の中の境目にある */
+  const box = R.$('#sheet .rgate.linked');
+  assert.deepEqual(Array.from(box.querySelectorAll('.rname')).map((b) => b.dataset.v), ['1', '2']);
+  assert.ok(box.contains(link));
+  assert.equal(box.previousElementSibling.textContent, 'ES＋適性検査（結果は1回）');
+  assert.equal(R.$$('#sheet .rail u.lk').length, 1);
   R.click('#sheet [data-act="tab"][data-v="info"]');
   const adv = R.$('#sheet [data-act="advance"]');
   assert.equal(adv.textContent, '提出して適性検査へ');
@@ -699,6 +708,11 @@ test('まとめの印：ルートタブで付け外しでき、最後の段階�
     return c.stage === '適性検査' && c.status === 'todo' && c.dueAt === '';
   });
   assert.deepEqual(R.T.api('getData', {}).companies.find((x) => x.id === R.ids.a).routeLinks, ['ES']);
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  R.click('#sheet [data-act="route-link"][data-v="1"]');      // 切る
+  assert.equal(R.$$('#sheet .rgate.linked').length, 0);
+  assert.equal(R.$('#sheet [data-act="route-link"][data-v="1"]').textContent, 'つなぐ');
+  await until(() => R.T.api('getData', {}).companies.find((x) => x.id === R.ids.a).routeLinks.length === 0);
   R.stop();
 });
 
