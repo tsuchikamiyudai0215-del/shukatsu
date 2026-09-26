@@ -242,13 +242,13 @@ node scripts/dev-server.js
    - `.clasp.json` はいつも開発用にしておく。`npm run push` は開発用へ送る
    - 本番用へ送るときは `npm run push:prod`（手元で消したファイルを消すときは `npm run push:prod:clean`）
    - 本番用のエディタは `npx clasp -P .clasp.prod.json open-script` で開く
-3. 本番用のスクリプトのプロパティを入れる（この時点では `ALLOW_PRODUCTION` は入れない）
+3. 本番用のスクリプトのプロパティを入れる（この時点では `ALLOW_PRODUCTION` は入れない）（済み。5つ入れた）
    - `SHEET_ID`：本番シート（`1v-nnIz3` で始まるもの）
    - `CALENDAR_ID`：自分の Gmail アドレス（既定のカレンダーの ID）
    - `DRIVE_PARENT_ID`：旧版の企業フォルダの親フォルダ（旧版の `Code.gs` の `PARENT_FOLDER_ID`）
    - `API_KEY`：開発用とは別の鍵を新しく作る（作り方は 4）
    - `LEGACY_LOGOS`：`legacy-logos.json` の中身（6-4 と同じ）
-4. `checkSetup` を実行して権限を許可する。`ALLOW_PRODUCTION` が無いので、「本番のシートを指しています」で止まれば正しい（本番には触っていない）
+4. `checkSetup` を実行して権限を許可する。`ALLOW_PRODUCTION` が無いので、「本番のシートを指しています」で止まれば正しい（本番には触っていない）（済み。権限を許可し、「SHEET_ID が本番のシートを指しています」で止まった）
 5. 本番用のウェブアプリを公開しておく。`npx clasp -P .clasp.prod.json create-deployment --description "v2 本番"`。URL を控える。まだどの端末にも入れない
 6. 旧版の GAS の、時間で動くトリガーを止める。切り替えのあとに旧版が勝手に `Sheet1` やカレンダーを書き換えないようにするため
    1. 本番シートを開き、「拡張機能 → Apps Script」で旧版の GAS を開く
