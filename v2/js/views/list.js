@@ -162,6 +162,12 @@ export function renderList(onEmptyReset) {
 
   setHtml(view, html`${stripHtml(mgmt, now)}${top}<div class="chips"><div class="chiprow"><button data-act="filt" data-v="all" class="${ui.filt === 'all' ? 'on' : ''}">すべて<b>${total}</b></button>${G.map((g) => html`<button data-act="filt" data-v="${g.k}" class="${ui.filt === g.k ? 'on' : ''}">${g.lab}<b style="color:${ui.filt === g.k ? '' : g.col}">${g.n}</b></button>`)}</div></div><div class="lanes${ui.filt === 'all' ? '' : ' single'}">${lanes}</div>`);
   view.querySelectorAll('.row, .pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
+  /* 見出しに出ていない締切や予定も、時刻を過ぎればレーンやタイルが変わる。一番近い時刻を覚えておき、過ぎたら組み直す */
+  const soon = [];
+  all.forEach((c) => { if (c.dueAt && Domain.viewStatus(c, new Date(now)) === 'todo') soon.push(instant(c.dueAt)); });
+  evs.forEach((ev) => soon.push(instant(ev.startAt), evEndAt(ev)));
+  const next = Math.min(...soon.filter((t) => t != null && t > now));
+  view.dataset.next = Number.isFinite(next) ? String(next) : '';
   tickHero(onEmptyReset);
 }
 
@@ -169,11 +175,20 @@ export function renderList(onEmptyReset) {
  * 見出しのカウントダウンを1秒ごとに進める。
  * 締切を過ぎたら「期限切れ」と出して、少し置いてから一覧ごと組み直す（その会社は結果待ちへ移る）。
  * 開催中の予定は、終わる時刻を過ぎたら組み直す。
+ * 見出しに出ていない締切や予定の時刻を過ぎたときも組み直す。
  */
 export function tickHero(rerender) {
-  const el = document.getElementById('heroCd');
-  if (!el) return;
   const now = Date.now();
+  const el = document.getElementById('heroCd');
+  if (el) tickCountdown(el, now, rerender);
+  /* 見出しが「期限切れ」を見せている間は、そちらの組み直しを待つ */
+  if (el && el.dataset.rendered === 'expired') return;
+  const view = document.getElementById('view');
+  const next = view ? parseInt(view.dataset.next || '0', 10) : 0;
+  if (next && next <= now && rerender) rerender();
+}
+
+function tickCountdown(el, now, rerender) {
   const r = rem(el.dataset.at, now);
   if (!r) {
     const until = parseInt(el.dataset.until || '0', 10);

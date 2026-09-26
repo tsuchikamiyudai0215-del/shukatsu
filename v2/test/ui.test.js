@@ -387,6 +387,30 @@ test('見出しは次の締切を秒単位で数え、期限が切れたら一�
   R.stop();
 });
 
+test('見出しが開催中の予定を出している間も、ほかの会社の締切が過ぎたら結果待ちへ組み直す', async () => {
+  let cid;
+  const R = await boot({ after: (T) => {
+    const c = T.api('addCompany', { name: 'まもなく締切', dueAt: atMs(61000) }).company;
+    T.api('saveLogo', { id: c.id, logo: 'none', manual: false });
+    /* 締切より前に始まった説明会を、見出しに出す */
+    T.api('addEvent', { companyId: c.id, kind: '説明会', startAt: atMs(-300000), endAt: atMs(600000) });
+    cid = c.id;
+  } });
+  const real = Date.now;
+  try {
+    assert.match(R.$('#heroCd').textContent, /開催中/);
+    assert.ok(R.$(`.lane[data-lane="todo"] .row[data-id="${cid}"]`));
+    /* 時計を2分進める。見出しの説明会はまだ開催中のまま */
+    const shift = 120000;
+    Date.now = () => real() + shift;
+    await until(() => R.$(`.lane[data-lane="wait"] .row[data-id="${cid}"]`), 2500);
+    assert.match(R.$('#heroCd').textContent, /開催中/);
+  } finally {
+    Date.now = real;
+    R.stop();
+  }
+});
+
 test('絞り込み：件数を出し、選択を保存する。対象が0件なら「すべて」に戻す', async () => {
   const R = await boot({ ls: { sk2_ui: JSON.stringify({ page: 'list', term: '夏インターン', filt: 'offer' }) } });
   assert.equal(R.$('.chiprow .on').dataset.v, 'all');
