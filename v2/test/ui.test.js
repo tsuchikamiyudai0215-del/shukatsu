@@ -69,6 +69,10 @@ function standard(T) {
 
 async function boot(opts = {}) {
   const T = mk({ API_KEY: 'k' });
+  /* 前からある会社として試すので、ルートを渡さずに足した会社は前の初期のルート（エントリー → … → 内定）にする */
+  const api0 = T.api;
+  T.api = (action, args, key) => api0(action,
+    action === 'addCompany' && args && !args.route ? Object.assign({ route: Domain.LEGACY_ROUTE }, args) : args, key);
   const ids = opts.seed === false ? {} : standard(T);
   if (opts.after) opts.after(T, ids);
   const errors = [];
@@ -633,12 +637,14 @@ test('予定タブ：残り日数つきの一覧、追加（終日・連日・�
   R.stop();
 });
 
-test('ルートタブ：現在地・並べ替え・削除（2段階以上、現在地は消せない）・候補から追加・名前を付けて追加', async () => {
+test('ルートタブ：現在地・並べ替え・削除・候補から追加・名前を付けて追加', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);
   R.click('#sheet [data-act="tab"][data-v="route"]');
+  R.w.confirm = () => false;                                  // 今の段階を消すのは、確かめてやめる
   R.click('#sheet [data-act="route-rm"][data-v="0"]');
-  assert.match(R.toast(), /今の段階は外せません/);
+  assert.match(R.$('#sheet .card-head').textContent, /エントリー/);
+  R.w.confirm = () => true;
   R.$('#sheet #newStage').value = 'リクルーター面談';
   R.click('#sheet [data-act="route-custom"]');
   assert.match(R.$('#sheet .railtxt').textContent, /リクルーター面談/);
@@ -646,6 +652,65 @@ test('ルートタブ：現在地・並べ替え・削除（2段階以上、現�
   R.click('#sheet [data-act="route-cur"][data-v="2"]');
   assert.match(R.$('#sheet .card-head').textContent, /適性検査/);
   await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).stage === '適性検査', 1500);
+  R.stop();
+});
+
+test('まとめの印：ルートタブで付け外しでき、最後の段階には出ない。印の段階では「提出して〇〇へ」を出す', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.a}"]`);                     // ES にいる会社
+  assert.ok(R.$('#sheet [data-act="done"]'));
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  const n = Domain.LEGACY_ROUTE.length;
+  assert.equal(R.$$('#sheet [data-act="route-link"]').length, n - 1);
+  R.click('#sheet [data-act="route-link"][data-v="1"]');      // ES と適性検査をまとめる
+  assert.equal(R.$('#sheet [data-act="route-link"][data-v="1"]').getAttribute('aria-pressed'), 'true');
+  assert.match(R.$('#sheet .tab-pane').textContent, /次とまとめて結果/);
+  R.click('#sheet [data-act="tab"][data-v="info"]');
+  const adv = R.$('#sheet [data-act="advance"]');
+  assert.equal(adv.textContent, '提出して適性検査へ');
+  assert.equal(R.$('#sheet [data-act="done"]'), null);
+  adv.click();
+  await until(() => {
+    const c = R.T.api('getData', {}).companies.find((x) => x.id === R.ids.a);
+    return c.stage === '適性検査' && c.status === 'todo' && c.dueAt === '';
+  });
+  assert.deepEqual(R.T.api('getData', {}).companies.find((x) => x.id === R.ids.a).routeLinks, ['ES']);
+  R.stop();
+});
+
+test('今の段階も消せる。消す前に「〇〇を消して、現在地を△△にします」と確かめ、締切は残す', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.a}"]`);                     // ES にいて締切がある
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  let asked = '';
+  R.w.confirm = (m) => { asked = m; return false; };
+  R.click('#sheet [data-act="route-rm"][data-v="1"]');
+  assert.equal(asked, 'ESを消して、現在地を適性検査にします。');
+  assert.equal(R.mutates().length, 0);                        // やめたら何もしない
+  R.w.confirm = () => true;
+  R.click('#sheet [data-act="route-rm"][data-v="1"]');
+  await until(() => R.T.api('getData', {}).companies.find((x) => x.id === R.ids.a).stage === '適性検査');
+  const c = R.T.api('getData', {}).companies.find((x) => x.id === R.ids.a);
+  assert.equal(c.route.includes('ES'), false);
+  assert.ok(c.dueAt);
+  asked = '';
+  R.w.confirm = (m) => { asked = m; return true; };
+  R.click('#sheet [data-act="route-rm"][data-v="0"]');        // 今の段階でなければ確かめない
+  assert.equal(asked, '');
+  R.stop();
+});
+
+test('追加フォームの段階は、その区分の初期のルートを先に並べ、ES を選んでおく', async () => {
+  const R = await boot();
+  R.click('[data-act="add"]');
+  const opts = R.$$('#nS option').map((o) => o.value);
+  assert.deepEqual(opts.slice(0, 4), ['ES', 'テスト', '面接', 'インターン']);
+  assert.equal(R.$('#nS').value, 'ES');
+  R.$('#nC').value = '新規社';
+  R.click('[data-act="add-company"]');
+  await until(() => R.T.api('getData', {}).companies.some((x) => x.name === '新規社'));
+  const c = R.T.api('getData', {}).companies.find((x) => x.name === '新規社');
+  assert.deepEqual([c.stage, c.route], ['ES', ['ES', 'テスト', '面接', 'インターン']]);
   R.stop();
 });
 

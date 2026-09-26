@@ -140,7 +140,7 @@ function getData_() {
     ok: true,
     companies: companies_().all().map(publicCompany_),
     events: events_().all().map(publicEvent_),
-    route: Domain.DEFAULT_ROUTE
+    routes: Domain.DEFAULT_ROUTES
   };
 }
 

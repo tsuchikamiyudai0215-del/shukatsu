@@ -84,7 +84,10 @@ function migrate_() {
       term: term,
       status: status,
       stage: stage,
-      route: route.length >= 2 ? route : Domain.DEFAULT_ROUTE.slice(),
+      /* ルートを自分で編集していない会社は、旧版の初期のルートを書き込んで固定する。
+         新版の初期のルートは短くしてあるので、空のままだと動きが変わる */
+      route: route.length >= 2 ? route : Domain.LEGACY_ROUTE.slice(),
+      routeLinks: [],
       lostStage: lost,
       dueAt: due.dueAt,
       dueHasTime: due.dueHasTime,
@@ -219,6 +222,35 @@ function importLegacyLogos() {
     if (src.skipped.length) console.log('取り込まなかった記録：' + src.skipped.join('、'));
     if (unmatched.length) console.log('companies に同じ名前の行が無かった会社：' + unmatched.join('、'));
     return { updated: updated, kept: kept, same: same, skipped: src.skipped, unmatched: unmatched };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================================
+// ルートが空の会社を固定する
+// ============================================================
+
+/**
+ * route が空の会社に、旧版の初期のルートを書き込む。エディタから実行する。何度実行してもよい。
+ * 新版の初期のルートは短くしたので、route が空のままだと、その会社の段階の並びが変わってしまう。
+ * migrate() は移すときに同じことをするので、ふだんは0件になる。updatedAt もカレンダーも変えない。
+ */
+function fillEmptyRoutes() {
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var table = companies_();
+    var n = 0;
+    table.all().forEach(function (c) {
+      if (Array.isArray(c.route) && c.route.length) return;
+      table.write({ id: c.id, route: Domain.LEGACY_ROUTE.slice() });
+      n++;
+    });
+    bustCache_();
+    console.log('ルートが空だった ' + n + ' 社に、前の初期のルートを書き込みました。');
+    return n;
   } finally {
     lock.releaseLock();
   }

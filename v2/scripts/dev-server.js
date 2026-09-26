@@ -27,21 +27,21 @@ function at(days, hh, mm) {
 function seed() {
   const add = (f) => T.api('addCompany', f).company;
   const op = (c, o, args) => T.api('mutate', { id: c.id, op: o, args: args || {}, updatedAt: T.api('getData', {}).companies.find((x) => x.id === c.id).updatedAt });
-  add({ name: 'テストセンター', kind: 'mgmt', stage: '適性検査', dueAt: at(5, 10, 0) });
+  add({ name: 'テストセンター', kind: 'mgmt', stage: 'テスト', dueAt: at(5, 10, 0) });
   const a = add({ name: '株式会社サンプル商事', url: 'https://example.com/mypage', loginId: 'sample01', pw: 'dev-password', dueAt: at(1, 23, 59), stage: 'ES', domain: 'mitsubishicorp.com' });
-  add({ name: 'テスト銀行', dueAt: at(6, 12, 0), stage: 'エントリー', domain: 'mufg.jp' });
-  add({ name: 'ダミー電機株式会社', dueAt: at(12, 17, 0), stage: 'GD', domain: 'panasonic.com' });
-  const w = add({ name: 'モック通信', stage: '適性検査', domain: 'kddi.com' });
+  add({ name: 'テスト銀行', dueAt: at(6, 12, 0), stage: 'ES', domain: 'mufg.jp' });
+  add({ name: 'ダミー電機株式会社', dueAt: at(12, 17, 0), stage: '面接', domain: 'panasonic.com' });
+  const w = add({ name: 'モック通信', stage: 'テスト', domain: 'kddi.com' });
   op(w, 'done');
-  const o = add({ name: '架空航空', stage: '最終面接', domain: 'ana.co.jp' });
+  const o = add({ name: '架空航空', stage: '面接', domain: 'ana.co.jp' });
   op(o, 'pass');
   const f = add({ name: '仮置きシステムズ', stage: '面接', industry: 'IT・SIer' });
   op(f, 'fail');
-  const s = add({ name: '見送り物産', stage: 'エントリー' });
+  const s = add({ name: '見送り物産', stage: 'ES' });
   op(s, 'skip');
   T.api('addEvent', { companyId: a.id, kind: '説明会', startAt: at(3, 13, 0), endAt: at(3, 14, 30), place: 'オンライン' });
   T.api('addEvent', { companyId: o.id, kind: 'インターン', startAt: at(9, 10, 0), endAt: at(11, 17, 0), daily: true });
-  const r = add({ name: 'サンプル商事', term: '本選考', stage: 'エントリー', dueAt: at(20, 23, 59), domain: 'mitsubishicorp.com' });
+  const r = add({ name: 'サンプル商事', term: '本選考', stage: 'ES', dueAt: at(20, 23, 59), domain: 'mitsubishicorp.com' });
   void r;
 }
 seed();

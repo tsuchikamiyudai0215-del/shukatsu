@@ -6,9 +6,11 @@ const { mk, DEV_SHEET, PROD_SHEET, DEV_CAL, PRIMARY_CAL, Sheet } = require('./ga
 
 /* 日本時間の壁時計の値から、その瞬間の Date を作る */
 const jst = (s) => new Date(Date.parse(s + ':00+09:00'));
+const LEGACY_ROUTE = require('../shared/domain.js').LEGACY_ROUTE;
 
 function addCo(T, fields) {
-  const r = T.api('addCompany', Object.assign({ name: 'A社', term: '本選考' }, fields));
+  /* 前の初期のルート（エントリー → … → 内定）の会社として試す */
+  const r = T.api('addCompany', Object.assign({ name: 'A社', term: '本選考', route: LEGACY_ROUTE }, fields));
   assert.equal(r.ok, true, r.error);
   return r.company;
 }
@@ -422,7 +424,7 @@ test('本選考へ引き継ぐ：パスワードとフォルダも写す。応�
   const r = T.api('carryOver', { id: c.id });
   assert.equal(r.ok, true, r.error);
   assert.equal(r.company.term, '本選考');
-  assert.equal(r.company.stage, 'エントリー');
+  assert.equal(r.company.stage, 'ES');                 // 本選考の初期のルートの最初から
   assert.equal(r.company.folderUrl, c.folderUrl);
   assert.equal('pw' in r.company, false);
   assert.equal(T.rows('companies').find((x) => x.id === r.company.id).pw, 'pwa');
@@ -826,6 +828,47 @@ test('旧版のロゴの取り込み：JSON として読めなければ止める
   const T = mk({ LEGACY_LOGOS: '{"A社": ' });
   assert.throws(() => T.ctx.importLegacyLogos(), /JSON として読めません/);
   assert.equal(T.heldLock(), false);
+});
+
+test('選考ルートの印（routeLinks）はシートに保存され、提出して次へ進める', () => {
+  const T = mk();
+  const c = T.api('addCompany', { name: 'L社', term: '本選考', dueAt: '2030-01-10T12:00' }).company;
+  assert.deepEqual([c.stage, c.route, c.routeLinks], ['ES', ['ES', 'テスト', '面接', '内定'], []]);
+  const a = mutate(T, c, 'setLink', { stage: 'ES', on: true });
+  assert.equal(a.ok, true, a.error);
+  assert.deepEqual(a.company.routeLinks, ['ES']);
+  assert.equal(JSON.parse(T.rows('companies')[0].routeLinks)[0], 'ES');
+  assert.equal(T.liveIn(DEV_CAL).length, 1);
+  const b = mutate(T, a.company, 'advance');
+  assert.deepEqual([b.company.stage, b.company.status, b.company.dueAt], ['テスト', 'todo', '']);
+  assert.equal(T.liveIn(DEV_CAL).length, 0);                // 締切の予定も消える
+  const d = mutate(T, b.company, 'removeStage', { stage: 'テスト' });
+  assert.deepEqual([d.company.stage, d.company.route], ['面接', ['ES', '面接', '内定']]);
+});
+
+test('ルートが空の会社に、前の初期のルートを書き込む（fillEmptyRoutes）', () => {
+  const T = mk();
+  const a = addCo(T, { name: 'A社' });
+  const b = addCo(T, { name: 'B社' });
+  const sh = T.sheet('companies');
+  sh.d[1][sh.d[0].indexOf('route')] = '';                    // ルートを自分で編集していない会社
+  const n = T.run('fillEmptyRoutes');
+  assert.equal(n, 1);
+  const got = T.api('getData', {}).companies;
+  assert.deepEqual(got.find((x) => x.id === a.id).route, LEGACY_ROUTE);
+  assert.deepEqual(got.find((x) => x.id === b.id).route, LEGACY_ROUTE);
+  assert.equal(got.find((x) => x.id === a.id).updatedAt, a.updatedAt);
+  assert.ok(T.log.includes('ルートが空だった 1 社に、前の初期のルートを書き込みました。'));
+  assert.equal(T.ctx.fillEmptyRoutes(), 0);
+});
+
+test('移行：旧版でルートを編集していない会社は、前の初期のルートで固定する', () => {
+  const T = mk();
+  legacy(T, DEV_SHEET);
+  T.run('migrate');
+  const a = T.rows('companies').find((r) => r.name === 'A社' && r.term === '夏インターン');
+  assert.deepEqual(JSON.parse(a.route), LEGACY_ROUTE);
+  assert.deepEqual(JSON.parse(a.routeLinks), []);
 });
 
 test('パスワードの一括入力：空の行にだけ入れる。入っている行と管理用の行は触らない。ログは件数だけ', () => {

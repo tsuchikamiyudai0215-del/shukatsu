@@ -12,8 +12,17 @@ import { dtField, dtValue } from './fields.js';
 let sugTimer = 0;
 let sugSeq = 0;
 
+/* 段階の選び肢。その区分の初期のルートを先に並べ、あとに「よくある段階」を続ける。
+   初期のルートに無い段階を選ぶと、通過したときに次の段階が見つからないので、ふだんは最初の段階（ES）のままにする */
+function stageChoices() {
+  const list = Domain.defaultRoute(ui.term);
+  stagePalette().forEach((s) => { if (!list.includes(s)) list.push(s); });
+  return list;
+}
+
 export function openAdd() {
-  showSheet(html`<div class="sheet"><div class="card" id="addCard" style="height:auto;max-height:88dvh;overflow-y:auto"><div class="grab"></div><div style="font-size:18px;font-weight:700">選考を追加</div><div class="lab">会社名</div><input class="f" id="nC" placeholder="例：三菱商事" autocomplete="off" data-input="suggest"><div class="sug" id="nCSug"></div><div class="sugNote">2文字以上入れると候補が出ます。選ぶと正式名称とロゴ用ドメインが入ります。「〇〇グループ」のように自分の呼び方で登録したいときは、そのまま入力して大丈夫です。</div><div class="lab">マイページURL（任意）</div><input class="f" id="nU"><div class="lab">ログインID（任意）</div><input class="f" id="nI"><div class="lab">ロゴ用ドメイン（任意）</div><input class="f" id="nD" placeholder="例：mitsubishicorp.com"><div class="lab">段階</div><select class="f" id="nS">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><div class="lab">締切（任意）</div>${dtField('nDue', '', '23:59')}<button class="big" style="background:#fff;color:#000" data-act="add-company">追加する</button></div></div>`);
+  const first = Domain.defaultRoute(ui.term)[0];
+  showSheet(html`<div class="sheet"><div class="card" id="addCard" style="height:auto;max-height:88dvh;overflow-y:auto"><div class="grab"></div><div style="font-size:18px;font-weight:700">選考を追加</div><div class="lab">会社名</div><input class="f" id="nC" placeholder="例：三菱商事" autocomplete="off" data-input="suggest"><div class="sug" id="nCSug"></div><div class="sugNote">2文字以上入れると候補が出ます。選ぶと正式名称とロゴ用ドメインが入ります。「〇〇グループ」のように自分の呼び方で登録したいときは、そのまま入力して大丈夫です。</div><div class="lab">マイページURL（任意）</div><input class="f" id="nU"><div class="lab">ログインID（任意）</div><input class="f" id="nI"><div class="lab">ロゴ用ドメイン（任意）</div><input class="f" id="nD" placeholder="例：mitsubishicorp.com"><div class="lab">段階</div><select class="f" id="nS">${stageChoices().map((p) => html`<option${p === first ? html` selected` : ''}>${p}</option>`)}</select><div class="lab">締切（任意）</div>${dtField('nDue', '', '23:59')}<button class="big" style="background:#fff;color:#000" data-act="add-company">追加する</button></div></div>`);
   setTimeout(() => { const el = document.getElementById('nC'); if (el) el.focus(); }, 80);
 }
 

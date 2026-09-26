@@ -10,7 +10,8 @@ const jst = (s) => new Date(Date.parse(s + ':00+09:00'));
 const NOW = jst('2026-09-24T12:00');
 
 function co(over) {
-  return Object.assign(D.create('c_1', { name: 'A株式会社', term: '本選考' }), over || {});
+  /* 前の初期のルート（エントリー → … → 内定）の会社として試す */
+  return Object.assign(D.create('c_1', { name: 'A株式会社', term: '本選考', route: D.LEGACY_ROUTE }), over || {});
 }
 
 // ============================================================
@@ -234,11 +235,25 @@ test('今の段階がもともとルートに無い行は、ルートを直し�
   assert.deepEqual(n.route, ['ES', '内定']);
 });
 
-test('ルートが空なら既定のルートを使う', () => {
-  assert.deepEqual(D.routeOf({ route: [] }), D.DEFAULT_ROUTE);
-  assert.deepEqual(D.routeOf({}), D.DEFAULT_ROUTE);
+test('初期のルート：夏インターンは ES → テスト → 面接 → インターン、本選考は … → 内定', () => {
+  assert.deepEqual(D.defaultRoute('夏インターン'), ['ES', 'テスト', '面接', 'インターン']);
+  assert.deepEqual(D.defaultRoute('本選考'), ['ES', 'テスト', '面接', '内定']);
+  assert.deepEqual(D.routeOf({ route: [], term: '本選考' }), ['ES', 'テスト', '面接', '内定']);
+  assert.deepEqual(D.routeOf({}), ['ES', 'テスト', '面接', 'インターン']);
   D.routeOf({}).push('x');
-  assert.equal(D.DEFAULT_ROUTE.includes('x'), false);
+  assert.equal(D.DEFAULT_ROUTES.intern.includes('x'), false);
+  /* 「よくある段階から選ぶ」の候補は今までのまま */
+  assert.deepEqual(D.STAGE_CANDIDATES.slice(0, 3), ['エントリー', 'ES', '適性検査']);
+});
+
+test('新しい会社は初期のルートの ES から。最後まで通ると、夏インターンはインターン参加決定・本選考は内定', () => {
+  const s = D.create('s', { name: 'S社', term: '夏インターン' });
+  assert.deepEqual([s.stage, s.route, s.routeLinks], ['ES', ['ES', 'テスト', '面接', 'インターン'], []]);
+  let n = D.apply(Object.assign({}, s, { stage: '面接' }), { type: 'pass' }, NOW);
+  assert.deepEqual([n.stage, n.status], ['インターン', 'joined']);
+  const m = D.create('m', { name: 'M社', term: '本選考' });
+  n = D.apply(Object.assign({}, m, { stage: '面接' }), { type: 'pass' }, NOW);
+  assert.deepEqual([n.stage, n.status], ['内定', 'offer']);
 });
 
 // ============================================================
@@ -273,7 +288,8 @@ test('追加：既定の値と、URL・ID・ドメイン・段階・締切', () 
   assert.equal(c.kind, 'company');
   assert.equal(c.status, 'todo');
   assert.equal(c.stage, 'ES');
-  assert.deepEqual(c.route, D.DEFAULT_ROUTE);
+  assert.deepEqual(c.route, D.DEFAULT_ROUTES.main);
+  assert.equal(D.create('c_5', { name: 'G社', term: '本選考' }).stage, 'ES');   // 段階を選ばなければ ES
   assert.equal(c.dueAt, '2030-01-01T09:30');
   assert.equal(c.dueHasTime, true);
   assert.equal(D.create('c_8', { name: 'E社' }).term, '夏インターン');
@@ -315,17 +331,17 @@ test('同じ区分の重複を見つける。改名中の本人は除く', () =>
   assert.equal(D.duplicateOf(list, 'B社', '').id, 'b');
 });
 
-test('本選考へ引き継ぐ：会社情報とフォルダを写し、選考はエントリーから', () => {
+test('本選考へ引き継ぐ：会社情報とフォルダを写し、選考は本選考の初期のルートの ES から', () => {
   const src = co({ term: '夏インターン', stage: '内定', status: 'joined', url: 'https://a', loginId: 'ida',
     domain: 'a.co.jp', industry: '金融', logo: 'L', folderUrl: 'https://drive/a', route: ['エントリー', 'GD', '内定'], pw: 'secret' });
   const n = D.carryOver(src, 'c_2');
   assert.equal(n.id, 'c_2');
   assert.equal(n.term, '本選考');
-  assert.equal(n.stage, 'エントリー');
+  assert.equal(n.stage, 'ES');
   assert.equal(n.status, 'todo');
   assert.equal(n.loginId, 'ida');
   assert.equal(n.folderUrl, 'https://drive/a');
-  assert.deepEqual(n.route, D.DEFAULT_ROUTE);
+  assert.deepEqual(n.route, D.DEFAULT_ROUTES.main);
   assert.equal('pw' in n, false);
   assert.throws(() => D.carryOver(co({ term: '本選考' }), 'c_3'), /同じ区分/);
 });
@@ -521,7 +537,7 @@ test('業種の推定：細かい方を先に当てる。手で入れた業種�
 // ============================================================
 
 function sample() {
-  const mk = (id, over) => Object.assign(D.create(id, { name: id, term: '本選考' }), over);
+  const mk = (id, over) => Object.assign(D.create(id, { name: id, term: '本選考', route: D.LEGACY_ROUTE }), over);
   return [
     mk('A銀行', { stage: '面接', status: 'failed', lostStage: '面接' }),                                // エントリー〜GD 通過、面接で落選
     mk('B銀行', { stage: '内定', status: 'offer' }),                                                   // 最後まで
@@ -547,7 +563,7 @@ test('記録：社数・通過数・進行中・終了・見送り', () => {
 test('記録：段階別の通過率と、一番多く終わった段階', () => {
   const t = D.tally(sample(), NOW);
   const s = Object.fromEntries(t.stages.map((x) => [x.stage, x]));
-  assert.deepEqual(t.stages.map((x) => x.stage), D.DEFAULT_ROUTE);
+  assert.deepEqual(t.stages.map((x) => x.stage), D.LEGACY_ROUTE);
   assert.deepEqual([s['面接'].pass, s['面接'].fail, s['面接'].rate], [1, 2, 33]);
   assert.deepEqual([s['ES'].pass, s['ES'].wait, s['ES'].rate], [3, 2, 100]);
   assert.equal(s['内定'].rate, 100);
@@ -558,7 +574,7 @@ test('記録：最も進んだ段階はルート内の割合で比べる', () =>
   const t = D.tally(sample(), NOW);
   assert.deepEqual(t.deepest, { stage: '内定', rate: 100 });
   const short = D.tally([Object.assign(D.create('x', { name: 'X' }), { route: ['ES', '面談', '内定'], stage: '面談' }),
-    Object.assign(D.create('y', { name: 'Y' }), { stage: '面接' })], NOW);
+    Object.assign(D.create('y', { name: 'Y', route: D.LEGACY_ROUTE }), { stage: '面接' })], NOW);
   // 3段階中の2つ目（50%）より、7段階中の5つ目（67%）の方が進んでいる
   assert.deepEqual(short.deepest, { stage: '面接', rate: 67 });
 });
@@ -608,4 +624,145 @@ test('記録：0件でも落ちない', () => {
   assert.equal(t.worst, null);
   assert.equal(t.waiting.longest, null);
   assert.deepEqual(t.industries, []);
+});
+
+
+// ============================================================
+// 「次とまとめて結果が出る」の印
+// ============================================================
+
+/* ES とテストをつないだ本選考の会社 */
+function linked(over) {
+  return Object.assign(D.create('L', { name: 'L社', term: '本選考', route: ['ES', 'テスト', '面接', '内定'], routeLinks: ['ES'] }), over || {});
+}
+
+test('印：段階ごとに付け外しでき、最後の段階には付けられない', () => {
+  let c = D.create('x', { name: 'X社', term: '本選考' });
+  c = D.apply(c, { type: 'setLink', stage: 'ES', on: true }, NOW);
+  c = D.apply(c, { type: 'setLink', stage: 'テスト', on: true }, NOW);
+  assert.deepEqual(c.routeLinks, ['ES', 'テスト']);
+  assert.deepEqual(D.gatesOf(c), [['ES', 'テスト', '面接'], ['内定']]);
+  c = D.apply(c, { type: 'setLink', stage: 'テスト', on: false }, NOW);
+  assert.deepEqual(D.gatesOf(c), [['ES', 'テスト'], ['面接'], ['内定']]);
+  assert.throws(() => D.apply(c, { type: 'setLink', stage: '内定', on: true }, NOW), /最後の段階には付けられません。/);
+  assert.throws(() => D.apply(c, { type: 'setLink', stage: '無い', on: true }, NOW), /ルートに無い/);
+  /* 外すのは最後の段階でもできる（印が無いのでそのまま） */
+  assert.deepEqual(D.apply(c, { type: 'setLink', stage: '内定', on: false }, NOW).routeLinks, ['ES']);
+});
+
+test('印の無いルートは今までどおり：関門は段階ごと、提出して次へは使えない', () => {
+  const c = co({ stage: 'ES' });
+  assert.deepEqual(D.linksOf(c), []);
+  assert.equal(D.gatesOf(c).length, D.LEGACY_ROUTE.length);
+  assert.throws(() => D.apply(c, { type: 'advance' }, NOW), /印が付いていません/);
+  assert.equal(D.apply(c, { type: 'done' }, NOW).status, 'waiting');
+});
+
+test('提出して次へ：結果待ちを通らず次の段階の対応中へ。締切は空にし、締切の予定も消える', () => {
+  const c = linked({ stage: 'ES', dueAt: '2026-10-01T23:59', dueHasTime: true });
+  assert.equal(D.nextStage(c), 'テスト');
+  assert.deepEqual(D.desiredCalendar(c, [], NOW).map((i) => i.key), ['due']);
+  const n = D.apply(c, { type: 'advance' }, NOW);
+  assert.deepEqual([n.stage, n.status, n.dueAt, n.dueHasTime, n.submittedAt], ['テスト', 'todo', '', false, '']);
+  assert.deepEqual(D.desiredCalendar(n, [], NOW), []);
+  /* テストには印が無いので、次は今までどおり完了にして結果待ちへ */
+  assert.throws(() => D.apply(n, { type: 'advance' }, NOW), /印が付いていません/);
+  const w = D.apply(n, { type: 'done' }, NOW);
+  assert.equal(w.status, 'waiting');
+  /* 通過すると、つながりの次の関門（面接）へ */
+  assert.equal(D.apply(w, { type: 'pass' }, NOW).stage, '面接');
+  assert.throws(() => D.apply(linked({ stage: 'ES', status: 'waiting' }), { type: 'advance' }, NOW), /次へ進めません/);
+});
+
+test('1段階戻すで、つながりの途中に戻れる', () => {
+  const n = D.apply(linked({ stage: 'テスト' }), { type: 'prev' }, NOW);
+  assert.deepEqual([n.stage, n.status], ['ES', 'todo']);
+  const f = D.apply(linked({ stage: '面接', status: 'failed', lostStage: '面接' }), { type: 'prev' }, NOW);
+  assert.equal(f.stage, 'テスト');
+});
+
+test('ルートを並べ替えても、印は段階の名前で残る。ルートから外れた段階と最後の段階の印は外れる', () => {
+  let c = linked();
+  c = D.apply(c, { type: 'setRoute', route: ['テスト', '面接', '内定', 'ES'] }, NOW);
+  assert.deepEqual(c.routeLinks, []);            // ES が最後になったので外れる
+  c = D.apply(linked(), { type: 'setRoute', route: ['ES', 'テスト', '面接', '内定', '入社'] }, NOW);
+  assert.deepEqual(c.routeLinks, ['ES']);
+  c = D.apply(c, { type: 'setRoute', route: c.route, links: ['テスト', '入社'] }, NOW);
+  assert.deepEqual(c.routeLinks, ['テスト']);
+});
+
+// ============================================================
+// 段階を消す
+// ============================================================
+
+test('段階を消す：今の段階でなければ、現在地はそのまま', () => {
+  const n = D.apply(co({ stage: 'ES' }), { type: 'removeStage', stage: 'GD' }, NOW);
+  assert.equal(n.stage, 'ES');
+  assert.equal(n.route.includes('GD'), false);
+});
+
+test('段階を消す：今の段階なら次の段階が現在地。最後の段階なら1つ前。締切は残す', () => {
+  const c = co({ stage: 'GD', dueAt: '2026-10-01T23:59', dueHasTime: true });
+  assert.equal(D.removalTarget(c, 'GD'), '面接');
+  assert.equal(D.removalTarget(c, '面接'), '');     // 今の段階でなければ空
+  const n = D.apply(c, { type: 'removeStage', stage: 'GD' }, NOW);
+  assert.deepEqual([n.stage, n.dueAt, n.status], ['面接', '2026-10-01T23:59', 'todo']);
+  const last = co({ stage: '内定', status: 'offer' });
+  assert.equal(D.removalTarget(last, '内定'), '最終面接');
+  assert.equal(D.apply(last, { type: 'removeStage', stage: '内定' }, NOW).stage, '最終面接');
+});
+
+test('段階を消す：落選した会社で落ちた段階を消すと、落ちた段階も同じ決まりで動く', () => {
+  const f = D.apply(co({ stage: '面接' }), { type: 'fail' }, NOW);
+  assert.equal(D.removalTarget(f, '面接'), '最終面接');
+  const n = D.apply(f, { type: 'removeStage', stage: '面接' }, NOW);
+  assert.deepEqual([n.stage, n.lostStage, n.status], ['最終面接', '最終面接', 'failed']);
+});
+
+test('段階を消す：2つより少なくなる削除はできない。ルートに無い段階は消せない', () => {
+  const c = co({ route: ['ES', '内定'], stage: 'ES' });
+  assert.throws(() => D.apply(c, { type: 'removeStage', stage: 'ES' }, NOW), /2つ以上/);
+  assert.throws(() => D.apply(co(), { type: 'removeStage', stage: '無い' }, NOW), /ルートに無い/);
+});
+
+test('段階を消しても、印のつながりは崩れない', () => {
+  const chain = (links) => Object.assign(D.create('C', { name: 'C社', term: '本選考', route: ['A', 'B', 'C', 'D', 'E'], routeLinks: links }), { stage: 'A' });
+  const gates = (c, s) => D.gatesOf(D.apply(c, { type: 'removeStage', stage: s }, NOW)).map((g) => g.join('＋'));
+  /* A＋B＋C / D / E */
+  const c = chain(['A', 'B']);
+  assert.deepEqual(gates(c, 'B'), ['A＋C', 'D', 'E']);   // つながりの途中を消す → つながったまま
+  assert.deepEqual(gates(c, 'C'), ['A＋B', 'D', 'E']);   // つながりの最後を消す → B が最後。D とはつながらない
+  assert.deepEqual(gates(c, 'A'), ['B＋C', 'D', 'E']);   // つながりの最初を消す
+  assert.deepEqual(gates(c, 'D'), ['A＋B＋C', 'E']);     // つながりの外は関係ない
+  /* 最後の段階を消して、印の付いた段階が最後になったら、その印は外れる */
+  const d = chain(['C', 'D']);                            // A / B / C＋D＋E
+  assert.deepEqual(gates(d, 'E'), ['A', 'B', 'C＋D']);
+});
+
+// ============================================================
+// 記録タブ：つながった段階は1つの関門として数える
+// ============================================================
+
+test('記録：つながった段階は1つの関門（「ES＋テスト」で1行）。通過・落選は1回だけ数える', () => {
+  const mk = (id, over) => Object.assign(linked({ id, name: id }), over);
+  const t = D.tally([
+    mk('通過社', { stage: '面接', status: 'waiting' }),                 // ES＋テストを通過、面接は結果待ち
+    mk('途中落ち社', { stage: 'ES', status: 'failed', lostStage: 'ES' }),   // つながりの途中で落選 → 関門の落選
+    mk('最後落ち社', { stage: 'テスト', status: 'failed', lostStage: 'テスト' }),
+    mk('途中社', { stage: 'テスト', status: 'todo' }),                   // つながりの途中にいる → 関門は結果待ち
+    mk('内定社', { stage: '内定', status: 'offer' })
+  ], NOW);
+  const s = Object.fromEntries(t.stages.map((x) => [x.stage, x]));
+  assert.deepEqual(t.stages.map((x) => x.stage), ['ES＋テスト', '面接', '内定']);
+  assert.deepEqual([s['ES＋テスト'].pass, s['ES＋テスト'].fail, s['ES＋テスト'].wait], [2, 2, 1]);
+  assert.deepEqual([s['面接'].pass, s['面接'].wait], [1, 1]);
+  assert.equal(t.passes, 2 + 1 + 1);
+  assert.deepEqual(t.worst, { stage: 'ES＋テスト', count: 2, share: 100 });
+  const x = t.industryStages[0].stages.find((r) => r.stage === 'ES＋テスト');
+  assert.deepEqual([x.pass, x.fail], [2, 2]);
+});
+
+test('記録：印の無い会社と印のある会社が混ざっても、関門ごとに並ぶ', () => {
+  const t = D.tally([linked({ id: 'a', stage: '面接', status: 'waiting' }), co({ id: 'b', stage: 'GD', status: 'waiting' })], NOW);
+  assert.deepEqual(t.stages.map((x) => x.stage), ['エントリー', 'ES', 'ES＋テスト', '適性検査', 'GD', '面接']);
 });

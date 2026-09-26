@@ -10,9 +10,19 @@
 var Domain = (function () {
   'use strict';
 
-  var DEFAULT_ROUTE = ['エントリー', 'ES', '適性検査', 'GD', '面接', '最終面接', '内定'];
-  /* ルートに足すときの候補。記録タブで段階を並べる順にも使う */
+  /* 新しく足す会社の初期のルート。インターンは参加まで、本選考は内定まで */
+  var DEFAULT_ROUTES = {
+    intern: ['ES', 'テスト', '面接', 'インターン'],
+    main: ['ES', 'テスト', '面接', '内定']
+  };
+  /* 前の初期のルート。ルートを自分で編集していない会社（route が空）は、これを書き込んで固定する。
+     初期のルートを変えても、その会社の動きが変わらないように */
+  var LEGACY_ROUTE = ['エントリー', 'ES', '適性検査', 'GD', '面接', '最終面接', '内定'];
+  /* ルートに足すときの候補 */
   var STAGE_CANDIDATES = ['エントリー', 'ES', '適性検査', 'Webテスト', 'GD', '面談', '一次面接', '二次面接',
+    '三次面接', '面接', '最終面接', 'インターン', '内定'];
+  /* 記録タブで段階を並べる順。ここに無い段階は、出てきた順に後ろへ並べる */
+  var STAGE_ORDER = ['エントリー', 'ES', 'テスト', '適性検査', 'Webテスト', 'GD', '面談', '一次面接', '二次面接',
     '三次面接', '面接', '最終面接', 'インターン', '内定'];
   var STATUSES = ['todo', 'waiting', 'offer', 'joined', 'failed', 'skipped'];
   var EVENT_KINDS = ['面接', '説明会', 'GD', '面談', 'インターン', '適性検査'];
@@ -87,15 +97,67 @@ var Domain = (function () {
   // 会社データの読み方
   // ============================================================
 
+  /* 区分ごとの「最後まで通った」ときの状態。インターンは参加決定、それ以外は内定 */
+  function goalOf(term) { return /インターン/.test(str(term) || DEFAULT_TERM) ? 'joined' : 'offer'; }
+
+  function defaultRoute(term) {
+    return (goalOf(term) === 'joined' ? DEFAULT_ROUTES.intern : DEFAULT_ROUTES.main).slice();
+  }
+
+  /* route が空の会社は初期のルートで動く。移行と fillEmptyRoutes で前の初期のルートを書き込むので、ふだんは空にならない */
   function routeOf(c) {
-    return (c && Array.isArray(c.route) && c.route.length) ? c.route.slice() : DEFAULT_ROUTE.slice();
+    return (c && Array.isArray(c.route) && c.route.length) ? c.route.slice() : defaultRoute(c && c.term);
   }
 
   /* 落選した会社は落ちた段階を、それ以外は今の段階を「現在地」とする */
   function position(c) { return str(c.lostStage) || str(c.stage); }
 
-  /* 区分ごとの「最後まで通った」ときの状態。インターンは参加決定、それ以外は内定 */
-  function goalOf(term) { return /インターン/.test(str(term) || DEFAULT_TERM) ? 'joined' : 'offer'; }
+  // ------------------------------------------------------------
+  // 「次とまとめて結果が出る」の印
+  // ------------------------------------------------------------
+  /* 印は routeLinks に段階名で持つ。「この段階は、次の段階とまとめて結果が出る」の意味。
+     ES と適性検査のように、出したあと結果を待たずに次へ進む段階をつなぐ。
+     ルートに無い段階と、最後の段階（次が無い）の印は外し、ルートの順に並べる */
+  function normalizeLinks(route, links) {
+    var want = Array.isArray(links) ? links.map(str) : [];
+    return route.filter(function (s, i) { return i < route.length - 1 && want.indexOf(s) >= 0; });
+  }
+
+  function linksOf(c) { return normalizeLinks(routeOf(c), c && c.routeLinks); }
+
+  function isLinked(c, stage) { return linksOf(c).indexOf(str(stage)) >= 0; }
+
+  /* 関門の並び。印でつながった段階を1つにまとめる（[['ES','テスト'], ['面接'], ['内定']] など） */
+  function gatesOf(c) {
+    var links = linksOf(c), gates = [], cur = [];
+    routeOf(c).forEach(function (s) {
+      cur.push(s);
+      if (links.indexOf(s) < 0) { gates.push(cur); cur = []; }
+    });
+    if (cur.length) gates.push(cur);
+    return gates;
+  }
+
+  function gateIndex(gates, stage) {
+    for (var i = 0; i < gates.length; i++) if (gates[i].indexOf(stage) >= 0) return i;
+    return -1;
+  }
+
+  /* ルートで今の段階の次にある段階。無ければ空 */
+  function nextStage(c) {
+    var r = routeOf(c), i = r.indexOf(str(c.stage));
+    return i >= 0 && i < r.length - 1 ? r[i + 1] : '';
+  }
+
+  /* 段階を消したときの新しい現在地。消すのが現在地でなければ空。
+     次の段階にする。最後の段階を消すときは1つ前にする */
+  function removalTarget(c, stage) {
+    stage = str(stage);
+    if (!stage || position(c) !== stage) return '';
+    var r = routeOf(c), i = r.indexOf(stage);
+    if (i < 0) return '';
+    return r[i + 1] || r[i - 1] || '';
+  }
 
   /* 次に通過すると最後（内定・参加決定）になるか。ボタンの文言を変えるのに使う */
   function isFinalStep(c) {
@@ -134,6 +196,7 @@ var Domain = (function () {
     var o = {};
     for (var k in c) if (has(c, k)) o[k] = c[k];
     if (Array.isArray(o.route)) o.route = o.route.slice();
+    if (Array.isArray(o.routeLinks)) o.routeLinks = o.routeLinks.slice();
     if (o.cal && typeof o.cal === 'object') o.cal = JSON.parse(JSON.stringify(o.cal));
     return o;
   }
@@ -198,6 +261,18 @@ var Domain = (function () {
       clearDue(c);
     },
 
+    /* 印の付いた段階を出したので、結果待ちを通らずに次の段階の対応中にする。
+       結果は次の段階とまとめて出るので、ここでは通過も落選も記録しない。締切は空にする（締切の予定も消える） */
+    advance: function (c) {
+      need(c, ['todo'], 'いまの状態では次へ進めません。');
+      if (!isLinked(c, c.stage)) fail('この段階は、次とまとめて結果が出る印が付いていません。');
+      c.stage = nextStage(c);
+      c.lostStage = '';
+      c.submittedAt = '';
+      c.resultAt = '';
+      clearDue(c);
+    },
+
     /* 出し終えたので結果待ちへ。締切は消さずに残し、対応中に戻したときに使えるようにする */
     done: function (c, op, now) {
       need(c, ['todo'], 'いまの状態では結果待ちにできません。');
@@ -249,7 +324,8 @@ var Domain = (function () {
       c.dueHasTime = d.dueHasTime;
     },
 
-    /* ルートの並べ替え・追加・削除と、現在地の付け替え */
+    /* ルートの並べ替え・追加と、現在地の付け替え。段階を消すときは removeStage を使う。
+       印（links）を渡さなければ、今の印を新しいルートに合わせて残す */
     setRoute: function (c, op) {
       var next = normalizeRoute(op.route);
       var stage = str(op.stage).trim();
@@ -262,7 +338,42 @@ var Domain = (function () {
         var cur = position(c);
         if (routeOf(c).indexOf(cur) >= 0 && next.indexOf(cur) < 0) fail('今の段階は外せません。');
       }
+      c.routeLinks = normalizeLinks(next, has(op, 'links') ? op.links : linksOf(c));
       c.route = next;
+    },
+
+    /* 「次とまとめて結果が出る」の印を付ける・外す。最後の段階には次が無いので付けられない */
+    setLink: function (c, op) {
+      var r = routeOf(c), stage = str(op.stage), i = r.indexOf(stage);
+      if (i < 0) fail('ルートに無い段階です。');
+      if (op.on && i === r.length - 1) fail('最後の段階には付けられません。');
+      var links = linksOf(c).filter(function (s) { return s !== stage; });
+      if (op.on) links.push(stage);
+      c.route = r;
+      c.routeLinks = normalizeLinks(r, links);
+    },
+
+    /**
+     * 段階を1つ消す。今の段階（落選なら落ちた段階）も消せる。そのときの現在地は removalTarget の決まり
+     * （次の段階。最後の段階なら1つ前）。締切はそのまま残す。段階が2つより少なくなる削除はできない。
+     * 印のつながりは崩さない：つながりの最後を消したら1つ前がつながりの最後になり、次の関門とはつながらない。
+     */
+    removeStage: function (c, op) {
+      var r = routeOf(c), stage = str(op.stage), i = r.indexOf(stage);
+      if (i < 0) fail('ルートに無い段階です。');
+      if (r.length - 1 < 2) fail('段階は2つ以上必要です。');
+      var links = linksOf(c);
+      if (links.indexOf(stage) < 0 && i > 0 && links.indexOf(r[i - 1]) >= 0) {
+        links = links.filter(function (s) { return s !== r[i - 1]; });
+      }
+      links = links.filter(function (s) { return s !== stage; });
+      var to = removalTarget(c, stage);
+      if (to) {
+        if (c.lostStage) c.lostStage = to;
+        c.stage = to;
+      }
+      c.route = r.slice(0, i).concat(r.slice(i + 1));
+      c.routeLinks = normalizeLinks(c.route, links);
     },
 
     setInfo: function (c, op) {
@@ -312,9 +423,11 @@ var Domain = (function () {
     if (!id) fail('ID がありません。');
     name = str(name).trim();
     if (!name) fail('会社名が空です。');
+    term = str(term).trim() || DEFAULT_TERM;
+    var route = defaultRoute(term);
     return {
-      id: id, kind: 'company', name: name, term: str(term).trim() || DEFAULT_TERM,
-      status: 'todo', stage: DEFAULT_ROUTE[0], route: DEFAULT_ROUTE.slice(), lostStage: '',
+      id: id, kind: 'company', name: name, term: term,
+      status: 'todo', stage: route[0], route: route, routeLinks: [], lostStage: '',
       dueAt: '', dueHasTime: false, submittedAt: '', resultAt: '',
       url: '', loginId: '', domain: '', industry: '',
       logo: '', logoManual: false, folderUrl: '', cal: {}, updatedAt: ''
@@ -326,7 +439,11 @@ var Domain = (function () {
     f = f || {};
     var c = blank(id, f.name, f.term);
     if (f.kind === 'mgmt') c.kind = 'mgmt';
-    if (f.route) c.route = normalizeRoute(f.route);
+    if (f.route) {
+      c.route = normalizeRoute(f.route);
+      c.stage = c.route[0];
+      c.routeLinks = normalizeLinks(c.route, f.routeLinks);
+    }
     if (f.stage) c.stage = str(f.stage).trim();
     var url = str(f.url).trim();
     checkUrl(url);
@@ -352,7 +469,7 @@ var Domain = (function () {
     return c;
   }
 
-  /* インターンの行から本選考の行を作る。選考はエントリーからやり直し */
+  /* インターンの行から本選考の行を作る。選考は本選考の初期のルートの最初からやり直し */
   function carryOver(src, id, term) {
     term = str(term).trim() || '本選考';
     if (str(src.term) === term) fail('同じ区分には引き継げません。');
@@ -363,6 +480,7 @@ var Domain = (function () {
   function split(src, id, newName) {
     var c = inherit(src, blank(id, newName, src.term));
     c.route = routeOf(src);
+    c.routeLinks = linksOf(src);
     c.stage = c.route[0];
     return c;
   }
@@ -386,6 +504,7 @@ var Domain = (function () {
     if (s !== 'todo' && s !== 'waiting') clearDue(c);
     if (s === 'failed' && !c.lostStage) c.lostStage = str(c.stage);
     if (!str(c.dueAt)) c.dueHasTime = false;
+    c.routeLinks = linksOf(c);
     return c;
   }
 
@@ -607,11 +726,29 @@ var Domain = (function () {
 
   function pct(a, b) { return b ? Math.round(a / b * 100) : null; }
 
-  /* 段階名の並び。既定のルート → 候補 → それ以外は出てきた順 */
-  function stageOrder(names) {
-    var order = DEFAULT_ROUTE.slice();
-    STAGE_CANDIDATES.concat(names).forEach(function (s) { if (order.indexOf(s) < 0) order.push(s); });
-    return order;
+  var JOIN = '＋';
+
+  /* 関門の名前。つながった段階は「ES＋テスト」のように1つにする */
+  function gateLabel(gate) { return gate.join(JOIN); }
+
+  /* 関門の並び。先頭の段階の STAGE_ORDER の順 → つながりの短い順 → 出てきた順 */
+  function stageOrder(labels) {
+    var rank = function (label) {
+      var i = STAGE_ORDER.indexOf(label.split(JOIN)[0]);
+      return i < 0 ? STAGE_ORDER.length : i;
+    };
+    return labels.slice().sort(function (a, b) {
+      return rank(a) - rank(b) || a.split(JOIN).length - b.split(JOIN).length || labels.indexOf(a) - labels.indexOf(b);
+    });
+  }
+
+  /* 会社1社の、関門ごとの結果。前の関門は通過、今の関門は k（落選・通過・結果待ち）。
+     つながった段階の途中にいても、その関門として1回だけ数える */
+  function eachGate(c, k, fn) {
+    var gates = gatesOf(c), cur = position(c), at = gateIndex(gates, cur);
+    if (at < 0) { fn(cur, k); return; }
+    for (var j = 0; j < at; j++) fn(gateLabel(gates[j]), 'p');
+    fn(gateLabel(gates[at]), k);
   }
 
   /* 業界名の並び。件数の多い順、「その他」は最後 */
@@ -632,7 +769,8 @@ var Domain = (function () {
     var st = list.map(function (c) { return viewStatus(c, now); });
     var got = function (s) { return s === 'offer' || s === 'joined'; };
 
-    /* 段階ごとの勝敗。ルート上で今より前の段階は全部「通過」として数える */
+    /* 関門ごとの勝敗。ルート上で今より前の関門は全部「通過」として数える。
+       印でつながった段階は1つの関門（「ES＋テスト」）として数える */
     var t = {}, seenNames = [];
     var bump = function (s, k) {
       if (!t[s]) { t[s] = { p: 0, f: 0, w: 0 }; seenNames.push(s); }
@@ -641,11 +779,7 @@ var Domain = (function () {
     list.forEach(function (c, i) {
       var s = st[i];
       if (s === 'skipped') return;
-      var r = routeOf(c), cur = position(c), at = r.indexOf(cur);
-      var k = s === 'failed' ? 'f' : got(s) ? 'p' : 'w';
-      if (at < 0) { bump(cur, k); return; }
-      for (var j = 0; j < at; j++) bump(r[j], 'p');
-      bump(cur, k);
+      eachGate(c, s === 'failed' ? 'f' : got(s) ? 'p' : 'w', bump);
     });
     var order = stageOrder(seenNames);
     var stages = order.filter(function (s) { return t[s]; }).map(function (s) {
@@ -683,7 +817,7 @@ var Domain = (function () {
       var s = st[i];
       if (s === 'skipped') return;
       var key = industryFor(c);
-      var r = routeOf(c), cur = position(c), at = r.indexOf(cur);
+      var r = routeOf(c), at = r.indexOf(position(c));
 
       var o = byInd[key] || (byInd[key] = { n: 0, got: 0, fail: 0, live: 0, sum: 0 });
       o.n++;
@@ -697,10 +831,9 @@ var Domain = (function () {
       /* 業界 × 段階は、結果が出たものだけを数える（結果待ちは分母に入れない） */
       var x = xs[key] || (xs[key] = { n: 0, st: {} });
       x.n++;
-      var hit = function (name, k) { (x.st[name] || (x.st[name] = { p: 0, f: 0 }))[k]++; };
-      var k = s === 'failed' ? 'f' : got(s) ? 'p' : null;
-      if (at >= 0) for (var j = 0; j < at; j++) hit(r[j], 'p');
-      if (k) hit(cur, k);
+      eachGate(c, s === 'failed' ? 'f' : got(s) ? 'p' : null, function (name, k) {
+        if (k) (x.st[name] || (x.st[name] = { p: 0, f: 0 }))[k]++;
+      });
     });
 
     var industries = sortByCount(byInd).map(function (name) {
@@ -738,7 +871,8 @@ var Domain = (function () {
   }
 
   return {
-    DEFAULT_ROUTE: DEFAULT_ROUTE,
+    DEFAULT_ROUTES: DEFAULT_ROUTES,
+    LEGACY_ROUTE: LEGACY_ROUTE,
     STAGE_CANDIDATES: STAGE_CANDIDATES,
     STATUSES: STATUSES,
     EVENT_KINDS: EVENT_KINDS,
@@ -754,6 +888,13 @@ var Domain = (function () {
     createEvent: createEvent,
 
     routeOf: routeOf,
+    defaultRoute: defaultRoute,
+    linksOf: linksOf,
+    isLinked: isLinked,
+    gatesOf: gatesOf,
+    gateLabel: gateLabel,
+    nextStage: nextStage,
+    removalTarget: removalTarget,
     position: position,
     goalOf: goalOf,
     isFinalStep: isFinalStep,
