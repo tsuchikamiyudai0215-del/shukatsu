@@ -650,6 +650,72 @@ test('移行：状態・締切・フォルダ・パスワード・ルートを�
   assert.equal(T.heldLock(), false);
 });
 
+/* シートのタイムゾーン（Los Angeles）での日時から、その瞬間の Date を作る。夏は -07:00、冬は -08:00 */
+const la = (s, off) => new Date(s + ':00' + off);
+
+test('移行：シートのタイムゾーンが日本以外でも、日時を日本時間で移す（夏時間と冬時間）', () => {
+  const T = mk();
+  assert.equal(T.dev.getSpreadsheetTimeZone(), 'America/Los_Angeles');
+  const row = (o) => H.map((h) => (h in o ? o[h] : ''));
+  T.dev.sheets.Sheet1 = new Sheet('Sheet1', [H.slice(),
+    /* 夏：締切の日付は、シートのタイムゾーンの0時（日本では同じ日の16時）。提出日も同じ */
+    row({ 会社名: '夏社', 日付: la('2026-09-30T00:00', '-07:00'), 時: 18, 分: 30, 段階: 'ES', 区分: '夏インターン', 状態: '対応中' }),
+    row({ 会社名: '夏待ち社', 段階: 'ES', 区分: '夏インターン', 状態: '結果待ち', 提出日: la('2026-09-20T00:00', '-07:00') }),
+    /* 冬：シートのタイムゾーンの0時（日本では同じ日の17時）。結果日は日本の朝（西海岸ではまだ前の日） */
+    row({ 会社名: '冬社', 日付: la('2026-11-20T00:00', '-08:00'), 時: 9, 分: 0, 段階: 'ES', 区分: '本選考', 状態: '対応中' }),
+    row({ 会社名: '冬落ち社', 段階: '面接', 区分: '本選考', 状態: '落選', 結果日: jst('2026-11-05T08:00') })
+  ]);
+  T.dev.sheets['予定'] = new Sheet('予定', [
+    ['会社名', '種別', '日時', '場所', 'eventId', 'uid', '区分', '終了', '終日', '毎日'],
+    /* 旧版の画面で「9月24日 18:30〜19:30」だった予定。西海岸では 02:30〜03:30 に見える */
+    ['夏社', '面接', jst('2026-09-24T18:30'), '', '', 'u1', '夏インターン', jst('2026-09-24T19:30'), '', ''],
+    /* 冬時間。西海岸では前の日の 01:30 に見える（17時間ずれる） */
+    ['冬社', '面接', jst('2026-11-20T18:30'), '', '', 'u2', '本選考', jst('2026-11-20T19:30'), '', ''],
+    /* 終日の予定。旧版は日本の0時で書いていた */
+    ['冬社', 'インターン', jst('2026-12-01T00:00'), '', '', 'u3', '本選考', jst('2026-12-03T00:00'), 'TRUE', '']
+  ]);
+  T.run('migrate');
+  const c = (n) => T.rows('companies').find((r) => r.name === n);
+  assert.equal(c('夏社').dueAt, '2026-09-30T18:30');
+  assert.equal(c('夏待ち社').submittedAt, '2026-09-20');
+  assert.equal(c('冬社').dueAt, '2026-11-20T09:00');
+  assert.equal(c('冬落ち社').resultAt, '2026-11-05');
+  assert.deepEqual(T.rows('events').map((e) => [e.startAt, e.endAt, e.allDay]), [
+    ['2026-09-24T18:30', '2026-09-24T19:30', 'FALSE'],
+    ['2026-11-20T18:30', '2026-11-20T19:30', 'FALSE'],
+    ['2026-12-01T00:00', '2026-12-03T00:00', 'TRUE']
+  ]);
+
+  /* カレンダーにも日本時間のとおりに入る */
+  T.run('syncAllCalendars');
+  const ev = T.liveIn(DEV_CAL).find((e) => e.title === '【面接】夏社');
+  assert.equal(ev.start.toISOString(), jst('2026-09-24T18:30').toISOString());
+});
+
+test('新しいシートに Date が紛れ込んでいても、日本時間の文字列として読む', () => {
+  const T = mk();
+  const c = addCo(T, { name: 'A社', dueAt: '2026-09-30T18:30' });
+  const sh = T.sheet('companies');
+  const head = sh.d[0];
+  sh.d[1][head.indexOf('dueAt')] = jst('2026-11-20T18:30');
+  sh.d[1][head.indexOf('submittedAt')] = la('2026-11-19T00:00', '-08:00');
+  const got = T.api('getData', {}).companies.find((x) => x.id === c.id);
+  assert.equal(got.dueAt, '2026-11-20T18:30');
+  assert.equal(got.submittedAt, '2026-11-19');
+});
+
+test('新しいシートへは、日時を文字のまま書く（書く範囲を書式なしテキストにしてから書く）', () => {
+  const T = mk();
+  const c = addCo(T, { name: 'A社', dueAt: '2026-09-30T18:30' });
+  T.api('addEvent', { companyId: c.id, kind: '面接', startAt: '2026-11-20T18:30', endAt: '2026-11-20T19:30' });
+  const due = T.sheet('companies').d[1][T.sheet('companies').d[0].indexOf('dueAt')];
+  const start = T.sheet('events').d[1][T.sheet('events').d[0].indexOf('startAt')];
+  assert.equal(typeof due, 'string');
+  assert.equal(due, '2026-09-30T18:30');
+  assert.equal(start, '2026-11-20T18:30');
+  assert.ok(T.sheet('events').formats.some((f) => f.r === 2 && f.f === '@'));
+});
+
 test('移行：開発中は旧版のカレンダー予定（本番のカレンダー）に一切触らない', () => {
   const T = mk();
   const cal = T.calendars[PRIMARY_CAL];

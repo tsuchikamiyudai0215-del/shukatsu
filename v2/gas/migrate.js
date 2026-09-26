@@ -5,6 +5,7 @@
  * ・旧版は I列と「状態」列の2か所で状態を持っていた。画面に出ていたのは「状態」列なので、
  *   そちらを優先し、空のときだけ I列から決める。
  * ・状態に合わない値（対応中の結果日、参加決定の締切など）は Domain.normalize で片付ける。
+ * ・日時は、シートのタイムゾーンに関係なく日本時間で読む（本番シートは Los Angeles になっている）。
  * ・パスワード（D列）は pw 列へ移す。
  * ・結果発表の予定日（N列）は機能ごと外したので移さない。
  * ・今あるカレンダー予定の ID は、本番に切り替えるとき（ALLOW_PRODUCTION=yes）だけ引き継ぐ。
@@ -49,7 +50,6 @@ function migrate_() {
     throw new Error('companies か events にもう行があります。やり直すときは、その2枚のシートを消してから実行してください。');
   }
 
-  var tz = ss.getSpreadsheetTimeZone();
   var carry = allowProduction_();
   var logos = legacyLogoMap_().map;
   var now = nowIso_();
@@ -74,7 +74,7 @@ function migrate_() {
     var stage = str_(at(r, LEGACY_COL.stage)).trim();
     var route = str_(byHead(r, 'ルート')).split('>').map(function (s) { return s.trim(); }).filter(String);
     var lost = str_(at(r, LEGACY_COL.lostStage)).trim();
-    var due = legacyDue_(at(r, LEGACY_COL.date), at(r, LEGACY_COL.hour), at(r, LEGACY_COL.minute), tz);
+    var due = legacyDue_(at(r, LEGACY_COL.date), at(r, LEGACY_COL.hour), at(r, LEGACY_COL.minute));
     var fm = str_(formulas[i] && formulas[i][0]).match(/HYPERLINK\(\s*"([^"]+)"/i);
 
     var c = {
@@ -88,8 +88,8 @@ function migrate_() {
       lostStage: lost,
       dueAt: due.dueAt,
       dueHasTime: due.dueHasTime,
-      submittedAt: legacyWall_(byHead(r, '提出日'), tz, false),
-      resultAt: legacyWall_(at(r, LEGACY_COL.resultAt), tz, false),
+      submittedAt: legacyWall_(byHead(r, '提出日'), false),
+      resultAt: legacyWall_(at(r, LEGACY_COL.resultAt), false),
       url: str_(at(r, LEGACY_COL.url)).trim(),
       loginId: str_(at(r, LEGACY_COL.loginId)).trim(),
       pw: str_(at(r, LEGACY_COL.pw)),
@@ -132,8 +132,8 @@ function migrate_() {
       try {
         e = Domain.createEvent(newId_('e'), c.id, {
           kind: str_(r[1]) || '予定',
-          startAt: legacyWall_(r[2], tz, true),
-          endAt: legacyWall_(r[7], tz, true),
+          startAt: legacyWall_(r[2], true),
+          endAt: legacyWall_(r[7], true),
           place: str_(r[3]),
           allDay: str_(r[8]).toUpperCase() === 'TRUE',
           daily: str_(r[9]).toUpperCase() === 'TRUE'
@@ -336,9 +336,11 @@ function legacyStatus_(state, oldStatus, term) {
   return byOld[o] || 'todo';
 }
 
-/* 日付・時・分の3列を1つにまとめる。時が空なら、その日いっぱいの締切 */
-function legacyDue_(date, hour, minute, tz) {
-  var d = legacyWall_(date, tz, false);
+/* 日付・時・分の3列を1つにまとめる。時が空なら、その日いっぱいの締切。
+   日付の列は、シートのタイムゾーン（Los Angeles）の0時の Date で入っていることが多い。
+   日本時間ではその日の16時か17時なので、日本時間で日付だけを取れば同じ日になる */
+function legacyDue_(date, hour, minute) {
+  var d = legacyWall_(date, false);
   if (!d) return { dueAt: '', dueHasTime: false };
   if (hour === '' || hour == null || isNaN(parseInt(hour, 10))) return { dueAt: d + 'T23:59', dueHasTime: false };
   var pad = function (n) { return ('0' + n).slice(-2); };
@@ -346,10 +348,11 @@ function legacyDue_(date, hour, minute, tz) {
   return { dueAt: d + 'T' + pad(parseInt(hour, 10)) + ':' + pad(m), dueHasTime: true };
 }
 
-/* 旧版の日付は Date のことも「2026/09/20」の文字列のこともある */
-function legacyWall_(v, tz, withTime) {
+/* 旧版の日付は Date のことも「2026/09/20」の文字列のこともある。
+   Date は日本時間で読む（シートのタイムゾーンでは読まない。util.js の dateToWall_ を見る） */
+function legacyWall_(v, withTime) {
   if (v === '' || v == null) return '';
-  if (isDate_(v)) return dateToWall_(v, tz, withTime);
+  if (isDate_(v)) return dateToWall_(v, withTime);
   var m = str_(v).trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
   if (!m) return '';
   var pad = function (n) { return ('0' + n).slice(-2); };

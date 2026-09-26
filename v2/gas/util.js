@@ -19,9 +19,18 @@ function wallToDate_(s) {
   return new Date(ms - JST_OFFSET_MS);
 }
 
-/* シートから読んだ Date を、シートのタイムゾーンで文字列に直す */
-function dateToWall_(d, tz, withTime) {
-  return Utilities.formatDate(d, tz || 'Asia/Tokyo', withTime ? "yyyy-MM-dd'T'HH:mm" : 'yyyy-MM-dd');
+/* 就活ボードの日時は、いつも日本時間で読む */
+var APP_TZ = 'Asia/Tokyo';
+
+/**
+ * シートから読んだ Date を、日本時間の文字列に直す。
+ * シートのタイムゾーンは使わない。本番シートも開発用シートもアメリカ西海岸（Los Angeles）になっていて、
+ * それで直すと、夏は16時間、冬は17時間ずれる。
+ * セルの Date は「その瞬間」を正しく持っている（旧版の GAS は日本時間で動いて書いていた）ので、
+ * 日本時間で読めば、旧版の画面に出ていた時刻と同じになる。表示の文字（getDisplayValues）は読まない。
+ */
+function dateToWall_(d, withTime) {
+  return Utilities.formatDate(d, APP_TZ, withTime ? "yyyy-MM-dd'T'HH:mm" : 'yyyy-MM-dd');
 }
 
 function newId_(prefix) {

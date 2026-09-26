@@ -29,7 +29,6 @@ function Table_(name, cols) {
 Table_.prototype.open = function () {
   if (this.sheet) return this;
   var ss = spreadsheet_();
-  this.tz = ss.getSpreadsheetTimeZone();
   var sh = ss.getSheetByName(this.name);
   var created = !sh;
   if (!sh) sh = ss.insertSheet(this.name);
@@ -68,8 +67,8 @@ Table_.prototype.fromCell_ = function (col, v) {
   if (has_(JSON_COLS, col)) {
     try { return JSON.parse(str_(v).trim() || JSON_COLS[col]); } catch (e) { return JSON.parse(JSON_COLS[col]); }
   }
-  /* 書式を消し忘れたなどで Date が入っていても、文字列にそろえる */
-  if (isDate_(v)) return dateToWall_(v, this.tz, !has_(DATE_ONLY_COLS, col));
+  /* 書式を消し忘れたなどで Date が入っていても、日本時間の文字列にそろえる */
+  if (isDate_(v)) return dateToWall_(v, !has_(DATE_ONLY_COLS, col));
   return str_(v);
 };
 

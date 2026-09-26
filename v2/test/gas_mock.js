@@ -101,10 +101,11 @@ class Sheet {
   sort() { throw new Error('シートを並べ替えてはいけない'); }
 }
 
+/* 本物の本番シートと開発用シートに合わせて、タイムゾーンはアメリカ西海岸にしておく */
 class Book {
-  constructor(id, name) { this.id = id; this.name = name; this.sheets = {}; }
+  constructor(id, name) { this.id = id; this.name = name; this.sheets = {}; this.tz = 'America/Los_Angeles'; }
   getName() { return this.name; }
-  getSpreadsheetTimeZone() { return 'Asia/Tokyo'; }
+  getSpreadsheetTimeZone() { return this.tz; }
   getSheetByName(n) { return this.sheets[n] || null; }
   insertSheet(n) { return (this.sheets[n] = new Sheet(n, [])); }
 }

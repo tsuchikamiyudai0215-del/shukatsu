@@ -753,6 +753,28 @@ test('旧版の画面で手で入れたロゴを、初めて開いたときに�
   R2.stop();
 });
 
+test('シートを移し直して id が変わったら、旧版の手動ロゴを新しい id で写し直す', async () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgo=';
+  /* 前の移行のときの id で写してあった */
+  const R = await boot({ ls: {
+    sk_manual_logos: JSON.stringify({ '株式会社エー': PNG }),
+    sk2_legacy_logos_done: '1',
+    sk2_file_logos: JSON.stringify({ c_old_id: PNG })
+  } });
+  const files = JSON.parse(R.w.localStorage.getItem('sk2_file_logos'));
+  assert.deepEqual(Object.keys(files), [R.ids.a]);
+  assert.equal(R.$(`.row[data-id="${R.ids.a}"] .logo img`).getAttribute('src'), PNG);
+  R.stop();
+});
+
+test('写し済みで、写した画像が無い（旧版に手動ロゴが無かった）ときは、写し直さない', async () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgo=';
+  /* 旧版の値があとから変わっていても、写し直さない（新版で入れ直したものを戻さない） */
+  const R = await boot({ ls: { sk_manual_logos: JSON.stringify({ 'ビー銀行': PNG }), sk2_legacy_logos_done: '1' } });
+  assert.equal(R.w.localStorage.getItem('sk2_file_logos'), null);
+  R.stop();
+});
+
 test('旧版の手動ロゴが無ければ、何もせずに済んだ印だけ付ける', async () => {
   const R = await boot();
   assert.equal(R.w.localStorage.getItem('sk2_legacy_logos_done'), '1');

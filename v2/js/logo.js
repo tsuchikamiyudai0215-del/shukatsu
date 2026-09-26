@@ -334,7 +334,14 @@ export function fromFile(file, id) {
  * https の URL はシートにも手動として保存する。旧版の保存は消さない。
  */
 export function importLegacyManual(list) {
-  if (storage.get('legacy_logos_done', '') === '1' || !list.length) return;
+  if (!list.length) return;
+  if (storage.get('legacy_logos_done', '') === '1') {
+    /* 写した画像の会社が、今の一覧に1つも無い。シートを移し直して id が変わったので、写し直す */
+    const keys = Object.keys(L.files);
+    const ids = new Set(list.map((c) => c.id));
+    if (!keys.length || keys.some((k) => ids.has(k))) return;
+    L.files = {};
+  }
   let src = null;
   try { src = JSON.parse(storage.getLegacy('sk_manual_logos') || 'null'); } catch (e) { src = null; }
   storage.set('legacy_logos_done', '1');
