@@ -110,7 +110,7 @@ function infoTab(c, now) {
   /* ここから下は、たまにしか使わない操作 */
   if (idx > 0) parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500', 'prev', '1段階戻す（' + rt[idx] + ' → ' + rt[idx - 1] + '）'));
   if (st === 'todo' || st === 'waiting') parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500', 'skip', '見送りにする'));
-  if (c.term !== '本選考' && c.kind !== 'mgmt') {
+  if (Domain.termOf(c.term) !== '本選考' && c.kind !== 'mgmt') {
     const already = !!Domain.duplicateOf(store.companies(), c.name, '本選考');
     parts.push(already
       ? html`<button class="big" style="background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500" disabled>本選考に登録済み</button>`
@@ -367,7 +367,12 @@ export const detailActions = {
     const c = current();
     if (c && window.confirm(c.name + ' を選考終了にします。締切と、これから先の予定がカレンダーから消えます。')) act('fail', {}, '選考終了として記録しました。');
   },
-  reopen: () => act('reopen', {}, '対応中に戻しました。'),
+  reopen: () => {
+    /* 戻すと落ちた段階と結果日が消え、記録タブの落選も減る。受け直しは別の行で記録を残すのが決まり */
+    if (current().status === 'failed'
+      && !window.confirm('落選の記録が消えます。受け直すなら、設定の『同じマイページで別の選考を追加』を使うと記録が残ります。')) return;
+    act('reopen', {}, '対応中に戻しました。');
+  },
   join: () => act('join', {}, '参加決定にしました。'),
   skip: () => {
     const c = current();
@@ -446,7 +451,7 @@ export const detailActions = {
   'delete-company': async () => {
     const c = current();
     const n = store.eventsOf(c.id).length;
-    if (!window.confirm(c.name + '（' + c.term + '）を削除します。\n選考の記録' + (n ? 'と予定' + n + '件' : '') + 'が消え、元には戻せません。')) return;
+    if (!window.confirm(c.name + '（' + Domain.termOf(c.term) + '）を削除します。\n選考の記録' + (n ? 'と予定' + n + '件' : '') + 'が消え、元には戻せません。')) return;
     if (!window.confirm('本当に削除しますか。\n' + c.name + ' の行を削除します。')) return;
     const r = await runBusy('deleteCompany', { id: c.id }, c.name + ' を削除しました。');
     if (!r) return;

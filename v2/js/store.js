@@ -85,13 +85,20 @@ function saveCache() {
   storage.setJson('cache', { companies: s.order.map((id) => s.confirmed.get(id)), events: s.events, at: Date.now() });
 }
 
+/* 区分を今の名前にそろえる。前の名前（夏インターン）のままの行や端末の控えでも、一覧から消えないように */
+function tidy(c) {
+  const term = Domain.termOf(c.term);
+  return c.term === term ? c : Object.assign({}, c, { term });
+}
+
 /* サーバーの一覧を丸ごと取り込む。未確定の操作は列に残るので、見た目は消えない */
 function adopt(data) {
   const prev = s.confirmed;
   s.confirmed = new Map();
   s.order = [];
-  for (const c of data.companies || []) {
-    if (!c || !c.id) continue;
+  for (const raw of data.companies || []) {
+    if (!raw || !raw.id) continue;
+    const c = tidy(raw);
     /* 裏で取った一覧が、直前に保存した応答より古いことがある。新しい方を残す */
     const old = prev.get(c.id);
     s.confirmed.set(c.id, old && String(old.updatedAt) > String(c.updatedAt) ? old : c);
@@ -103,8 +110,9 @@ function adopt(data) {
 }
 
 /* 1社分の応答を取り込む。events を渡したら、その会社の予定も入れ替える */
-function adoptCompany(c, evs) {
-  if (!c || !c.id) return;
+function adoptCompany(raw, evs) {
+  if (!raw || !raw.id) return;
+  const c = tidy(raw);
   const old = s.confirmed.get(c.id);
   if (!old || String(c.updatedAt) >= String(old.updatedAt)) s.confirmed.set(c.id, c);
   if (!s.order.includes(c.id)) s.order.push(c.id);

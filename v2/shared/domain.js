@@ -26,7 +26,10 @@ var Domain = (function () {
     '三次面接', '面接', '最終面接', 'インターン', '内定'];
   var STATUSES = ['todo', 'waiting', 'offer', 'joined', 'failed', 'skipped'];
   var EVENT_KINDS = ['面接', '説明会', 'GD', '面談', 'インターン', '適性検査'];
-  var DEFAULT_TERM = '夏インターン';
+  /* 区分は「インターン」と「本選考」の2つ。夏の行をそのまま秋冬にも使うので、インターンは季節で分けない */
+  var DEFAULT_TERM = 'インターン';
+  /* 前の区分の名前。シートや端末の控えに残っていても、今の名前として読む */
+  var OLD_TERMS = { '夏インターン': 'インターン' };
 
   var MIN_MS = 60000;
   var DAY_MS = 86400000;
@@ -97,8 +100,14 @@ var Domain = (function () {
   // 会社データの読み方
   // ============================================================
 
+  /* 区分の名前をそろえる。空なら初期の区分、前の名前なら今の名前にする */
+  function termOf(term) {
+    var t = str(term).trim();
+    return (has(OLD_TERMS, t) ? OLD_TERMS[t] : t) || DEFAULT_TERM;
+  }
+
   /* 区分ごとの「最後まで通った」ときの状態。インターンは参加決定、それ以外は内定 */
-  function goalOf(term) { return /インターン/.test(str(term) || DEFAULT_TERM) ? 'joined' : 'offer'; }
+  function goalOf(term) { return /インターン/.test(termOf(term)) ? 'joined' : 'offer'; }
 
   function defaultRoute(term) {
     return (goalOf(term) === 'joined' ? DEFAULT_ROUTES.intern : DEFAULT_ROUTES.main).slice();
@@ -423,7 +432,7 @@ var Domain = (function () {
     if (!id) fail('ID がありません。');
     name = str(name).trim();
     if (!name) fail('会社名が空です。');
-    term = str(term).trim() || DEFAULT_TERM;
+    term = termOf(term);
     var route = defaultRoute(term);
     return {
       id: id, kind: 'company', name: name, term: term,
@@ -471,8 +480,8 @@ var Domain = (function () {
 
   /* インターンの行から本選考の行を作る。選考は本選考の初期のルートの最初からやり直し */
   function carryOver(src, id, term) {
-    term = str(term).trim() || '本選考';
-    if (str(src.term) === term) fail('同じ区分には引き継げません。');
+    term = str(term).trim() ? termOf(term) : '本選考';
+    if (termOf(src.term) === term) fail('同じ区分には引き継げません。');
     return inherit(src, blank(id, src.name, term));
   }
 
@@ -496,6 +505,7 @@ var Domain = (function () {
    */
   function normalize(company) {
     var c = copy(company);
+    c.term = termOf(c.term);
     var s = STATUSES.indexOf(c.status) >= 0 ? c.status : 'todo';
     c.status = s;
     if (s !== 'failed') c.lostStage = '';
@@ -510,11 +520,11 @@ var Domain = (function () {
 
   /* 同じ区分に同じ名前の会社があれば返す。exceptId は改名中の本人を除くため */
   function duplicateOf(companies, name, term, exceptId) {
-    var n = str(name).trim(), t = str(term).trim() || DEFAULT_TERM;
+    var n = str(name).trim(), t = termOf(term);
     for (var i = 0; i < (companies || []).length; i++) {
       var c = companies[i];
       if (!c || c.id === exceptId) continue;
-      if (str(c.name).trim() === n && (str(c.term).trim() || DEFAULT_TERM) === t) return c;
+      if (str(c.name).trim() === n && termOf(c.term) === t) return c;
     }
     return null;
   }
@@ -877,6 +887,7 @@ var Domain = (function () {
     STATUSES: STATUSES,
     EVENT_KINDS: EVENT_KINDS,
     DEFAULT_TERM: DEFAULT_TERM,
+    OLD_TERMS: OLD_TERMS,
     INDUSTRY_NAMES: INDUSTRY_NAMES,
 
     apply: apply,
@@ -896,6 +907,7 @@ var Domain = (function () {
     nextStage: nextStage,
     removalTarget: removalTarget,
     position: position,
+    termOf: termOf,
     goalOf: goalOf,
     isFinalStep: isFinalStep,
     isOverdue: isOverdue,

@@ -4,7 +4,7 @@
  */
 import * as storage from './storage.js';
 
-export const TERMS = ['夏インターン', '本選考'];
+export const TERMS = ['インターン', '本選考'];
 export const PAGES = ['list', 'pass'];
 
 export const ui = {};
@@ -12,7 +12,9 @@ export const ui = {};
 export function resetUi() {
   const saved = storage.getJson('ui', {});
   ui.page = PAGES.includes(saved.page) ? saved.page : 'list';
-  ui.term = TERMS.includes(saved.term) ? saved.term : TERMS[0];
+  /* 前の名前（夏インターン）で覚えていても、今の名前に読み替えて開く */
+  const term = saved.term ? Domain.termOf(saved.term) : '';
+  ui.term = TERMS.includes(term) ? term : TERMS[0];
   ui.filt = typeof saved.filt === 'string' ? saved.filt : 'all';
   ui.openId = null;         // 詳細を開いている会社の id
   ui.tab = 'info';

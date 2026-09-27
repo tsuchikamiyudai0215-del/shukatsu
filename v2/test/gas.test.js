@@ -178,13 +178,13 @@ test('追加：同じ区分の重複は弾き、違う区分なら通す', () =>
   const T = mk();
   addCo(T, { name: 'A社', term: '本選考' });
   assert.match(T.api('addCompany', { name: ' A社 ', term: '本選考' }).error, /すでに/);
-  assert.equal(T.api('addCompany', { name: 'A社', term: '夏インターン' }).ok, true);
+  assert.equal(T.api('addCompany', { name: 'A社', term: 'インターン' }).ok, true);
   assert.equal(T.rows('companies').length, 2);
 });
 
 test('追加：同じ名前のフォルダがあれば、それを使う', () => {
   const T = mk();
-  const a = addCo(T, { name: 'A社', term: '夏インターン' });
+  const a = addCo(T, { name: 'A社', term: 'インターン' });
   const b = addCo(T, { name: 'A社', term: '本選考' });
   assert.equal(a.folderUrl, b.folderUrl);
 });
@@ -223,10 +223,10 @@ test('通過：次の段階へ。締切の予定はカレンダーから消え�
   assert.deepEqual(calOf(T, c.id), {});
 });
 
-test('最後まで通ると、本選考は内定・夏インターンは参加決定', () => {
+test('最後まで通ると、本選考は内定・インターンは参加決定', () => {
   const T = mk();
   const a = addCo(T, { name: 'A社', term: '本選考', stage: '最終面接' });
-  const b = addCo(T, { name: 'B社', term: '夏インターン', stage: '最終面接' });
+  const b = addCo(T, { name: 'B社', term: 'インターン', stage: '最終面接' });
   assert.equal(mutate(T, a, 'pass').company.status, 'offer');
   assert.equal(mutate(T, b, 'pass').company.status, 'joined');
   // 再読み込みしても段階が戻らない
@@ -420,7 +420,7 @@ test('予定：入力がおかしい・会社が無いときは保存しない',
 
 test('本選考へ引き継ぐ：パスワードとフォルダも写す。応答にパスワードは載せない', () => {
   const T = mk();
-  const c = addCo(T, { term: '夏インターン', url: 'https://a', loginId: 'ida', pw: 'pwa' });
+  const c = addCo(T, { term: 'インターン', url: 'https://a', loginId: 'ida', pw: 'pwa' });
   const r = T.api('carryOver', { id: c.id });
   assert.equal(r.ok, true, r.error);
   assert.equal(r.company.term, '本選考');
@@ -463,7 +463,7 @@ test('削除：行・予定・カレンダーをまとめて消す。フォル�
 
 test('行は id で探す。同じ名前が別の区分にあっても取り違えない', () => {
   const T = mk();
-  const a = addCo(T, { name: 'A社', term: '夏インターン' });
+  const a = addCo(T, { name: 'A社', term: 'インターン' });
   const b = addCo(T, { name: 'A社', term: '本選考', stage: 'ES' });
   mutate(T, b, 'pass');
   const rows = T.rows('companies');
@@ -599,7 +599,7 @@ test('移行：状態・締切・フォルダ・パスワード・ルートを�
 
   const rows = T.rows('companies');
   const by = (name, term) => rows.find((r) => r.name === name && r.term === term);
-  const a = by('A社', '夏インターン');
+  const a = by('A社', 'インターン');
   assert.match(a.id, /^c_/);
   assert.equal(a.status, 'todo');
   assert.equal(a.dueAt, '2030-01-10T23:59');
@@ -610,7 +610,7 @@ test('移行：状態・締切・フォルダ・パスワード・ルートを�
   assert.deepEqual(JSON.parse(a.route), ['エントリー', 'ES', '適性検査', 'GD', '面接', '最終面接', '内定']);
   assert.deepEqual(JSON.parse(a.cal), {});
 
-  const b = by('B社', '夏インターン');
+  const b = by('B社', 'インターン');
   assert.equal(b.status, 'waiting');           // 状態が空なので I列の「済」から
   assert.equal(b.dueAt, '2030-02-01T23:59');   // 時が空ならその日いっぱい
   assert.equal(b.dueHasTime, 'FALSE');
@@ -618,13 +618,13 @@ test('移行：状態・締切・フォルダ・パスワード・ルートを�
 
   const c = by('C社', '本選考');
   assert.deepEqual([c.status, c.lostStage, c.resultAt, c.industry], ['failed', '面接', '2026-09-10', '金融']);
-  assert.equal(by('D社', '夏インターン').status, 'joined');   // 夏インターンの「内定」は参加決定
-  assert.equal(by('D社', '夏インターン').resultAt, '2026-09-01');
+  assert.equal(by('D社', 'インターン').status, 'joined');   // 旧版の夏インターンの「内定」は参加決定
+  assert.equal(by('D社', 'インターン').resultAt, '2026-09-01');
   assert.equal(by('E社', '本選考').status, 'offer');
   const f = by('F社', '本選考');
   assert.equal(f.status, 'skipped');
   assert.deepEqual(JSON.parse(f.route), ['エントリー', '面談', '内定']);
-  const t = by('テストセンター', '夏インターン');
+  const t = by('テストセンター', 'インターン');
   assert.equal(t.kind, 'mgmt');
   assert.equal(t.dueAt, '2030-01-10T10:00');
   assert.equal(by('A社', '本選考').pw, 'pwa2');
@@ -632,8 +632,8 @@ test('移行：状態・締切・フォルダ・パスワード・ルートを�
   // 状態に合わない旧版の名残は片付ける
   assert.equal(b.resultAt, '');                                  // 結果待ちに前の結果日
   assert.equal(by('A社', '本選考').resultAt, '');                // 対応中に結果日
-  assert.equal(by('D社', '夏インターン').dueAt, '');             // 参加決定に締切
-  assert.equal(by('D社', '夏インターン').dueHasTime, 'FALSE');
+  assert.equal(by('D社', 'インターン').dueAt, '');             // 参加決定に締切
+  assert.equal(by('D社', 'インターン').dueHasTime, 'FALSE');
   assert.equal(f.dueAt, '');                                     // 見送りに締切
   // 結果発表の予定日（N列）は移さない
   assert.equal(Object.keys(a).some((k) => /result(Expected|EventId)/.test(k)), false);
@@ -784,7 +784,7 @@ const LOGOS = JSON.stringify({
 
 test('旧版のロゴの取り込み：空か自動のものだけ上書きし、手で入れたものは残す。同じ名前の行には全部入れる', () => {
   const T = mk({ LEGACY_LOGOS: LOGOS });
-  const a1 = addCo(T, { name: 'A社', term: '夏インターン' });
+  const a1 = addCo(T, { name: 'A社', term: 'インターン' });
   const a2 = addCo(T, { name: 'A社', term: '本選考' });
   const b = addCo(T, { name: 'B社' });
   const c = addCo(T, { name: 'C社' });
@@ -862,11 +862,31 @@ test('ルートが空の会社に、前の初期のルートを書き込む（fi
   assert.equal(T.ctx.fillEmptyRoutes(), 0);
 });
 
+test('区分が前の名前や空の行を「インターン」に直す（renameOldTerms）', () => {
+  const T = mk();
+  const a = addCo(T, { name: 'A社' });
+  const b = addCo(T, { name: 'B社' });
+  const c = addCo(T, { name: 'C社', term: '本選考' });
+  const sh = T.sheet('companies');
+  const col = sh.d[0].indexOf('term');
+  sh.d[1][col] = '夏インターン';                            // 名前替えの前に移した行
+  sh.d[2][col] = '';
+  const n = T.run('renameOldTerms');
+  assert.equal(n, 2);
+  const got = T.api('getData', {}).companies;
+  assert.equal(got.find((x) => x.id === a.id).term, 'インターン');
+  assert.equal(got.find((x) => x.id === b.id).term, 'インターン');
+  assert.equal(got.find((x) => x.id === c.id).term, '本選考');
+  assert.equal(got.find((x) => x.id === a.id).updatedAt, a.updatedAt);
+  assert.ok(T.log.includes('区分を今の名前に直した行：2 行。'));
+  assert.equal(T.ctx.renameOldTerms(), 0);
+});
+
 test('移行：旧版でルートを編集していない会社は、前の初期のルートで固定する', () => {
   const T = mk();
   legacy(T, DEV_SHEET);
   T.run('migrate');
-  const a = T.rows('companies').find((r) => r.name === 'A社' && r.term === '夏インターン');
+  const a = T.rows('companies').find((r) => r.name === 'A社' && r.term === 'インターン');
   assert.deepEqual(JSON.parse(a.route), LEGACY_ROUTE);
   assert.deepEqual(JSON.parse(a.routeLinks), []);
 });
@@ -876,7 +896,7 @@ test('パスワードの一括入力：空の行にだけ入れる。入って�
   const a = addCo(T, { name: 'A社' });
   const b = addCo(T, { name: 'B社', pw: 'keep-me' });
   const m = addCo(T, { name: 'テストセンター', kind: 'mgmt' });
-  const c = addCo(T, { name: 'C社', term: '夏インターン', dueAt: '2030-01-10T12:00' });
+  const c = addCo(T, { name: 'C社', term: 'インターン', dueAt: '2030-01-10T12:00' });
   T.resetCalls();
   const n = T.ctx.fillEmptyPasswords_('dummy-fill');
   assert.equal(n, 2);
@@ -929,7 +949,7 @@ test('移行（本番へ切り替えるとき）：予定の ID を引き継ぎ�
   const book = T.books[PROD_SHEET];
   const head = book.sheets.companies.d[0];
   const a = book.sheets.companies.d.slice(1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i]])))
-    .find((r) => r.name === 'A社' && r.term === '夏インターン');
+    .find((r) => r.name === 'A社' && r.term === 'インターン');
   const map = JSON.parse(a.cal);
   assert.equal(map.due.id, due.id);
   assert.equal(Object.keys(map).length, 5);

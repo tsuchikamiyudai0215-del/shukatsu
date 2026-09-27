@@ -66,7 +66,7 @@ function syncPills() {
     const b = document.getElementById('sg' + i);
     if (!b) return;
     b.className = ui.term === t ? 'on' : '';
-    b.querySelector('.sgn').textContent = all.filter((c) => (c.term || Domain.DEFAULT_TERM) === t).length;
+    b.querySelector('.sgn').textContent = all.filter((c) => Domain.termOf(c.term) === t).length;
   });
   seg.classList.toggle('i1', ui.term === TERMS[1]);
 }
@@ -209,7 +209,7 @@ const actions = Object.assign({
     closeThen(() => {
       const c = store.company(id);
       if (!c) return;
-      ui.term = c.term || Domain.DEFAULT_TERM;
+      ui.term = Domain.termOf(c.term);
       saveUi();
       ui.openId = id;
       ui.tab = 'info';

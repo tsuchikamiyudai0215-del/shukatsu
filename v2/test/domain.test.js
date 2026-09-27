@@ -49,7 +49,7 @@ test('最後の手前で通過すると、本選考は内定・段階はルー�
 });
 
 test('インターンの区分は、最後まで通ると参加決定', () => {
-  assert.equal(D.apply(co({ term: '夏インターン', stage: '最終面接' }), { type: 'pass' }, NOW).status, 'joined');
+  assert.equal(D.apply(co({ term: 'インターン', stage: '最終面接' }), { type: 'pass' }, NOW).status, 'joined');
   assert.equal(D.apply(co({ term: '秋冬インターン', stage: '最終面接' }), { type: 'pass' }, NOW).status, 'joined');
   assert.equal(D.goalOf('本選考'), 'offer');
   assert.equal(D.goalOf(''), 'joined');
@@ -235,8 +235,8 @@ test('今の段階がもともとルートに無い行は、ルートを直し�
   assert.deepEqual(n.route, ['ES', '内定']);
 });
 
-test('初期のルート：夏インターンは ES → テスト → 面接 → インターン、本選考は … → 内定', () => {
-  assert.deepEqual(D.defaultRoute('夏インターン'), ['ES', 'テスト', '面接', 'インターン']);
+test('初期のルート：インターンは ES → テスト → 面接 → インターン、本選考は … → 内定', () => {
+  assert.deepEqual(D.defaultRoute('インターン'), ['ES', 'テスト', '面接', 'インターン']);
   assert.deepEqual(D.defaultRoute('本選考'), ['ES', 'テスト', '面接', '内定']);
   assert.deepEqual(D.routeOf({ route: [], term: '本選考' }), ['ES', 'テスト', '面接', '内定']);
   assert.deepEqual(D.routeOf({}), ['ES', 'テスト', '面接', 'インターン']);
@@ -246,8 +246,8 @@ test('初期のルート：夏インターンは ES → テスト → 面接 →
   assert.deepEqual(D.STAGE_CANDIDATES.slice(0, 3), ['エントリー', 'ES', '適性検査']);
 });
 
-test('新しい会社は初期のルートの ES から。最後まで通ると、夏インターンはインターン参加決定・本選考は内定', () => {
-  const s = D.create('s', { name: 'S社', term: '夏インターン' });
+test('新しい会社は初期のルートの ES から。最後まで通ると、インターンはインターン参加決定・本選考は内定', () => {
+  const s = D.create('s', { name: 'S社', term: 'インターン' });
   assert.deepEqual([s.stage, s.route, s.routeLinks], ['ES', ['ES', 'テスト', '面接', 'インターン'], []]);
   let n = D.apply(Object.assign({}, s, { stage: '面接' }), { type: 'pass' }, NOW);
   assert.deepEqual([n.stage, n.status], ['インターン', 'joined']);
@@ -292,7 +292,7 @@ test('追加：既定の値と、URL・ID・ドメイン・段階・締切', () 
   assert.equal(D.create('c_5', { name: 'G社', term: '本選考' }).stage, 'ES');   // 段階を選ばなければ ES
   assert.equal(c.dueAt, '2030-01-01T09:30');
   assert.equal(c.dueHasTime, true);
-  assert.equal(D.create('c_8', { name: 'E社' }).term, '夏インターン');
+  assert.equal(D.create('c_8', { name: 'E社' }).term, 'インターン');
   assert.equal(D.create('c_7', { name: 'テストセンター', kind: 'mgmt' }).kind, 'mgmt');
   assert.throws(() => D.create('c_6', { name: '' }), /空/);
   assert.throws(() => D.create('', { name: 'F社' }), /ID/);
@@ -324,15 +324,32 @@ test('片付けたあとの値は、操作で作る値と食い違わない', ()
 });
 
 test('同じ区分の重複を見つける。改名中の本人は除く', () => {
-  const list = [co({ id: 'a', name: 'A社', term: '本選考' }), co({ id: 'b', name: 'B社', term: '夏インターン' })];
+  const list = [co({ id: 'a', name: 'A社', term: '本選考' }), co({ id: 'b', name: 'B社', term: 'インターン' })];
   assert.equal(D.duplicateOf(list, ' A社 ', '本選考').id, 'a');
-  assert.equal(D.duplicateOf(list, 'A社', '夏インターン'), null);
+  assert.equal(D.duplicateOf(list, 'A社', 'インターン'), null);
   assert.equal(D.duplicateOf(list, 'A社', '本選考', 'a'), null);
   assert.equal(D.duplicateOf(list, 'B社', '').id, 'b');
 });
 
+test('区分の名前：前の名前「夏インターン」と空は「インターン」として読む', () => {
+  assert.equal(D.DEFAULT_TERM, 'インターン');
+  assert.equal(D.termOf('夏インターン'), 'インターン');
+  assert.equal(D.termOf(' '), 'インターン');
+  assert.equal(D.termOf(undefined), 'インターン');
+  assert.equal(D.termOf('本選考'), '本選考');
+  assert.equal(D.goalOf('夏インターン'), 'joined');
+  assert.equal(D.goalOf('本選考'), 'offer');
+  assert.equal(D.create('c_9', { name: 'F社', term: '夏インターン' }).term, 'インターン');
+  assert.equal(D.normalize(co({ term: '夏インターン' })).term, 'インターン');
+  /* 前の名前のままの行も、同じ区分として重複を見つけ、本選考へ引き継げる */
+  const old = co({ id: 'o', name: 'O社', term: '夏インターン' });
+  assert.equal(D.duplicateOf([old], 'O社', 'インターン').id, 'o');
+  assert.equal(D.carryOver(old, 'c_10').term, '本選考');
+  assert.throws(() => D.carryOver(old, 'c_11', 'インターン'), /同じ区分には引き継げません/);
+});
+
 test('本選考へ引き継ぐ：会社情報とフォルダを写し、選考は本選考の初期のルートの ES から', () => {
-  const src = co({ term: '夏インターン', stage: '内定', status: 'joined', url: 'https://a', loginId: 'ida',
+  const src = co({ term: 'インターン', stage: '内定', status: 'joined', url: 'https://a', loginId: 'ida',
     domain: 'a.co.jp', industry: '金融', logo: 'L', folderUrl: 'https://drive/a', route: ['エントリー', 'GD', '内定'], pw: 'secret' });
   const n = D.carryOver(src, 'c_2');
   assert.equal(n.id, 'c_2');

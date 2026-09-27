@@ -6,6 +6,7 @@
  *   そちらを優先し、空のときだけ I列から決める。
  * ・状態に合わない値（対応中の結果日、参加決定の締切など）は Domain.normalize で片付ける。
  * ・日時は、シートのタイムゾーンに関係なく日本時間で読む（本番シートは Los Angeles になっている）。
+ * ・区分は Domain.termOf で今の名前にそろえる。旧版の「夏インターン」と空の区分は「インターン」になる。
  * ・パスワード（D列）は pw 列へ移す。
  * ・結果発表の予定日（N列）は機能ごと外したので移さない。
  * ・今あるカレンダー予定の ID は、本番に切り替えるとき（ALLOW_PRODUCTION=yes）だけ引き継ぐ。
@@ -15,7 +16,6 @@
 
 var LEGACY_SHEET = 'Sheet1';
 var LEGACY_EVENTS = '予定';
-var LEGACY_TERM = '夏インターン';
 /* 旧版の固定列（1始まり） */
 var LEGACY_COL = {
   name: 1, url: 2, loginId: 3, pw: 4, date: 5, hour: 6, minute: 7,
@@ -69,7 +69,7 @@ function migrate_() {
   rows.forEach(function (r, i) {
     var name = str_(at(r, LEGACY_COL.name)).trim();
     if (!name) return;
-    var term = str_(byHead(r, '区分')).trim() || LEGACY_TERM;
+    var term = Domain.termOf(byHead(r, '区分'));
     var status = legacyStatus_(byHead(r, '状態'), at(r, LEGACY_COL.oldStatus), term);
     var stage = str_(at(r, LEGACY_COL.stage)).trim();
     var route = str_(byHead(r, 'ルート')).split('>').map(function (s) { return s.trim(); }).filter(String);
@@ -129,7 +129,7 @@ function migrate_() {
     es.getRange(2, 1, eLast - 1, 10).getValues().forEach(function (r) {
       var name = str_(r[0]).trim();
       if (!name) return;
-      var c = byKey[name + '\u0000' + (str_(r[6]).trim() || LEGACY_TERM)];
+      var c = byKey[name + '\u0000' + Domain.termOf(r[6])];
       if (!c) { res.orphanEvents++; console.warn('会社が見つからない予定：' + name); return; }
       var e;
       try {
@@ -193,7 +193,7 @@ function legacyLogoMap_() {
 
 /**
  * 旧版のロゴの記録を companies の logo 列へ取り込む。エディタから実行する。移行のあとに何度実行してもよい。
- * 会社名で行を探し、同じ名前の行（夏インターンと本選考など）には全部入れる。
+ * 会社名で行を探し、同じ名前の行（インターンと本選考など）には全部入れる。
  * logo 列が空か、画面が自動で見つけたもの（logoManual が FALSE）だけを上書きし、手で入れたものは残す。
  * 取り込んだロゴは自動の扱いにしておく。表示に失敗したとき、画面が次の候補へ差し替えられるように。
  */
@@ -250,6 +250,32 @@ function fillEmptyRoutes() {
     });
     bustCache_();
     console.log('ルートが空だった ' + n + ' 社に、前の初期のルートを書き込みました。');
+    return n;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 区分が前の名前（夏インターン）や空のままの行を、今の名前（インターン）に直す。エディタから実行する。
+ * 区分を名前替えする前に移した開発用シートのためのもの。migrate() は移すときに今の名前にするので、ふだんは0件になる。
+ * 何度実行してもよい。区分は画面の絞り込みにしか使わないので、updatedAt もカレンダーも変えない。
+ */
+function renameOldTerms() {
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var table = companies_();
+    var n = 0;
+    table.all().forEach(function (c) {
+      var term = Domain.termOf(c.term);
+      if (c.term === term) return;
+      table.write({ id: c.id, term: term });
+      n++;
+    });
+    bustCache_();
+    console.log('区分を今の名前に直した行：' + n + ' 行。');
     return n;
   } finally {
     lock.releaseLock();
@@ -359,7 +385,7 @@ function legacyStatus_(state, oldStatus, term) {
   var s = str_(state).trim();
   var goal = Domain.goalOf(term);
   var byState = { '対応中': 'todo', '結果待ち': 'waiting', '参加決定': 'joined', '落選': 'failed', '見送り': 'skipped' };
-  /* 旧版の画面は、夏インターンの「内定」を参加決定として出していた */
+  /* 旧版の画面は、インターンの「内定」を参加決定として出していた */
   if (s === '内定') return goal;
   if (byState[s]) return byState[s];
   var o = str_(oldStatus).trim();

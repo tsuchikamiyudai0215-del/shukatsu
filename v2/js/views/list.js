@@ -21,7 +21,7 @@ const LANES = [
 const LANE_OF = { todo: 'todo', waiting: 'wait', offer: 'offer', joined: 'fixed', failed: 'end', skipped: 'skip' };
 
 export function termCompanies() {
-  return store.companies().filter((c) => (c.term || Domain.DEFAULT_TERM) === ui.term);
+  return store.companies().filter((c) => Domain.termOf(c.term) === ui.term);
 }
 
 export function termEvents(list) {

@@ -411,6 +411,48 @@ test('見出しが開催中の予定を出している間も、ほかの会社�
   }
 });
 
+test('区分の切り替えは「インターン」「本選考」。端末に前の名前「夏インターン」が残っていても、その行ごと開ける', async () => {
+  let old;
+  const R = await boot({
+    ls: { sk2_ui: JSON.stringify({ page: 'list', term: '夏インターン', filt: 'all' }) },
+    after: (T) => {
+      old = T.api('addCompany', { name: '前の名前社', logo: 'none' }).company;
+      const sh = T.sheet('companies');
+      sh.d.find((r) => r[0] === old.id)[sh.d[0].indexOf('term')] = '夏インターン';
+    }
+  });
+  assert.deepEqual(R.$$('#seg button').map((b) => b.querySelector('span').textContent), ['インターン', '本選考']);
+  assert.ok(R.$(`.row[data-id="${old.id}"]`));
+  R.click(`.row[data-id="${old.id}"]`);
+  assert.match(R.$('#sheet').textContent, /本選考に引き継ぐ|本選考に登録済み/);
+  R.stop();
+});
+
+test('落選の会社で「対応中に戻す」を押したときだけ、記録が消えることと受け直し方を確かめる', async () => {
+  const R = await boot();
+  const asked = [];
+  let answer = false;
+  R.w.confirm = (m) => { asked.push(m); return answer; };
+  R.click('[data-act="toggle-lane"][data-v="end"]');
+  R.click(`.row[data-id="${R.ids.f}"]`);
+  R.click('#sheet [data-act="reopen"]');
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0], '落選の記録が消えます。受け直すなら、設定の『同じマイページで別の選考を追加』を使うと記録が残ります。');
+  assert.equal(R.mutates().length, 0);                        // やめたら何も送らない
+  answer = true;
+  R.click('#sheet [data-act="reopen"]');
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.f).status === 'todo');
+  /* 落選以外（結果待ち）では確かめない */
+  R.click('#sheet [data-act="close-detail"]');
+  await sleep(800);
+  R.click(`.row[data-id="${R.ids.w}"]`);
+  await until(() => /ディー通信/.test(R.$('#sheet').textContent) && R.$('#sheet [data-act="reopen"]'));
+  R.click('#sheet [data-act="reopen"]');
+  assert.equal(asked.length, 2);                             // 増えていない（落選の2回だけ）
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.w).status === 'todo');
+  R.stop();
+});
+
 test('絞り込み：件数を出し、選択を保存する。対象が0件なら「すべて」に戻す', async () => {
   const R = await boot({ ls: { sk2_ui: JSON.stringify({ page: 'list', term: '夏インターン', filt: 'offer' }) } });
   assert.equal(R.$('.chiprow .on').dataset.v, 'all');
