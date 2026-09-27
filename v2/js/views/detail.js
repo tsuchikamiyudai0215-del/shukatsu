@@ -25,10 +25,26 @@ export function onDetailRerender(fn) { rerenderAll = fn; }
 function current() { return ui.openId ? store.company(ui.openId) : null; }
 function eventsOf(id) { return store.eventsOf(id).sort(byStart); }
 
+/* ホーム画面のアイコンから全画面で開いているか */
+function standalone() {
+  try {
+    return window.navigator.standalone === true
+      || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  } catch (e) { return false; }
+}
+
+/* もう Chrome のタブの中にいるか。そのときは Chrome 行きの URL にしても、自分宛てなので何も起きない */
+function inChromeTab(ua) {
+  if (standalone()) return false;
+  if (/CriOS/i.test(ua)) return true;
+  return /Android/i.test(ua) && /Chrome\//i.test(ua) && !/; wv\)|SamsungBrowser|EdgA|OPR|YaBrowser/i.test(ua);
+}
+
 /* マイページを Chrome で開く URL に置き換える。iOS は googlechrome(s)://、Android は intent:// */
 function extHref(url) {
   if (!ui.openInChrome || !url) return url;
   const ua = window.navigator.userAgent || '';
+  if (inChromeTab(ua)) return url;
   if (/iPhone|iPad|iPod/i.test(ua)) {
     if (/^https:\/\//i.test(url)) return 'googlechromes://' + url.slice(8);
     if (/^http:\/\//i.test(url)) return 'googlechrome://' + url.slice(7);
@@ -40,6 +56,13 @@ function extHref(url) {
     return 'intent://' + m[1] + '#Intent;scheme=' + (/^https/i.test(url) ? 'https' : 'http') + ';package=com.android.chrome;end';
   }
   return url;
+}
+
+/* 別のアプリ（Chrome）へ渡す URL は、同じ画面のまま開く。新しいタブにすると、ホーム画面のアイコンからは何も起きないことがある */
+function myPageLink(url) {
+  const href = extHref(url);
+  const toApp = !/^https?:/i.test(href);
+  return html`<a class="big" style="flex:1;margin:0;background:#fff;color:#000"${toApp ? '' : html` target="_blank"`} rel="noopener noreferrer" href="${safeUrl(href)}">マイページ</a>`;
 }
 
 // ============================================================
@@ -89,7 +112,7 @@ function infoTab(c, now) {
 
   /* 開いてすぐ使うものを上に。スクロールせずに届く位置に置く */
   if (c.url || c.folderUrl) {
-    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`<a class="big" style="flex:1;margin:0;background:#fff;color:#000" target="_blank" rel="noopener noreferrer" href="${safeUrl(extHref(c.url))}">マイページ</a>`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
+    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
   }
   if (c.loginId) parts.push(html`<button class="kv idrow" style="margin-top:12px" data-act="copy-id"><span>ログインID</span><span class="idval">${c.loginId}<i>コピー</i></span></button>`);
   /* パスワードは押したときだけ取りに行く。画面には伏せ字しか出さない */

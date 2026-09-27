@@ -586,6 +586,10 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 body.kb-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,40px,0);pointer-events:none}
 body.kb-open .sheet{padding-bottom:calc(10px + var(--kb,0px))}
 body.kb-open .card{height:auto;max-height:calc(100dvh - var(--kb,0px) - 40px)}
+/* 追加の画面は中身の高さに合わせ、キーボードが出たらその上に収めて、会社名の候補を見えるようにする。
+   縦に並べる flex のままだと、高さが足りないときに候補の欄（中でスクロールする）が高さ0に潰れるので、ふつうの並びにする */
+#addCard{display:block;height:auto;max-height:88dvh;overflow-y:auto}
+body.kb-open #addCard{max-height:calc(100dvh - var(--kb,0px) - 40px)}
 #app{transform-origin:50% 0;
   transition:transform .5s var(--spring),border-radius .5s var(--spring),filter .5s var(--ease)}
 body.sheet-open #app{will-change:transform;backface-visibility:hidden}

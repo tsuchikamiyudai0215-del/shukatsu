@@ -133,11 +133,14 @@ function bindGesture() {
   if (!card || card.dataset.bound) return;
   card.dataset.bound = '1';
   const sheet = card.parentNode;
-  let y0 = 0, x0 = 0, t0 = 0, dy = 0, active = false, tracking = false, raf = 0;
+  let y0 = 0, x0 = 0, t0 = 0, dy = 0, active = false, tracking = false, raf = 0, from = null;
 
-  const scrollTop = () => {
+  /* 指の下にある入れ物（会社名の候補など）のどれかが下へスクロールしてあれば、閉じずにスクロールを優先する */
+  const scrolled = () => {
     const pane = card.querySelector('.tab-pane');
-    return pane ? pane.scrollTop : card.scrollTop;
+    if (pane && pane.scrollTop > 0) return true;
+    for (let el = from; el && el !== sheet; el = el.parentNode) if (el.scrollTop > 0) return true;
+    return false;
   };
   const apply = () => {
     raf = 0;
@@ -149,8 +152,10 @@ function bindGesture() {
 
   card.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
+    /* キーボードが出ている間は入力中なので、スワイプで閉じない（候補を見ようとして消えてしまう） */
+    if (document.body.classList.contains('kb-open')) { tracking = false; return; }
     y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
-    t0 = Date.now(); dy = 0; active = false; tracking = true;
+    t0 = Date.now(); dy = 0; active = false; tracking = true; from = e.target;
     card.classList.remove('spring', 'fly');
   }, { passive: true });
 
@@ -162,7 +167,7 @@ function bindGesture() {
     if (!active) {
       if (Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
       /* 中を上にスクロールしてある間は、スワイプで閉じない */
-      if (scrollTop() > 0) { y0 = cy; t0 = Date.now(); return; }
+      if (scrolled()) { y0 = cy; t0 = Date.now(); return; }
       if (vdy > 6) { active = true; card.classList.add('drag'); } else return;
     }
     dy = vdy;

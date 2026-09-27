@@ -591,8 +591,18 @@ test('概要：マイページを開く（Chrome で開く設定つき）、書�
   const sw = R.$('#sheet #chromeSw');
   sw.checked = true;
   sw.dispatchEvent(new R.w.Event('change', { bubbles: true }));
-  assert.equal(R.$$('#sheet a.big').find((a) => a.textContent === 'マイページ').getAttribute('href'), 'googlechromes://a.example');
+  const mine = () => R.$$('#sheet a.big').find((a) => a.textContent === 'マイページ');
+  assert.equal(mine().getAttribute('href'), 'googlechromes://a.example');
+  assert.equal(mine().getAttribute('target'), null);           // Chrome へ渡すときは同じ画面のまま
   assert.equal(R.w.localStorage.getItem('sk2_chrome'), '1');
+  /* もう Chrome のタブの中なら、ふつうの URL を新しいタブで開く（Chrome 行きの URL は自分宛てで何も起きない） */
+  Object.defineProperty(R.w.navigator, 'userAgent', { value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/140.0 Mobile', configurable: true });
+  sw.checked = false;
+  sw.dispatchEvent(new R.w.Event('change', { bubbles: true }));
+  R.$('#sheet #chromeSw').checked = true;
+  R.$('#sheet #chromeSw').dispatchEvent(new R.w.Event('change', { bubbles: true }));
+  assert.equal(mine().getAttribute('href'), 'https://a.example');
+  assert.equal(mine().getAttribute('target'), '_blank');
   R.stop();
 });
 
@@ -791,6 +801,37 @@ test('追加フォームの段階は、その区分の初期のルートを先�
   await until(() => R.T.api('getData', {}).companies.some((x) => x.name === '新規社'));
   const c = R.T.api('getData', {}).companies.find((x) => x.name === '新規社');
   assert.deepEqual([c.stage, c.route], ['ES', ['ES', 'テスト', '面接', 'インターン']]);
+  R.stop();
+});
+
+test('追加画面：キーボードが出ている間と、候補をスクロールしている間は、下へスワイプしても閉じない', async () => {
+  const R = await boot();
+  R.click('[data-act="add"]');
+  await sleep(100);
+  /* 高さは CSS で決める（キーボードが出たら縮めるため、直書きしない） */
+  assert.equal(R.$('#addCard').getAttribute('style'), null);
+  const swipe = (el) => {
+    const fire = (type, y) => {
+      const e = new R.w.Event(type, { bubbles: true, cancelable: true });
+      e.touches = y == null ? [] : [{ clientX: 100, clientY: y }];
+      el.dispatchEvent(e);
+    };
+    fire('touchstart', 100); fire('touchmove', 120); fire('touchmove', 400); fire('touchend');
+  };
+  R.d.body.classList.add('kb-open');
+  swipe(R.$('#nC'));
+  await sleep(400);
+  assert.ok(R.$('#addCard'), 'キーボードが出ている間に閉じた');
+  R.d.body.classList.remove('kb-open');
+  const sug = R.$('#nCSug');
+  Object.defineProperty(sug, 'scrollTop', { value: 40, configurable: true });
+  swipe(sug);
+  await sleep(400);
+  assert.ok(R.$('#addCard'), '候補をスクロールしている間に閉じた');
+  /* どちらでもなければ、今までどおり閉じる */
+  Object.defineProperty(sug, 'scrollTop', { value: 0, configurable: true });
+  swipe(sug);
+  await until(() => !R.$('#addCard'), 1500);
   R.stop();
 });
 
