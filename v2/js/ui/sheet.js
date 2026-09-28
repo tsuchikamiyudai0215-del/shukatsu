@@ -142,12 +142,19 @@ function bindGesture() {
     for (let el = from; el && el !== sheet; el = el.parentNode) if (el.scrollTop > 0) return true;
     return false;
   };
+  /* 後ろの一覧の縮み具合は、#app だけを直接動かす。body の変数を毎回書き換えると、画面全体の計算し直しになって指に遅れる */
+  const app = document.getElementById('app');
   const apply = () => {
     raf = 0;
     if (!active) return;
     const d = Math.max(0, dy);
     card.style.transform = 'translate3d(0,' + d + 'px,0) scale(' + Math.max(0.9, 1 - d / 2400) + ')';
-    document.body.style.setProperty('--bgs', (0.93 + Math.min(1, d / 320) * 0.07).toFixed(3));
+    if (app && !isWide()) app.style.transform = 'scale(' + (0.93 + Math.min(1, d / 320) * 0.07).toFixed(3) + ') translate3d(0,10px,0)';
+  };
+  /* 指を離したら、一覧は CSS の動き（transition）で元の縮み具合へ戻す */
+  const release = () => {
+    document.body.classList.remove('sheet-drag');
+    if (app) app.style.transform = '';
   };
 
   card.addEventListener('touchstart', (e) => {
@@ -168,7 +175,10 @@ function bindGesture() {
       if (Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
       /* 中を上にスクロールしてある間は、スワイプで閉じない */
       if (scrolled()) { y0 = cy; t0 = Date.now(); return; }
-      if (vdy > 6) { active = true; card.classList.add('drag'); } else return;
+      /* いちばん上から下へ引くときは、中身の跳ね返り（ブラウザのスクロール）を最初から止める。
+         始まってしまうと、あとから止められず、カードの動きと取り合ってカクつく */
+      if (vdy > 0 && e.cancelable) e.preventDefault();
+      if (vdy > 6) { active = true; card.classList.add('drag'); document.body.classList.add('sheet-drag'); } else return;
     }
     dy = vdy;
     if (!raf) raf = requestAnimationFrame(apply);
@@ -191,7 +201,7 @@ function bindGesture() {
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform = '';
-    document.body.style.setProperty('--bgs', '.93');
+    release();
     setTimeout(() => card.classList.remove('noblur'), 600);
   }
   function dismiss() {
@@ -201,6 +211,7 @@ function bindGesture() {
     card.style.opacity = '0';
     sheet.classList.remove('is-active');
     sheet.classList.add('out');
+    release();
     document.body.classList.remove('sheet-open');
     document.body.style.removeProperty('--bgs');
     st.dismissing = true;

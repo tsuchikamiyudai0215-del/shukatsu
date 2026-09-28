@@ -52,7 +52,7 @@ async function pickSuggest(el) {
   const box = document.getElementById('nCSug');
   if (box) { box.className = 'sug'; setHtml(box, html``); }
   sugSeq++;
-  const c = await wdClaims(el.dataset.v);
+  const c = await wdClaims(el.dataset.v, true);
   const nd = document.getElementById('nD');
   if (c && c.domain && nd && !nd.value.trim()) nd.value = c.domain;
 }

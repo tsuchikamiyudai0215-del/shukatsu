@@ -104,7 +104,7 @@ async function boot(opts = {}) {
   /* EP は開発用、EP2 は本番に見立てた別のウェブアプリ（中身は別の模擬環境） */
   const T2 = opts.other || null;
   w.fetch = async (url, o) => {
-    if (!String(url).startsWith('https://script.google.com/')) return { ok: true, json: async () => ({}) };
+    if (!String(url).startsWith('https://script.google.com/')) return opts.web ? opts.web(String(url)) : { ok: true, json: async () => ({}) };
     const body = JSON.parse(o.body);
     calls.push(Object.assign({ keepalive: !!o.keepalive, url: String(url) }, body));
     if (net.delay) await sleep(net.delay(body) || 0);
@@ -681,6 +681,33 @@ test('設定：開閉を覚える。業種（候補つき）・会社名の変�
   R.stop();
 });
 
+test('ロゴ探し：Wikidata に断られたら「見つからなかった」と保存せず、次に開いたときに探し直す', async () => {
+  let cid;
+  const asked = [];
+  const R = await boot({
+    after: (T) => { cid = T.api('addCompany', { name: '混雑商事' }).company.id; },   // ロゴもドメインも空
+    web: (url) => { asked.push(url); return { ok: false, status: 429, json: async () => ({}) }; }
+  });
+  await until(() => asked.length > 0);
+  await sleep(300);
+  const c = R.T.api('getData', {}).companies.find((x) => x.id === cid);
+  assert.equal(c.logo, '');                                   // none にしない
+  assert.equal(asked.length, 1);                              // 断られたら、続けて問い合わせない
+  R.stop();
+});
+
+test('ロゴ探し：断られずに何も見つからなければ「見つからなかった」と保存する', async () => {
+  let cid;
+  const R = await boot({
+    after: (T) => { cid = T.api('addCompany', { name: '写真商事' }).company.id; },
+    web: (url) => ({ ok: true, status: 200, json: async () => (/ja\.wikipedia/.test(url)
+      ? { query: { pages: { 1: { thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/HQ_building.jpg/200px-HQ_building.jpg' } } } } }
+      : {}) })
+  });
+  await until(() => R.T.api('getData', {}).companies.find((x) => x.id === cid).logo === 'none', 5000);
+  R.stop();
+});
+
 test('設定：ロゴを URL で指定するとシートにも保存し、手動の印を付ける', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);
@@ -817,6 +844,34 @@ test('追加フォームの段階は、その区分の初期のルートを先�
   await until(() => R.T.api('getData', {}).companies.some((x) => x.name === '新規社'));
   const c = R.T.api('getData', {}).companies.find((x) => x.name === '新規社');
   assert.deepEqual([c.stage, c.route], ['ES', ['ES', 'テスト', '面接', 'インターン']]);
+  R.stop();
+});
+
+test('詳細を下へ引く：一覧は遅れずに指に付いてくる。最初の一歩から中身のスクロールを止め、離したら戻す', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.a}"]`);
+  await sleep(100);
+  const card = R.$('#sheet .card');
+  const fire = (type, y) => {
+    const e = new R.w.Event(type, { bubbles: true, cancelable: true });
+    e.touches = y == null ? [] : [{ clientX: 100, clientY: y }];
+    card.querySelector('.tab-pane').dispatchEvent(e);
+    return e;
+  };
+  const bgs = R.d.body.style.getPropertyValue('--bgs');
+  fire('touchstart', 100);
+  assert.equal(fire('touchmove', 103).defaultPrevented, true);   // まだ引き始める前でも、中身は跳ねさせない
+  fire('touchmove', 160);
+  await sleep(20);
+  assert.ok(R.d.body.classList.contains('sheet-drag'));
+  assert.match(R.$('#app').style.transform, /scale\(0\.9\d+\)/);
+  assert.equal(R.d.body.style.getPropertyValue('--bgs'), bgs);   // 画面全体の変数は毎回書き換えない
+  await sleep(200);                                              // ゆっくり引いて離す（速く払うと閉じる）
+  fire('touchend');
+  assert.equal(R.d.body.classList.contains('sheet-drag'), false);
+  assert.equal(R.$('#app').style.transform, '');
+  await sleep(400);
+  assert.ok(R.$('#sheet .card'));                                // 少しだけなら閉じずに戻る
   R.stop();
 });
 

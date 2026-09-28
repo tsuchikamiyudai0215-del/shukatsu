@@ -862,6 +862,29 @@ test('ルートが空の会社に、前の初期のルートを書き込む（fi
   assert.equal(T.ctx.fillEmptyRoutes(), 0);
 });
 
+test('探し直したいロゴ（見つからなかった・建物の写真）を空に戻す（retryMissingLogos）', () => {
+  const T = mk();
+  const none = addCo(T, { name: 'A社' });
+  const photo = addCo(T, { name: 'B社' });
+  const good = addCo(T, { name: 'C社' });
+  const hand = addCo(T, { name: 'D社' });
+  T.api('saveLogo', { id: none.id, logo: 'none', manual: false });
+  T.api('saveLogo', { id: photo.id, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/HQ.jpg/200px-HQ.jpg', manual: false });
+  T.api('saveLogo', { id: good.id, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/C_logo.svg/200px-C_logo.svg.png', manual: false });
+  T.api('saveLogo', { id: hand.id, logo: 'none', manual: true });   // 手で入れたものは触らない
+  const before = T.api('getData', {}).companies.find((x) => x.id === none.id).updatedAt;
+  assert.equal(T.run('retryMissingLogos'), 2);
+  const got = T.api('getData', {}).companies;
+  const logo = (id) => got.find((x) => x.id === id).logo;
+  assert.equal(logo(none.id), '');
+  assert.equal(logo(photo.id), '');
+  assert.match(logo(good.id), /C_logo/);
+  assert.equal(logo(hand.id), 'none');
+  assert.equal(got.find((x) => x.id === none.id).updatedAt, before);
+  assert.ok(T.log.includes('ロゴを探し直すようにした行：見つからなかった 1 行、ロゴらしくない写真 1 行。'));
+  assert.equal(T.ctx.retryMissingLogos(), 0);
+});
+
 test('区分が前の名前や空の行を「インターン」に直す（renameOldTerms）', () => {
   const T = mk();
   const a = addCo(T, { name: 'A社' });

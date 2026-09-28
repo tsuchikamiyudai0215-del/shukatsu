@@ -557,7 +557,8 @@ export const detailActions = {
   'logo-get': async () => {
     toast('ロゴを探しています…', true);
     const url = await refetch(ui.openId);
-    toast(url === 'none' ? 'ロゴが見つかりませんでした。' : 'ロゴを取り直しました。', url !== 'none');
+    if (url == null) toast('今は混んでいて探せませんでした。1分ほど待ってから試してください。');
+    else toast(url === 'none' ? 'ロゴが見つかりませんでした。' : 'ロゴを取り直しました。', url !== 'none');
   }
 };
 

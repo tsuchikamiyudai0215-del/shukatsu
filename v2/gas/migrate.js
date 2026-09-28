@@ -282,6 +282,35 @@ function renameOldTerms() {
   }
 }
 
+/**
+ * 自動で見つけたロゴのうち、探し直したいものを空に戻す。エディタから実行する。何度実行してもよい。
+ * ・「見つからなかった」（none）：Wikidata に「問い合わせが多すぎる」と断られて、そう保存されたものがある
+ * ・Wikipedia の記事の画像のうち、ロゴらしくないもの（本社ビルの写真など）
+ * 空に戻すと、次に画面を開いたときに探し直す。手で入れたロゴ（logoManual）は触らない。
+ * 画面の見た目だけの値なので、updatedAt もカレンダーも変えない。
+ */
+function retryMissingLogos() {
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var table = companies_();
+    var none = 0, photo = 0;
+    table.all().forEach(function (c) {
+      if (c.logoManual || c.kind === 'mgmt') return;
+      if (c.logo === 'none') none++;
+      else if (Domain.isWikipediaPhoto(c.logo)) photo++;
+      else return;
+      table.write({ id: c.id, logo: '' });
+    });
+    bustCache_();
+    console.log('ロゴを探し直すようにした行：見つからなかった ' + none + ' 行、ロゴらしくない写真 ' + photo + ' 行。');
+    return none + photo;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ============================================================
 // 切り替えを戻す
 // ============================================================

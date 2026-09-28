@@ -22,6 +22,8 @@ export function resetLogos() {
   L.running = 0;
   L.files = storage.getJson('file_logos', {});   // id → 端末で選んだ画像（data URL）
   L.onChange = null;
+  wmNext = 0;
+  wmPause = 0;
 }
 
 export function onLogoChange(fn) { L.onChange = fn; }
@@ -162,8 +164,32 @@ function probe(url, ms) {
   });
 }
 
-async function getJson(url) {
-  try { return await (await window.fetch(url)).json(); } catch (e) { return null; }
+/* Wikidata・Wikipedia に断られた（多すぎる・落ちている・圏外）ときの印。
+   「見つからなかった」とは分けて、見つからなかったと保存しないようにする */
+const FAIL = { failed: true };
+/* 続けて問い合わせるときの間。一度に投げると「多すぎる」と断られ、そのあとの会社が全部見つからなくなる */
+const WM_GAP_MS = 600;
+/* 断られたら、しばらく問い合わせを止める */
+const WM_PAUSE_MS = 60000;
+let wmNext = 0;
+let wmPause = 0;
+
+/* soon は、追加の画面の候補のように人が待っているもの。間を空けずに送る（止めている間は送らない） */
+async function getJson(url, soon) {
+  const now = Date.now();
+  if (wmPause > now) return FAIL;
+  if (!soon) {
+    const at = Math.max(now, wmNext);
+    wmNext = at + WM_GAP_MS;
+    if (at > now) await new Promise((r) => setTimeout(r, at - now));
+    if (wmPause > Date.now()) return FAIL;
+  }
+  try {
+    const res = await window.fetch(url);
+    if (res.status === 429 || res.status >= 500) { wmPause = Date.now() + WM_PAUSE_MS; return FAIL; }
+    if (res.ok === false) return FAIL;
+    return await res.json();
+  } catch (e) { return FAIL; }
 }
 
 export function cleanName(name) {
@@ -174,18 +200,19 @@ export function cleanName(name) {
     .trim();
 }
 
-/* 会社名の候補。追加フォームで使う */
+/* 会社名の候補。追加フォームで使う。人が待っているので、間を空けずに引く */
 export async function wdSuggest(q) {
   const j = await getJson('https://www.wikidata.org/w/api.php?action=wbsearchentities&search=' +
-    encodeURIComponent(q) + '&language=ja&uselang=ja&type=item&limit=6&format=json&origin=*');
+    encodeURIComponent(q) + '&language=ja&uselang=ja&type=item&limit=6&format=json&origin=*', true);
   return ((j && j.search) || []).map((x) => ({ id: x.id, label: x.label || '', desc: x.description || '' }))
     .filter((x) => x.label);
 }
 
-/* Wikidata の公式ロゴ（P154）と公式サイト（P856） */
-export async function wdClaims(id) {
+/* Wikidata の公式ロゴ（P154）と公式サイト（P856）。断られたら FAIL を返す */
+export async function wdClaims(id, soon) {
   const j = await getJson('https://www.wikidata.org/w/api.php?action=wbgetclaims&entity=' + encodeURIComponent(id) +
-    '&property=P154|P856&format=json&origin=*');
+    '&property=P154|P856&format=json&origin=*', soon);
+  if (j === FAIL) return FAIL;
   if (!j) return null;
   const val = (p) => {
     const c = j.claims && j.claims[p] && j.claims[p][0];
@@ -201,12 +228,14 @@ export async function wdClaims(id) {
 async function wdLogoAndSite(name) {
   const queries = [cleanName(name)];
   if (queries[0] !== name) queries.push(name);
-  const out = { logoUrl: null, domain: null };
+  const out = { logoUrl: null, domain: null, failed: false };
   for (const q of queries) {
     const j = await getJson('https://www.wikidata.org/w/api.php?action=wbsearchentities&search=' +
       encodeURIComponent(q) + '&language=ja&uselang=ja&type=item&limit=2&format=json&origin=*');
+    if (j === FAIL) { out.failed = true; return out; }
     for (const x of (j && j.search) || []) {
       const c = await wdClaims(x.id);
+      if (c === FAIL) { out.failed = true; return out; }
       if (!c) continue;
       if (!out.logoUrl && c.logoUrl) out.logoUrl = c.logoUrl;
       if (!out.domain && c.domain) out.domain = c.domain;
@@ -217,14 +246,25 @@ async function wdLogoAndSite(name) {
   return out;
 }
 
+/* Wikipedia の記事の画像。ロゴらしいファイル名のものだけ（建物の写真などは使わない） */
 async function wpThumb(name) {
   const j = await getJson('https://ja.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=' +
     encodeURIComponent(cleanName(name)) + '&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=200&format=json&origin=*');
+  if (j === FAIL) return FAIL;
   const pages = j && j.query && j.query.pages;
-  if (pages) for (const k in pages) if (pages[k].thumbnail && pages[k].thumbnail.source) return pages[k].thumbnail.source;
+  if (pages) {
+    for (const k in pages) {
+      const src = pages[k].thumbnail && pages[k].thumbnail.source;
+      if (src && !Domain.isWikipediaPhoto(src)) return src;
+    }
+  }
   return null;
 }
 
+/**
+ * いちばん良さそうなロゴの URL を探す。何も無ければ 'none'。
+ * 途中で断られて探し切れなかったときは null（見つからなかったと保存せず、次に開いたときに探し直す）
+ */
 export async function resolveBest(c) {
   let doms = logoDomains(c);
   const wd = await wdLogoAndSite(c.name);
@@ -233,10 +273,11 @@ export async function resolveBest(c) {
   /* DuckDuckGo は無ければ失敗するので「あるか」の確認に使い、出すのは解像度の高い Google の方 */
   for (const d of doms) if (await probe(ddgIcon(d), 2500)) return gIcon(d);
   for (const d of doms) if (await probe(siteIcon(d), 2500)) return siteIcon(d);
-  const wt = await wpThumb(c.name);
-  if (wt && await probe(wt, 3000)) return wt;
+  const wt = wd.failed ? FAIL : await wpThumb(c.name);
+  if (wt && wt !== FAIL && await probe(wt, 3000)) return wt;
   /* 最後の受け皿。Google は何かしら返すので、成否は見ない */
   if (doms.length) return gIcon(doms[0]);
+  if (wd.failed || wt === FAIL) return null;
   return 'none';
 }
 
@@ -258,6 +299,8 @@ export function hydrate(list) {
       if (gen !== L.gen) return;
       const url = await resolveBest(c);
       if (gen !== L.gen) return;
+      /* 断られて探し切れなかった。この起動の間はもう探さず、次に開いたときにやり直す */
+      if (url == null) return;
       const now = store.company(c.id);
       /* 探している間に手動で入れられたら、上書きしない */
       if (!now || isManual(now) || now.logo) return;
@@ -287,6 +330,12 @@ export async function refetch(id) {
   if (!c) return 'none';
   store.setLogoLocal(id, '', false);
   const url = await resolveBest(Object.assign({}, c, { logo: '' }));
+  /* 探し切れなかったときは、前のロゴに戻して保存しない */
+  if (url == null) {
+    store.setLogoLocal(id, c.logo, !!c.logoManual);
+    if (L.onChange) L.onChange();
+    return null;
+  }
   store.setLogoLocal(id, url, false);
   if (L.onChange) L.onChange();
   await store.saveLogo(id, url, false).catch(() => {});

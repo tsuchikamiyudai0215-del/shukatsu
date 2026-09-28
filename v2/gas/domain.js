@@ -687,6 +687,15 @@ var Domain = (function () {
   // 社名と業種
   // ============================================================
 
+  /* Wikipedia の記事の画像は、本社ビルや社長の写真のことが多い。ファイル名がロゴらしいものだけを使う */
+  function isWikipediaPhoto(url) {
+    var u = str(url);
+    if (!/^https:\/\/upload\.wikimedia\.org\//i.test(u)) return false;
+    var name = u;
+    try { name = decodeURIComponent(u); } catch (e) { /* そのまま見る */ }
+    return !/logo|ロゴ|シンボル|マーク|emblem|symbol|\.svg/i.test(name);
+  }
+
   /* タイルに出す表示名。会社名そのものは触らず、見せ方だけ短くする。
      法人格と、幅を食う全角英数を落とす */
   function shortName(name) {
@@ -923,6 +932,7 @@ var Domain = (function () {
     industryOf: industryOf,
     industryFor: industryFor,
     shortName: shortName,
+    isWikipediaPhoto: isWikipediaPhoto,
 
     today: today,
     daysSince: daysSince,

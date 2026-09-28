@@ -331,6 +331,16 @@ test('同じ区分の重複を見つける。改名中の本人は除く', () =>
   assert.equal(D.duplicateOf(list, 'B社', '').id, 'b');
 });
 
+test('Wikipedia の画像は、ファイル名がロゴらしくなければ写真とみなす', () => {
+  const up = (f) => 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/' + f + '/200px-' + f;
+  assert.equal(D.isWikipediaPhoto(up('NTT_Head_Office.jpg')), true);
+  assert.equal(D.isWikipediaPhoto(up('NTT_logo.svg') + '.png'), false);
+  assert.equal(D.isWikipediaPhoto(up(encodeURIComponent('スカイマークのロゴ.png'))), false);
+  assert.equal(D.isWikipediaPhoto('https://commons.wikimedia.org/wiki/Special:FilePath/HQ.jpg?width=240'), false);   // Wikidata の公式ロゴ
+  assert.equal(D.isWikipediaPhoto('none'), false);
+  assert.equal(D.isWikipediaPhoto(''), false);
+});
+
 test('区分の名前：前の名前「夏インターン」と空は「インターン」として読む', () => {
   assert.equal(D.DEFAULT_TERM, 'インターン');
   assert.equal(D.termOf('夏インターン'), 'インターン');
