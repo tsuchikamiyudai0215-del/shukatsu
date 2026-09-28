@@ -650,9 +650,25 @@ test('設定：開閉を覚える。業種（候補つき）・会社名の変�
   det.open = true;
   det.dispatchEvent(new R.w.Event('toggle'));
   assert.equal(R.w.localStorage.getItem('sk2_set_open'), '1');
-  assert.ok(R.$$('#sheet #indList option').length > 5);
-  R.$('#sheet #indVal').value = '金融';
+  /* 業種はプルダウン。選んだらすぐ保存する */
+  const pick = (v) => {
+    const sel = R.$('#sheet #indSel');
+    sel.value = v;
+    sel.dispatchEvent(new R.w.Event('change', { bubbles: true }));
+  };
+  assert.equal(R.$('#sheet #indSel').tagName, 'SELECT');
+  assert.ok(R.$$('#sheet #indSel option').length > 5);
+  pick('商社');
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).industry === '商社');
+  /* 候補に無い名前は「自分で入力」から */
+  assert.equal(R.$('#sheet #indOwn').style.display, 'none');
+  pick('__own');
+  assert.equal(R.$('#sheet #indOwn').style.display, 'block');
+  R.$('#sheet #indVal').value = 'NTT系';
   R.click('#sheet [data-act="set-industry"]');
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).industry === 'NTT系');
+  await until(() => R.$('#sheet #indSel').value === 'NTT系');   // 自分で入れた名前も選ばれた形で出る
+  pick('金融');
   R.$('#sheet #renName').value = '株式会社エー';
   R.click('#sheet [data-act="rename"]');
   assert.match(R.toast(), /すでに登録/);

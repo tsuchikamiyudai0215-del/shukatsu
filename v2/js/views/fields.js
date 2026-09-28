@@ -36,7 +36,8 @@ export function snapFields(root) {
   if (!root) return null;
   const m = { vals: {}, focus: null, sel: null };
   root.querySelectorAll('input,select,textarea').forEach((el) => {
-    if (!el.id || el.type === 'file') return;
+    /* data-nokeep の欄は書きかけではなく今の値を表すので、描き直した値のままにする */
+    if (!el.id || el.type === 'file' || el.hasAttribute('data-nokeep')) return;
     m.vals[el.id] = el.type === 'checkbox' ? el.checked : el.value;
     if (el === document.activeElement) {
       m.focus = el.id;

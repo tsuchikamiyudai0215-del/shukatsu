@@ -146,17 +146,26 @@ function infoTab(c, now) {
   return join(parts);
 }
 
+/* 業種はプルダウンから選ぶ。スマホでは文字の欄に付けた候補がプルダウンにならず、キーボードの上にしか出ないため。
+   候補に無い名前は「自分で入力」で入れられるようにしておく */
+const IND_OWN = '__own';
+function industryField(c, names, row) {
+  const cur = c.industry || '';
+  const custom = !!cur && !names.includes(cur);
+  return html`<select class="f" id="indSel" data-change="industry-pick" data-nokeep style="margin:0"><option value=""${cur ? '' : html` selected`}>未設定</option>${names.map((x) => html`<option value="${x}"${x === cur ? html` selected` : ''}>${x}</option>`)}${custom && html`<option value="${cur}" selected>${cur}</option>`}<option value="${IND_OWN}">自分で入力…</option></select><div id="indOwn" style="display:none;margin-top:8px">${row('indVal', custom ? cur : '', 'set-industry', '保存', '例：NTT系')}</div>`;
+}
+
 /* 登録し直すときだけ触る欄。普段は畳んでおく（開閉は端末に覚える） */
 function settingsHtml(c) {
   const isCo = c.kind !== 'mgmt';
   const names = Domain.INDUSTRY_NAMES.concat(INDUSTRY_HINTS).filter((x, i, a) => a.indexOf(x) === i);
-  const row = (id, value, act, label, placeholder) => html`<div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="${id}" value="${value}" placeholder="${placeholder || ''}"${id === 'indVal' ? html` list="indList"` : ''}><button class="gh" style="padding:0 14px;color:var(--text)" data-act="${act}">${label}</button></div>`;
+  const row = (id, value, act, label, placeholder) => html`<div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="${id}" value="${value}" placeholder="${placeholder || ''}"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="${act}">${label}</button></div>`;
   return html`<details class="setwrap" id="setwrap"${ui.setOpen ? html` open` : ''}><summary>この会社の設定</summary>
 <div style="margin-top:4px"><div class="lab" style="margin:0 0 8px">マイページの登録</div><input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="${c.url}"><input class="f" id="coId" placeholder="ログインID" value="${c.loginId}" style="margin-top:8px"><button class="gh" style="margin-top:8px" data-act="set-info">保存</button>
 <div style="display:flex;gap:8px;margin-top:14px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="coPw" type="password" autocomplete="new-password" placeholder="パスワード（変えるときだけ入力）"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="set-pw">保存</button></div>
 ${note('パスワードはシートにだけ保存します。この端末と画面には残しません。')}
 <label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px"><input type="checkbox" id="chromeSw" data-change="chrome"${ui.openInChrome ? html` checked` : ''} style="width:20px;height:20px;accent-color:var(--blue)">マイページを Chrome で開く</label>${note('この端末だけの設定です。Chrome が入っていないと何も起きないので、その場合は外してください。')}</div>
-${isCo && html`<div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">業種</div>${row('indVal', c.industry, 'set-industry', '保存', '例：IT・SIer')}<datalist id="indList">${names.map((x) => html`<option value="${x}">`)}</datalist>${note('記録タブの集計に使います。空欄なら社名から推定します。')}</div>
+${isCo && html`<div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">業種</div>${industryField(c, names, row)}${note('記録タブの集計に使います。未設定なら社名から推定します。「NTT系」のようなグループ名にしたいときは「自分で入力」から入れます。')}</div>
 <div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">会社名</div>${row('renName', c.name, 'rename', '変更')}${note('予定とカレンダーの見出しも付け替えます。タイルでは「株式会社」を省いて出すので、正式名称で入れておけます。')}</div>
 <div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">同じマイページで別の選考を追加</div>${row('splitName', '', 'split', '追加', '例：' + Domain.shortName(c.name) + '（業務企画職）')}${note('マイページURL・ログインID・パスワード・ロゴ・業種を引き継いだ行を作ります。コース別に選考が分かれる会社を、別々に追えます。')}</div>`}
 <div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">ロゴ（URL を入れると自動では変わりません）</div>${row('logoUrl', manualValue(c), 'logo-set', '適用', '画像URLを貼って上書き')}<button class="gh" style="margin-top:8px" data-act="logo-get">自動で取り直す</button><div style="margin-top:10px"><label class="gh" style="display:inline-block;cursor:pointer;color:var(--text)">画像ファイルから選ぶ<input type="file" accept="image/*" style="display:none" data-change="logo-file"></label></div>${note('Wikidata の公式ロゴ、公式サイトのファビコン、Wikipedia の画像の順に探します。画像ファイルはこの端末にだけ保存します。')}</div>
@@ -415,6 +424,9 @@ export const detailActions = {
   'set-info': () => act('setInfo', { url: val('coUrl'), loginId: val('coId') }, 'マイページを保存しました。'),
   'set-industry': () => {
     const v = val('indVal');
+    /* 入力中は描き直しを待つ作りなので、先に入力を終えて、プルダウンに今の業種が出るようにする */
+    const input = field('indVal');
+    if (input) input.blur();
     act('setIndustry', { industry: v }, v ? '業種を「' + v + '」にしました。' : '業種を空にしました。');
   },
   rename: () => {
@@ -565,6 +577,16 @@ export const detailChanges = {
     renderDetail();
   },
   allday: (el) => toggleAllDay(el.checked),
+  'industry-pick': (el) => {
+    if (el.value === IND_OWN) {
+      const box = document.getElementById('indOwn');
+      if (box) box.style.display = 'block';
+      const input = field('indVal');
+      if (input) input.focus();
+      return;
+    }
+    act('setIndustry', { industry: el.value }, el.value ? '業種を「' + el.value + '」にしました。' : '業種を空にしました。');
+  },
   'logo-file': (el) => {
     const f = el.files && el.files[0];
     el.value = '';
