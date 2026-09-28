@@ -847,6 +847,22 @@ test('追加フォームの段階は、その区分の初期のルートを先�
   R.stop();
 });
 
+test('スマホで詳細を開いている間は、後ろの見出しを数え直さない（手前の操作をカクつかせない）', async () => {
+  const R = await boot();
+  const cd = () => R.$('#heroCd').textContent;
+  await until(() => /s/.test(cd()));
+  const before = cd();
+  await until(() => cd() !== before, 1500);                      // 閉じている間は1秒ごとに進む
+  R.click(`.row[data-id="${R.ids.a}"]`);
+  await sleep(100);
+  const frozen = cd();
+  await sleep(1300);
+  assert.equal(cd(), frozen);
+  R.click('#sheet [data-act="close-detail"]');
+  await until(() => cd() !== frozen, 2500);                      // 閉じたら追いつく
+  R.stop();
+});
+
 test('詳細を下へ引く：一覧は遅れずに指に付いてくる。最初の一歩から中身のスクロールを止め、離したら戻す', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.a}"]`);

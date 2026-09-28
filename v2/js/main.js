@@ -412,7 +412,12 @@ export function start() {
   pullToRefresh();
   keyboardWatch();
 
-  const timer = setInterval(() => { if (ui.page === 'list') tickHero(() => { if (!isEditing()) renderAll(); }); }, 1000);
+  /* スマホで詳細などを開いている間は、見えない一覧を数え直さない。1秒ごとに後ろが描き変わると、手前の操作がカクつく。
+     閉じれば次の1秒で追いつき、その間に過ぎた締切もそこで組み直す */
+  const timer = setInterval(() => {
+    if (ui.page !== 'list' || (isSheetOpen() && !isWide())) return;
+    tickHero(() => { if (!isEditing()) renderAll(); });
+  }, 1000);
   cleanups.push(() => clearInterval(timer));
 
   const ready = boot();

@@ -196,7 +196,8 @@ button,select,input{font-family:var(--body)}
 
 /* ---------- sheet / card ---------- */
 .sheet{
-  position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.5);
+  /* 後ろの一覧は filter で暗くせず、この暗幕だけで暗くする（filter は一覧全体を描き直すので重い） */
+  position:fixed;inset:0;height:100dvh;background:rgba(0,0,0,.7);
   display:flex;align-items:flex-end;justify-content:center;z-index:60;
   padding:0 10px calc(10px + env(safe-area-inset-bottom));
   opacity:0;pointer-events:none;
@@ -209,8 +210,9 @@ button,select,input{font-family:var(--body)}
   position:relative;width:100%;max-width:480px;
   height:85vh;height:85dvh;display:flex;flex-direction:column;overflow:hidden;
   border-radius:var(--r-sheet);border:none;
-  background:linear-gradient(180deg, rgba(186,206,238,0.15) 0%, rgba(150,175,215,0.06) 100%), rgba(18,24,38,0.78);
-  backdrop-filter:blur(36px) saturate(200%);-webkit-backdrop-filter:blur(36px) saturate(200%);
+  /* すりガラスにはしない。後ろの一覧の赤い締切などを拾って色味が変わり、
+     後ろのカウントダウンが動くたびにぼかしを計算し直して、中の操作がカクつくため */
+  background:linear-gradient(180deg, rgba(40,49,68,.98) 0%, rgba(17,22,34,.99) 100%);
   box-shadow:var(--glass-drop-lg);
   padding:12px 20px calc(14px + env(safe-area-inset-bottom));
   transform:translate3d(0,105%,0);
@@ -218,8 +220,7 @@ button,select,input{font-family:var(--body)}
   will-change:transform;
 }
 .sheet.is-active .card{transform:translate3d(0,0,0)}
-.card.noblur{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
-  background:linear-gradient(180deg, rgba(44,44,58,.95) 0%, rgba(16,16,24,.98) 100%) !important}
+.card.noblur{backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
 .grab{width:40px;height:5px;background:rgba(255,255,255,.3);border-radius:3px;margin:0 auto 16px;
   transition:background .2s var(--ease);flex:0 0 auto}
 .card.drag .grab{background:rgba(255,255,255,.7)}
@@ -591,12 +592,12 @@ body.kb-open .card{height:auto;max-height:calc(100dvh - var(--kb,0px) - 40px)}
 #addCard{display:block;height:auto;max-height:88dvh;overflow-y:auto}
 body.kb-open #addCard{max-height:calc(100dvh - var(--kb,0px) - 40px)}
 #app{transform-origin:50% 0;
-  transition:transform .5s var(--spring),border-radius .5s var(--spring),filter .5s var(--ease)}
+  transition:transform .5s var(--spring),border-radius .5s var(--spring)}
 body.sheet-open #app{will-change:transform;backface-visibility:hidden}
 /* 詳細を指で引いている間は、一覧を指にそのまま付いてこさせる（動きの遅れを付けると、追いかけてカクつく） */
 body.sheet-drag #app{transition:none}
 body.sheet-open #app{transform:scale(var(--bgs,.93)) translate3d(0,10px,0);
-  border-radius:var(--r-card);overflow:hidden;filter:brightness(.62)}
+  border-radius:var(--r-card);overflow:hidden}
 body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,0) scale(.9);
   pointer-events:none;transition:opacity .3s var(--ease),transform .4s var(--spring)}
 
@@ -617,7 +618,9 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 }
 @media (min-width:1000px){
   body{touch-action:auto}
-  body.sheet-open #app{transform:none;filter:none;border-radius:0}
+  body.sheet-open #app{transform:none;border-radius:0}
+  /* PC では後ろの一覧を暗くしていなかったので、暗幕も前の濃さに戻す */
+  .sheet{background:rgba(0,0,0,.5)}
   body.sheet-open .tabbar{transform:none;opacity:1}
   body{display:flex;align-items:flex-start;gap:28px;width:100%;max-width:none;margin:0;
     padding:28px calc(32px + env(safe-area-inset-right)) 110px calc(36px + env(safe-area-inset-left));}
