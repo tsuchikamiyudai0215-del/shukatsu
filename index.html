@@ -13,7 +13,11 @@
 <title>就活</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#020204">
+<meta name="color-scheme" content="dark">
 <style>
+  /* このページは <head> の中ですぐ移るので、<body> ができる前に次へ進む。
+     body にだけ色を書くと使われず、/v2/ が届くまで白い画面が出るので、html にも書く */
+  html { background: #04040A; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
     background: #04040A; color: #A2A2B2; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif; font-size: 14px; }
   a { color: #fff; }

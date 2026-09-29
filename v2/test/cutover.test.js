@@ -29,3 +29,14 @@ test('JavaScript が動かないときのために、/v2/ へのリンクを置�
   assert.equal(a.href, 'https://tsuchikamiyudai0215-del.github.io/shukatsu/v2/');
   dom.window.close();
 });
+
+test('移る前に白い画面を出さない：html に暗い色を書き、暗い画面として扱う印を付ける', () => {
+  /* <head> の中ですぐ移るので body はできない。html の色が無いと、/v2/ が届くまで白くなる */
+  assert.match(SRC, /html\s*\{\s*background:\s*#04040A;?\s*\}/);
+  assert.match(SRC, /<meta name="color-scheme" content="dark">/);
+});
+
+test('一番上の index.html は、この下書きと同じ中身にしてある', () => {
+  const root = fs.readFileSync(path.join(__dirname, '../../index.html'), 'utf8');
+  assert.equal(root.replace(/\r/g, ''), SRC.replace(/\r/g, ''));
+});
