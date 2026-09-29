@@ -9,7 +9,7 @@ import { html, join, setHtml, safeUrl } from '../html.js';
 import { ui, isWide, setSetOpen, setOpenInChrome, stagePalette, rememberStage } from '../state.js';
 import * as store from '../store.js';
 import { call } from '../api.js';
-import { logo, manualValue, setManualUrl, refetch, fromFile, forgetLogo } from '../logo.js';
+import { logo, keepLogos, manualValue, setManualUrl, refetch, fromFile, forgetLogo } from '../logo.js';
 import { toast, busy, copyText } from '../ui/notice.js';
 import { showSheet, closeSheet, isSheetOpen } from '../ui/sheet.js';
 import { dtField, dtValue, snapFields, restoreFields } from './fields.js';
@@ -232,7 +232,7 @@ function paintInto(card, c) {
   const pane = card.querySelector('.tab-pane');
   const y = pane ? pane.scrollTop : 0;
   const snap = same ? snapFields(card) : null;
-  setHtml(card, fullHtml(c));
+  keepLogos(card, () => setHtml(card, fullHtml(c)));
   card.dataset.id = c.id;
   if (same) {
     const head = card.querySelector('.card-head');

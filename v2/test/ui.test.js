@@ -724,6 +724,27 @@ test('ロゴ探し：Wikidata は公式ロゴを持つ項目を優先し、ロ�
   R.stop();
 });
 
+test('ロゴ：描き直しても、読み終わった画像は作り直さずに使い回す（記録タブを挟んでも。白飛びさせない）', async () => {
+  let cid;
+  const R = await boot({ after: (T) => {
+    cid = T.api('addCompany', { name: 'ロゴ商事', dueAt: at(3) }).company.id;
+    T.api('saveLogo', { id: cid, logo: 'https://logo.example/r.png', manual: true });
+  } });
+  const img = () => R.$(`#view .row[data-id="${cid}"] .logo img`);
+  const first = img();
+  assert.ok(first);
+  /* jsdom は画像を読まないので、読み終わったことにする */
+  Object.defineProperty(first, 'complete', { value: true });
+  Object.defineProperty(first, 'naturalWidth', { value: 64 });
+  R.click('#tb-pass');                                          // ロゴの無い記録タブを挟む
+  assert.ok(R.$('.ptitle'));
+  R.click('#tb-list');
+  await until(() => img());
+  assert.equal(img(), first);                                   // 同じ img がそのまま戻る
+  assert.ok(img().parentNode.classList.contains('rdy'));
+  R.stop();
+});
+
 test('ロゴ探し：社名のカッコ書きを外して探す。確かめられるアイコンが無ければ、地球儀ではなく頭文字にする', async () => {
   const R = await boot({ web: () => ({ ok: true, status: 200, json: async () => ({}) }) });
   const L = await import(pathToFileURL(path.join(__dirname, '../js/logo.js')).href);
@@ -904,7 +925,7 @@ test('スマホで詳細を開いている間は、後ろの見出しを数え�
   R.stop();
 });
 
-test('詳細を下へ引く：一覧は遅れずに指に付いてくる。最初の一歩から中身のスクロールを止め、離したら戻す', async () => {
+test('詳細を下へ引く：カードが指に付いてくる。後ろの一覧は動かさない。最初の一歩から中身のスクロールを止め、離したら戻す', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.a}"]`);
   await sleep(100);
@@ -915,18 +936,16 @@ test('詳細を下へ引く：一覧は遅れずに指に付いてくる。最�
     card.querySelector('.tab-pane').dispatchEvent(e);
     return e;
   };
-  const bgs = R.d.body.style.getPropertyValue('--bgs');
+  assert.equal(R.$('#app').style.transform, '');
   fire('touchstart', 100);
   assert.equal(fire('touchmove', 103).defaultPrevented, true);   // まだ引き始める前でも、中身は跳ねさせない
   fire('touchmove', 160);
   await sleep(20);
-  assert.ok(R.d.body.classList.contains('sheet-drag'));
-  assert.match(R.$('#app').style.transform, /scale\(0\.9\d+\)/);
-  assert.equal(R.d.body.style.getPropertyValue('--bgs'), bgs);   // 画面全体の変数は毎回書き換えない
+  assert.match(card.style.transform, /translate3d\(0,\s*60px/);
+  assert.equal(R.$('#app').style.transform, '');                  // 後ろの一覧は縮めない（重くてカクつくため）
+  assert.equal(R.d.body.style.getPropertyValue('--bgs'), '');
   await sleep(200);                                              // ゆっくり引いて離す（速く払うと閉じる）
   fire('touchend');
-  assert.equal(R.d.body.classList.contains('sheet-drag'), false);
-  assert.equal(R.$('#app').style.transform, '');
   await sleep(400);
   assert.ok(R.$('#sheet .card'));                                // 少しだけなら閉じずに戻る
   R.stop();

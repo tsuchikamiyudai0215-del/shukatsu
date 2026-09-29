@@ -591,13 +591,8 @@ body.kb-open .card{height:auto;max-height:calc(100dvh - var(--kb,0px) - 40px)}
    縦に並べる flex のままだと、高さが足りないときに候補の欄（中でスクロールする）が高さ0に潰れるので、ふつうの並びにする */
 #addCard{display:block;height:auto;max-height:88dvh;overflow-y:auto}
 body.kb-open #addCard{max-height:calc(100dvh - var(--kb,0px) - 40px)}
-#app{transform-origin:50% 0;
-  transition:transform .5s var(--spring),border-radius .5s var(--spring)}
-body.sheet-open #app{will-change:transform;backface-visibility:hidden}
-/* 詳細を指で引いている間は、一覧を指にそのまま付いてこさせる（動きの遅れを付けると、追いかけてカクつく） */
-body.sheet-drag #app{transition:none}
-body.sheet-open #app{transform:scale(var(--bgs,.93)) translate3d(0,10px,0);
-  border-radius:var(--r-card);overflow:hidden}
+/* 詳細などを開いても、後ろの一覧は縮めない（暗幕で暗くするだけ）。影の付いたタイルが並ぶ一覧全体を毎フレーム縮めると、
+   スマホでは出てくる動きがカクつき、一覧の左右の端が内側へ動くので、詳細が横から出てくるようにも見えるため */
 body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,0) scale(.9);
   pointer-events:none;transition:opacity .3s var(--ease),transform .4s var(--spring)}
 
@@ -618,7 +613,6 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 }
 @media (min-width:1000px){
   body{touch-action:auto}
-  body.sheet-open #app{transform:none;border-radius:0}
   /* PC では後ろの一覧を暗くしていなかったので、暗幕も前の濃さに戻す */
   .sheet{background:rgba(0,0,0,.5)}
   body.sheet-open .tabbar{transform:none;opacity:1}

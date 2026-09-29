@@ -4,6 +4,7 @@
 import { html, setHtml } from '../html.js';
 import { ui } from '../state.js';
 import { termCompanies } from './list.js';
+import { keepLogos } from '../logo.js';
 
 const rateColor = (pc) => (pc === null ? 'var(--dim)' : pc >= 50 ? 'var(--go)' : 'var(--hot)');
 
@@ -43,6 +44,7 @@ export function renderPassport() {
   A.push(html`<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">${keys.map((k) => html`<div class="brkRow"><span>${LAB[k]}</span><span style="font-family:var(--disp);font-size:21px;font-weight:600;color:${t.breakdown[k] ? COL[k] : 'var(--dim)'}">${t.breakdown[k]}</span></div>`)}</div></div>`);
 
   /* 接続先を変えるのは、本番へ切り替える日くらいなので、目立たない下の方に置く */
-  setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="setup-open">接続先を変える</button></div>`);
+  /* 一覧から切り替えるとき、一覧のロゴの画像を取っておく（戻ったときに使い回して白飛びさせない） */
+  keepLogos(view, () => setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="setup-open">接続先を変える</button></div>`));
   view.querySelectorAll('.pcard').forEach((el, i) => el.style.setProperty('--ei', i));
 }

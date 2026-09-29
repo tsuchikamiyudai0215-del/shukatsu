@@ -5,7 +5,7 @@
 import { html, join, setHtml } from '../html.js';
 import { ui, saveUi } from '../state.js';
 import * as store from '../store.js';
-import { logo } from '../logo.js';
+import { logo, keepLogos } from '../logo.js';
 import { rem, since, fdate, ftime, instant, evActive, evOngoing, evEndAt, evTile, evShort, byStart } from '../format.js';
 
 /* レーンの並び。k は絞り込みのキー（端末に保存するので、旧版と同じ名前のまま） */
@@ -160,7 +160,7 @@ export function renderList(onEmptyReset) {
     return html`<section class="lane${hidden(g.k) ? ' is-filt-hidden' : ''}" data-lane="${g.k}"><div class="lab" style="color:${g.col}">${g.lab}<span class="cnt">${g.n}</span></div><div class="rows">${rows(g.k)}</div></section>`;
   });
 
-  setHtml(view, html`${stripHtml(mgmt, now)}${top}<div class="chips"><div class="chiprow"><button data-act="filt" data-v="all" class="${ui.filt === 'all' ? 'on' : ''}">すべて<b>${total}</b></button>${G.map((g) => html`<button data-act="filt" data-v="${g.k}" class="${ui.filt === g.k ? 'on' : ''}">${g.lab}<b style="color:${ui.filt === g.k ? '' : g.col}">${g.n}</b></button>`)}</div></div><div class="lanes${ui.filt === 'all' ? '' : ' single'}">${lanes}</div>`);
+  keepLogos(view, () => setHtml(view, html`${stripHtml(mgmt, now)}${top}<div class="chips"><div class="chiprow"><button data-act="filt" data-v="all" class="${ui.filt === 'all' ? 'on' : ''}">すべて<b>${total}</b></button>${G.map((g) => html`<button data-act="filt" data-v="${g.k}" class="${ui.filt === g.k ? 'on' : ''}">${g.lab}<b style="color:${ui.filt === g.k ? '' : g.col}">${g.n}</b></button>`)}</div></div><div class="lanes${ui.filt === 'all' ? '' : ' single'}">${lanes}</div>`));
   view.querySelectorAll('.row, .pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
   /* 見出しに出ていない締切や予定も、時刻を過ぎればレーンやタイルが変わる。一番近い時刻を覚えておき、過ぎたら組み直す */
   const soon = [];

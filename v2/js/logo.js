@@ -19,6 +19,7 @@ export function resetLogos() {
   /* 起動し直したら、前の起動の探し物は途中で捨てる */
   L.gen = (L.gen || 0) + 1;
   L.ok = new Set();         // 一度表示できた URL（描き直しのちらつきを防ぐ）
+  L.pool = new Map();       // URL → 読み終わった img（描き直しで使い回す）
   L.tried = new Set();      // 探しに行った会社
   L.queue = [];
   L.running = 0;
@@ -108,6 +109,36 @@ export function logo(c, size) {
   const s = size || 28;
   const u = logoUrl(c);
   return u ? imgBox(c, s, u) : mono(c, s);
+}
+
+/* 読み終わったロゴの画像を取っておく数。1つの URL に、一覧と詳細などで同時に出る分があれば足りる */
+const POOL_PER_URL = 3;
+
+/**
+ * root の中を render で描き直すとき、読み終わっているロゴの画像は作り直さずに使い回す。
+ * 作り直すと、長く開いたあとなどはブラウザが画像を捨てていて読み直しになり、その間は白い丸だけが見える（白飛び）。
+ * 記録タブのようにロゴの無い画面を挟んでも使い回せるよう、画面から外れた画像も取っておく
+ */
+export function keepLogos(root, render) {
+  if (root) {
+    root.querySelectorAll('.logo img').forEach((img) => {
+      if (!img.complete || !img.naturalWidth) return;
+      const k = img.getAttribute('src');
+      const list = L.pool.get(k) || [];
+      if (!list.includes(img)) list.push(img);
+      L.pool.set(k, list.slice(-POOL_PER_URL));
+    });
+  }
+  render();
+  if (!root) return;
+  root.querySelectorAll('.logo img').forEach((img) => {
+    const list = L.pool.get(img.getAttribute('src'));
+    const spare = list && list.find((x) => !x.isConnected);
+    if (!spare) return;
+    const box = img.parentNode;
+    img.replaceWith(spare);
+    if (box && box.classList) box.classList.add('rdy');
+  });
 }
 
 /* 画像が読めたら白い下地にする。main.js が load を拾って呼ぶ */
