@@ -208,40 +208,52 @@ export async function wdSuggest(q) {
     .filter((x) => x.label);
 }
 
-/* Wikidata の公式ロゴ（P154）と公式サイト（P856）。断られたら FAIL を返す */
-export async function wdClaims(id, soon) {
-  const j = await getJson('https://www.wikidata.org/w/api.php?action=wbgetclaims&entity=' + encodeURIComponent(id) +
-    '&property=P154|P856&format=json&origin=*', soon);
+/* 何件かの項目の公式ロゴ（P154）と公式サイト（P856）を、1回の問い合わせでまとめて引く。断られたら FAIL。
+   wbgetclaims は1回に1つの性質しか引けず、2つ並べると何も返らないので使わない */
+async function wdEntities(ids, soon) {
+  const j = await getJson('https://www.wikidata.org/w/api.php?action=wbgetentities&ids=' +
+    ids.map(encodeURIComponent).join('|') + '&props=claims&format=json&origin=*', soon);
   if (j === FAIL) return FAIL;
-  if (!j) return null;
-  const val = (p) => {
-    const c = j.claims && j.claims[p] && j.claims[p][0];
-    return c && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value;
-  };
-  const file = val('P154');
-  return {
-    logoUrl: file ? 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=240' : null,
-    domain: hostOf(val('P856'))
-  };
+  const ents = (j && j.entities) || {};
+  return ids.map((id) => {
+    const claims = (ents[id] && ents[id].claims) || {};
+    const val = (p) => {
+      const c = claims[p] && claims[p][0];
+      return c && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value;
+    };
+    const file = val('P154');
+    return {
+      logoUrl: file ? 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=240' : null,
+      domain: hostOf(val('P856'))
+    };
+  });
 }
 
-async function wdLogoAndSite(name) {
+/* 追加の画面で選んだ項目の公式ロゴと公式サイト */
+export async function wdClaims(id, soon) {
+  const list = await wdEntities([id], soon);
+  return list === FAIL ? FAIL : list[0];
+}
+
+/* 社名で Wikidata を引き、公式ロゴを持つ項目を優先する。
+   「NTT」で最初にインドネシアの州が出るように、会社でない項目が先に来ることがあるため。
+   ロゴがどれにも無ければ、公式サイトを持つ最初の項目のドメインを使う */
+export async function wdLogoAndSite(name) {
   const queries = [cleanName(name)];
   if (queries[0] !== name) queries.push(name);
   const out = { logoUrl: null, domain: null, failed: false };
   for (const q of queries) {
     const j = await getJson('https://www.wikidata.org/w/api.php?action=wbsearchentities&search=' +
-      encodeURIComponent(q) + '&language=ja&uselang=ja&type=item&limit=2&format=json&origin=*');
+      encodeURIComponent(q) + '&language=ja&uselang=ja&type=item&limit=3&format=json&origin=*');
     if (j === FAIL) { out.failed = true; return out; }
-    for (const x of (j && j.search) || []) {
-      const c = await wdClaims(x.id);
-      if (c === FAIL) { out.failed = true; return out; }
-      if (!c) continue;
-      if (!out.logoUrl && c.logoUrl) out.logoUrl = c.logoUrl;
-      if (!out.domain && c.domain) out.domain = c.domain;
-      if (out.logoUrl && out.domain) return out;
-    }
-    if (out.logoUrl || out.domain) return out;
+    const ids = ((j && j.search) || []).map((x) => x.id).filter(Boolean);
+    if (!ids.length) continue;
+    const list = await wdEntities(ids);
+    if (list === FAIL) { out.failed = true; return out; }
+    const withLogo = list.find((x) => x.logoUrl);
+    if (withLogo) return Object.assign(out, { logoUrl: withLogo.logoUrl, domain: withLogo.domain });
+    const withSite = list.find((x) => x.domain);
+    if (withSite) return Object.assign(out, { domain: withSite.domain });
   }
   return out;
 }

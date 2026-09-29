@@ -696,6 +696,34 @@ test('ロゴ探し：Wikidata に断られたら「見つからなかった」�
   R.stop();
 });
 
+test('ロゴ探し：Wikidata は公式ロゴを持つ項目を優先し、ロゴとサイトを1回でまとめて引く', async () => {
+  const asked = [];
+  const R = await boot({
+    web: (url) => {
+      asked.push(url);
+      let body = {};
+      if (/wbsearchentities/.test(url)) body = { search: [{ id: 'Q5061', label: '州' }, { id: 'Q1054787', label: 'NTT' }] };
+      if (/wbgetentities/.test(url)) {
+        body = { entities: {
+          Q5061: { claims: { P856: [{ mainsnak: { datavalue: { value: 'http://www.nttprov.go.id' } } }] } },
+          Q1054787: { claims: {
+            P154: [{ mainsnak: { datavalue: { value: 'NTT 2025.svg' } } }],
+            P856: [{ mainsnak: { datavalue: { value: 'https://group.ntt/en/' } } }] } }
+        } };
+      }
+      return { ok: true, status: 200, json: async () => body };
+    }
+  });
+  const L = await import(pathToFileURL(path.join(__dirname, '../js/logo.js')).href);
+  const got = await L.wdLogoAndSite('NTT');
+  assert.equal(got.logoUrl, 'https://commons.wikimedia.org/wiki/Special:FilePath/NTT%202025.svg?width=240');
+  assert.equal(got.domain, 'group.ntt');                        // 州のサイトではなく、ロゴを持つ会社のサイト
+  assert.ok(asked.some((u) => /wbgetentities&ids=Q5061\|Q1054787&/.test(u)));
+  assert.equal(asked.some((u) => /wbgetclaims/.test(u)), false);
+  assert.equal((await L.wdClaims('Q1054787', true)).domain, 'group.ntt');   // 追加の画面で選んだときも
+  R.stop();
+});
+
 test('ロゴ探し：断られずに何も見つからなければ「見つからなかった」と保存する', async () => {
   let cid;
   const R = await boot({
