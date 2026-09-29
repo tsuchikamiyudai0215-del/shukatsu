@@ -2,8 +2,10 @@
  * 会社ロゴ。
  *
  * 優先順：この端末で選んだ画像ファイル → シートの logo 列（手動の URL か、自動で見つけたもの）→ ドメインのファビコン。
- * logo 列が空の会社は、裏で次の順に探して保存する。
- *   Wikidata の公式ロゴ → DuckDuckGo で有無を確かめて Google の256px版 → サイト直下の favicon.ico → Wikipedia の画像
+ * logo 列が空の会社は、裏で次の順に探して保存する。どれも無ければ頭文字にする。
+ *   Wikidata の公式ロゴ → サイト直下の favicon.ico → Wikipedia のロゴらしい画像
+ * DuckDuckGo と Google のアイコンは、アイコンの無いサイトにも代わりの絵（地球儀など）を返し、
+ * 本物かどうかを画面から見分けられないので、探すときには使わない
  * 採用管理システムのドメインは別の会社の印になるので、ロゴ探しに使わない。
  * Wikidata などへ一度に投げすぎないよう、同時に探すのは3件まで。
  */
@@ -81,7 +83,10 @@ function isManual(c) { return !!L.files[c.id] || !!c.logoManual; }
 
 export function logoUrl(c) {
   if (L.files[c.id]) return L.files[c.id];
-  if (c.logo && c.logo !== 'none') return c.logo;
+  /* 探して見つからなかった会社は頭文字。ドメインのアイコンは、無くても代わりの絵が出てしまうので使わない */
+  if (c.logo === 'none') return null;
+  if (c.logo) return c.logo;
+  /* 探し終わるまでのつなぎ */
   const doms = logoDomains(c);
   return doms.length ? ddgIcon(doms[0]) : null;
 }
@@ -149,6 +154,7 @@ function paint(c) {
 // 探す
 // ============================================================
 
+/* 画像が読めたら true。1×1 の透明な画像を返すサービスがあるので、小さすぎるものは失敗とみなす */
 function probe(url, ms) {
   return new Promise((resolve) => {
     if (!url) return resolve(false);
@@ -156,7 +162,6 @@ function probe(url, ms) {
     let done = false;
     const finish = (ok) => { if (done) return; done = true; clearTimeout(t); resolve(ok); };
     const t = setTimeout(() => { img.src = ''; finish(false); }, ms || 3500);
-    /* 1×1 の透明な画像を返すサービスがあるので、小さすぎるものは失敗とみなす */
     img.onload = () => finish(img.naturalWidth > 2 && img.naturalHeight > 2);
     img.onerror = () => finish(false);
     img.referrerPolicy = 'no-referrer';
@@ -192,9 +197,11 @@ async function getJson(url, soon) {
   } catch (e) { return FAIL; }
 }
 
+/* ロゴを探すときの社名。カッコ書き（「（One to One Career）」のようなコース名や「(株)」）は外す。
+   付いたままだと Wikidata でも Wikipedia でも見つからず、同じ会社の別コースだけロゴが出なくなる */
 export function cleanName(name) {
   return String(name || '')
-    .replace(/[\(（](?:株|有|社|合|資)[\)）]/g, '')
+    .replace(/[\(（][^\(\)（）]*[\)）]/g, '')
     .replace(/株式会社|有限会社|合同会社|合資会社|合名会社/g, '')
     .replace(/グループ|ホールディングス|HD/ig, '')
     .trim();
@@ -282,13 +289,10 @@ export async function resolveBest(c) {
   const wd = await wdLogoAndSite(c.name);
   if (wd.logoUrl && await probe(wd.logoUrl, 3000)) return wd.logoUrl;
   if (wd.domain) doms = pushDomain(doms, wd.domain);
-  /* DuckDuckGo は無ければ失敗するので「あるか」の確認に使い、出すのは解像度の高い Google の方 */
-  for (const d of doms) if (await probe(ddgIcon(d), 2500)) return gIcon(d);
+  /* サイト直下の favicon.ico は、無ければ読み込みに失敗するので、あるかどうかを確かめられる */
   for (const d of doms) if (await probe(siteIcon(d), 2500)) return siteIcon(d);
   const wt = wd.failed ? FAIL : await wpThumb(c.name);
   if (wt && wt !== FAIL && await probe(wt, 3000)) return wt;
-  /* 最後の受け皿。Google は何かしら返すので、成否は見ない */
-  if (doms.length) return gIcon(doms[0]);
   if (wd.failed || wt === FAIL) return null;
   return 'none';
 }

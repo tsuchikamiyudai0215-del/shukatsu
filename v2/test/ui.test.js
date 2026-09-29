@@ -724,6 +724,19 @@ test('ロゴ探し：Wikidata は公式ロゴを持つ項目を優先し、ロ�
   R.stop();
 });
 
+test('ロゴ探し：社名のカッコ書きを外して探す。確かめられるアイコンが無ければ、地球儀ではなく頭文字にする', async () => {
+  const R = await boot({ web: () => ({ ok: true, status: 200, json: async () => ({}) }) });
+  const L = await import(pathToFileURL(path.join(__dirname, '../js/logo.js')).href);
+  assert.equal(L.cleanName('三菱UFJ銀行（One to One Career）'), '三菱UFJ銀行');
+  assert.equal(L.cleanName('三菱UFJ(システムデジタル)'), '三菱UFJ');
+  assert.equal(L.cleanName('(株)エー商事'), 'エー商事');
+  /* Wikidata に無く、サイトの favicon.ico も読めない。Google のアイコンは確かめられないので使わない */
+  assert.equal(await L.resolveBest({ id: 'x', name: '無名商事', domain: 'mumei.example', url: '' }), 'none');
+  /* 見つからなかった会社は、ドメインがあっても頭文字（代わりの絵を出さない） */
+  assert.match(String(L.logo({ id: 'x', name: '無名商事', logo: 'none', domain: 'mumei.example' }, 28)), /class="logo mono"/);
+  R.stop();
+});
+
 test('ロゴ探し：断られずに何も見つからなければ「見つからなかった」と保存する', async () => {
   let cid;
   const R = await boot({
