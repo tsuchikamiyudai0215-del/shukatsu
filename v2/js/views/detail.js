@@ -114,10 +114,13 @@ function infoTab(c, now) {
   if (c.url || c.folderUrl) {
     parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
   }
-  if (c.loginId) parts.push(html`<button class="kv idrow" style="margin-top:12px" data-act="copy-id"><span>ログインID</span><span class="idval">${c.loginId}<i>コピー</i></span></button>`);
+  /* ログインID・パスワード・結果日は、1つのまとまりに入れる（行どうしの区切りを薄くして、ひとかたまりに見せる） */
+  const kvs = [];
+  if (c.loginId) kvs.push(html`<button class="kv idrow" data-act="copy-id"><span>ログインID</span><span class="idval">${c.loginId}<i>コピー</i></span></button>`);
   /* パスワードは押したときだけ取りに行く。画面には伏せ字しか出さない */
-  parts.push(html`<button class="kv idrow" data-act="copy-pw"><span>パスワード</span><span class="idval">••••••<i>コピー</i></span></button>`);
-  if (c.resultAt && ['offer', 'joined', 'failed'].includes(st)) parts.push(html`<div class="kv"><span>結果日</span><span>${fdate(c.resultAt)}</span></div>`);
+  kvs.push(html`<button class="kv idrow" data-act="copy-pw"><span>パスワード</span><span class="idval">••••••<i>コピー</i></span></button>`);
+  if (c.resultAt && ['offer', 'joined', 'failed'].includes(st)) kvs.push(html`<div class="kv"><span>結果日</span><span>${fdate(c.resultAt)}</span></div>`);
+  parts.push(html`<div class="group">${kvs}</div>`);
 
   /* よく押すものを先に */
   /* 「次とまとめて結果が出る」段階は、結果待ちを通らずに次の段階へ進む */
@@ -161,14 +164,14 @@ function settingsHtml(c) {
   const names = Domain.INDUSTRY_NAMES.concat(INDUSTRY_HINTS).filter((x, i, a) => a.indexOf(x) === i);
   const row = (id, value, act, label, placeholder) => html`<div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="${id}" value="${value}" placeholder="${placeholder || ''}"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="${act}">${label}</button></div>`;
   return html`<details class="setwrap" id="setwrap"${ui.setOpen ? html` open` : ''}><summary>この会社の設定</summary>
-<div style="margin-top:4px"><div class="lab" style="margin:0 0 8px">マイページの登録</div><input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="${c.url}"><input class="f" id="coId" placeholder="ログインID" value="${c.loginId}" style="margin-top:8px"><button class="gh" style="margin-top:8px" data-act="set-info">保存</button>
+<div class="setsec"><div class="lab" style="margin:0 0 8px">マイページの登録</div><input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="${c.url}"><input class="f" id="coId" placeholder="ログインID" value="${c.loginId}" style="margin-top:8px"><button class="gh" style="margin-top:8px" data-act="set-info">保存</button>
 <div style="display:flex;gap:8px;margin-top:14px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="coPw" type="password" autocomplete="new-password" placeholder="パスワード（変えるときだけ入力）"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="set-pw">保存</button></div>
 ${note('パスワードはシートにだけ保存します。この端末と画面には残しません。')}
 <label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px"><input type="checkbox" id="chromeSw" data-change="chrome"${ui.openInChrome ? html` checked` : ''} style="width:20px;height:20px;accent-color:var(--blue)">マイページを Chrome で開く</label>${note('この端末だけの設定です。Chrome が入っていないと何も起きないので、その場合は外してください。')}</div>
-${isCo && html`<div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">業種</div>${industryField(c, names, row)}${note('記録タブの集計に使います。未設定なら社名から推定します。「NTT系」のようなグループ名にしたいときは「自分で入力」から入れます。')}</div>
-<div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">会社名</div>${row('renName', c.name, 'rename', '変更')}${note('予定とカレンダーの見出しも付け替えます。タイルでは「株式会社」を省いて出すので、正式名称で入れておけます。')}</div>
-<div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">同じマイページで別の選考を追加</div>${row('splitName', '', 'split', '追加', '例：' + Domain.shortName(c.name) + '（業務企画職）')}${note('マイページURL・ログインID・パスワード・ロゴ・業種を引き継いだ行を作ります。コース別に選考が分かれる会社を、別々に追えます。')}</div>`}
-<div style="margin-top:22px"><div class="lab" style="margin:0 0 8px">ロゴ（URL を入れると自動では変わりません）</div>${row('logoUrl', manualValue(c), 'logo-set', '適用', '画像URLを貼って上書き')}<button class="gh" style="margin-top:8px" data-act="logo-get">自動で取り直す</button><div style="margin-top:10px"><label class="gh" style="display:inline-block;cursor:pointer;color:var(--text)">画像ファイルから選ぶ<input type="file" accept="image/*" style="display:none" data-change="logo-file"></label></div>${note('Wikidata の公式ロゴ、公式サイトのファビコン、Wikipedia の画像の順に探します。画像ファイルはこの端末にだけ保存します。')}</div>
+${isCo && html`<div class="setsec"><div class="lab" style="margin:0 0 8px">業種</div>${industryField(c, names, row)}${note('記録タブの集計に使います。未設定なら社名から推定します。「NTT系」のようなグループ名にしたいときは「自分で入力」から入れます。')}</div>
+<div class="setsec"><div class="lab" style="margin:0 0 8px">会社名</div>${row('renName', c.name, 'rename', '変更')}${note('予定とカレンダーの見出しも付け替えます。タイルでは「株式会社」を省いて出すので、正式名称で入れておけます。')}</div>
+<div class="setsec"><div class="lab" style="margin:0 0 8px">同じマイページで別の選考を追加</div>${row('splitName', '', 'split', '追加', '例：' + Domain.shortName(c.name) + '（業務企画職）')}${note('マイページURL・ログインID・パスワード・ロゴ・業種を引き継いだ行を作ります。コース別に選考が分かれる会社を、別々に追えます。')}</div>`}
+<div class="setsec"><div class="lab" style="margin:0 0 8px">ロゴ（URL を入れると自動では変わりません）</div>${row('logoUrl', manualValue(c), 'logo-set', '適用', '画像URLを貼って上書き')}<button class="gh" style="margin-top:8px" data-act="logo-get">自動で取り直す</button><div style="margin-top:10px"><label class="gh" style="display:inline-block;cursor:pointer;color:var(--text)">画像ファイルから選ぶ<input type="file" accept="image/*" style="display:none" data-change="logo-file"></label></div>${note('Wikidata の公式ロゴ、公式サイトのファビコン、Wikipedia の画像の順に探します。画像ファイルはこの端末にだけ保存します。')}</div>
 <div style="margin-top:34px;padding-top:18px;border-top:1px solid var(--line-soft)"><div class="lab" style="margin:0 0 8px;color:var(--hot)">この会社を削除</div><div style="font-size:11px;color:var(--dim);line-height:1.7">${c.term}の行と、この会社の予定・カレンダー登録をまとめて消します。元に戻せません。書類フォルダは残します。</div><button class="big" style="background:transparent;border:1px solid rgba(255,69,58,.5);color:var(--hot);font-weight:500" data-act="delete-company">削除する</button></div>
 </details>`;
 }
