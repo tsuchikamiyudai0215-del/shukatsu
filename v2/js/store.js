@@ -10,7 +10,7 @@
  * 操作は会社ごとに1つずつ送る。前の応答の updatedAt を次の操作に付けるため。
  * ルートの編集は 400ms 待ってから送り、その間の編集は1つにまとめる。
  */
-import { call } from './api.js';
+import { call, note } from './api.js';
 import * as storage from './storage.js';
 
 const s = {};
@@ -138,6 +138,13 @@ export function loadCache() {
 export async function refresh() {
   /* 読むだけなので、通信が一瞬切れたくらいなら2回までやり直す */
   const r = await call('getData', {}, { retry: 2 });
+  /* 手元に会社があるのに0社で返ってきたら、取り込まない。全部消した覚えは無いはずなので、
+     GAS 側の一時的な読み違いとみなし、画面と端末の控えを空で上書きしない */
+  const had = s.order.length;
+  if (had && !(Array.isArray(r.companies) && r.companies.length)) {
+    note('空の一覧', '取り込まずに ' + had + '社を残した');
+    throw new Error('サーバーから空の一覧が返ってきました。手元の一覧はそのまま残します。');
+  }
   adopt(r);
   saveCache();
   emit('fetched');

@@ -5,6 +5,7 @@ import { html, setHtml } from '../html.js';
 import { ui } from '../state.js';
 import { termCompanies } from './list.js';
 import { keepLogos } from '../logo.js';
+import { netlog } from '../api.js';
 
 const rateColor = (pc) => (pc === null ? 'var(--dim)' : pc >= 50 ? 'var(--go)' : 'var(--hot)');
 
@@ -43,8 +44,14 @@ export function renderPassport() {
   const COL = { todo: 'var(--blue)', waiting: 'var(--wait)', joined: 'var(--go)', offer: 'var(--go)' };
   A.push(html`<div class="pcard po5 flat"><div class="ttl">進行中の内訳</div><div style="margin-top:10px">${keys.map((k) => html`<div class="brkRow"><span>${LAB[k]}</span><span style="font-family:var(--disp);font-size:21px;font-weight:600;color:${t.breakdown[k] ? COL[k] : 'var(--dim)'}">${t.breakdown[k]}</span></div>`)}</div></div>`);
 
+  /* 通信の記録は、切れたときに画面を撮って見せてもらうためのもの。ふだんは閉じておく */
+  const log = netlog().slice().reverse();
+  /* 裏の取り直しで描き直しても、開いたままにする */
+  const was = view.querySelector('.netlog');
+  const logHtml = html`<details class="netlog"${was && was.open ? html` open` : ''}><summary>通信の記録（直近${log.length}件）</summary>${log.length ? html`<div class="netrows">${log.map((x) => html`<div class="${/^ok|^控え/.test(x.result) ? '' : 'ng'}"><span>${x.t}</span><span>${x.what}${x.bg ? '（裏）' : ''}</span><span>${x.result}</span><span>${x.ms == null ? '' : (x.ms / 1000).toFixed(1) + '秒'}</span></div>`)}</div>` : html`<div class="netrows">まだありません。</div>`}</details>`;
+
   /* 接続先を変えるのは、本番へ切り替える日くらいなので、目立たない下の方に置く */
   /* 一覧から切り替えるとき、一覧のロゴの画像を取っておく（戻ったときに使い回して白飛びさせない） */
-  keepLogos(view, () => setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="setup-open">接続先を変える</button></div>`));
+  keepLogos(view, () => setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="setup-open">接続先を変える</button></div>${logHtml}`));
   view.querySelectorAll('.pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
 }

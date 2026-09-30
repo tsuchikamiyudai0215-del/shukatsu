@@ -8,7 +8,7 @@
 import { html, setHtml } from './html.js';
 import { ui, resetUi, saveUi, TERMS, isWide } from './state.js';
 import * as store from './store.js';
-import { hasConfig, clearConfig } from './api.js';
+import { hasConfig, clearConfig, note } from './api.js';
 import { resetLogos, hydrate, logoLoaded, logoFailed, onLogoChange, importLegacyManual } from './logo.js';
 import { toast, staleShow, staleHide, busy, clearNoticeTimers } from './ui/notice.js';
 import { initSheet, closeSheet, closeThen, dropSheet, isSheetOpen } from './ui/sheet.js';
@@ -142,6 +142,9 @@ async function refresh(quiet) {
   } catch (e) {
     /* 鍵が違うと言われても、一覧が出ているなら消さない。接続設定へ移るのは、出すものが何も無いときだけ */
     if (e.unauthorized && !store.companies().length) { renderSetup(e.message); return false; }
+    /* アプリに戻ったときの裏の取り直しは、一覧が出ていれば黙って次の機会に回す。
+       スマホは戻った直後につながっていないことが多く、そのたびに赤い知らせを出すとうるさい */
+    if (quiet &&!e.unauthorized && store.companies().length) { lastFetch = 0; return false; }
     staleShow(e.unauthorized ? '鍵が違うと言われました。記録タブの下の「接続先を変える」から確かめてください。' : '最新を取得できませんでした。');
     return false;
   }
@@ -153,9 +156,11 @@ function showLoadError(e) {
 }
 
 async function boot() {
-  if (!hasConfig()) { hideSplash(); renderSetup(); return; }
+  if (!hasConfig()) { note('起動', '接続設定なし'); hideSplash(); renderSetup(); return; }
   /* 端末に残っている分を先に出し、裏で最新を取る */
-  if (store.loadCache()) {
+  const cached = store.loadCache();
+  note('起動', cached ? '控え ' + store.companies().length + '社' : '控えなし');
+  if (cached) {
     hideSplash();
     renderAll(true);
     await refresh(false);

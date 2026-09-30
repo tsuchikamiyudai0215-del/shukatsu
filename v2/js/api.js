@@ -38,6 +38,23 @@ const TRANSIENT = /Lock|ロック|timed out|タイムアウト|Service|サービ
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* 通信の記録。「たまに切れる」を後から確かめるため、直近の分だけ端末に残す。
+   鍵・送った中身・返ってきた中身は残さない（パスワードが混ざりうるので） */
+const LOG_MAX = 40;
+
+export function note(what, result, ms) {
+  const d = new Date();
+  const p = (v) => ('0' + v).slice(-2);
+  const t = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  const log = storage.getJson('netlog', []);
+  log.push({ t, what, result: String(result), ms: ms == null ? null : ms, bg: typeof document !== 'undefined' && document.hidden ? 1 : 0 });
+  storage.setJson('netlog', log.slice(-LOG_MAX));
+}
+
+export function netlog() {
+  return storage.getJson('netlog', []);
+}
+
 function transient(msg) {
   const e = new Error(msg);
   e.transient = true;
@@ -95,9 +112,13 @@ async function once(action, args, opts) {
 export async function call(action, args, opts = {}) {
   const times = opts.keepalive ? 0 : Math.max(0, opts.retry || 0);
   for (let n = 0; ; n++) {
+    const t0 = Date.now();
     try {
-      return await once(action, args, opts);
+      const j = await once(action, args, opts);
+      note(action, Array.isArray(j.companies) ? 'ok ' + j.companies.length + '社' : 'ok', Date.now() - t0);
+      return j;
     } catch (e) {
+      note(action, e.message, Date.now() - t0);
       if (n > 0) e.retried = true;
       if (!e.transient || n >= times) throw e;
       await sleep(RETRY_WAIT_MS[Math.min(n, RETRY_WAIT_MS.length - 1)]);

@@ -200,6 +200,51 @@ test('通信：一覧の取得は、一瞬切れても少し置いてやり直�
   R.stop();
 });
 
+test('通信：手元に会社があるのに0社で返ってきたら、一覧も端末の控えも空で上書きしない', async () => {
+  const R = await boot();
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  const n = R.rows().length;
+  const f = R.w.fetch;
+  R.w.fetch = async (u, o) => (JSON.parse(o.body).action === 'getData'
+    ? { ok: true, status: 200, text: async () => JSON.stringify({ ok: true, companies: [], events: [] }) }
+    : f(u, o));
+  await assert.rejects(store.refresh(), /空の一覧/);
+  assert.equal(R.rows().length, n);
+  assert.ok(JSON.parse(R.w.localStorage.getItem('sk2_cache')).companies.length > 0);
+  R.stop();
+});
+
+test('通信：アプリに戻ったときの裏の取り直しは、失敗しても一覧が出ていれば赤い知らせを出さない', async () => {
+  const R = await boot();
+  R.net.down = true;
+  /* 知らせは3秒ほどで消えるので、途中で一度でも出たかを見張る */
+  const seen = [];
+  new R.w.MutationObserver(() => seen.push(R.$('#stale').textContent))
+    .observe(R.$('#stale'), { childList: true, characterData: true, subtree: true });
+  const real = Date.now;
+  Date.now = () => real() + 120000;                             // 前に取ってから2分たった
+  try {
+    R.d.dispatchEvent(new R.w.Event('visibilitychange'));
+    await until(() => R.calls.filter((c) => c.action === 'getData').length >= 2, 3000);
+    await sleep(4500);                                          // やり直しの2回が済むまで待つ
+  } finally { Date.now = real; }
+  assert.equal(seen.some((t) => /取得できませんでした/.test(t)), false);
+  assert.ok(R.rows().length > 0);
+  R.stop();
+});
+
+test('通信の記録：記録タブの下に出す。鍵や送った中身は残さない', async () => {
+  const R = await boot();
+  const log = JSON.parse(R.w.localStorage.getItem('sk2_netlog'));
+  assert.deepEqual(log.map((x) => x.what), ['起動', 'getData']);
+  assert.match(log[1].result, /^ok \d+社$/);
+  log.forEach((x) => assert.deepEqual(Object.keys(x).sort(), ['bg', 'ms', 'result', 't', 'what']));
+  R.click('#tb-pass');
+  assert.match(R.$('.netlog summary').textContent, /通信の記録/);
+  assert.equal(R.$$('.netrows > div').length, 2);
+  R.stop();
+});
+
 test('通信：保存は1回だけやり直す。1回目が実は届いていたら、失敗とは言わずに最新を出す', async () => {
   const R = await boot();
   let n = 0;
