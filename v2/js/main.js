@@ -129,6 +129,9 @@ function setPage(p) {
 // 読み込み
 // ============================================================
 
+/* アプリに戻ってから最新を取りに行くまでの間 */
+const RESUME_WAIT_MS = 800;
+
 async function refresh(quiet) {
   if (!quiet) staleShow();
   try {
@@ -137,8 +140,9 @@ async function refresh(quiet) {
     staleHide();
     return true;
   } catch (e) {
-    if (/鍵/.test(e.message)) { renderSetup(e.message); return false; }
-    staleShow('最新を取得できませんでした。');
+    /* 鍵が違うと言われても、一覧が出ているなら消さない。接続設定へ移るのは、出すものが何も無いときだけ */
+    if (e.unauthorized && !store.companies().length) { renderSetup(e.message); return false; }
+    staleShow(e.unauthorized ? '鍵が違うと言われました。記録タブの下の「接続先を変える」から確かめてください。' : '最新を取得できませんでした。');
     return false;
   }
 }
@@ -163,7 +167,7 @@ async function boot() {
     hideSplash();
     renderAll(true);
   } catch (e) {
-    if (/鍵/.test(e.message)) { hideSplash(); renderSetup(e.message); return; }
+    if (e.unauthorized) { hideSplash(); renderSetup(e.message); return; }
     showLoadError(e);
   }
 }
@@ -403,7 +407,8 @@ export function start() {
     if (document.hidden) { store.flush(true); return; }
     if (!isEditing() && hasConfig() && document.getElementById('view')) {
       renderAll();
-      if (Date.now() - lastFetch > 60000) refresh(true);
+      /* 戻った直後は、スマホの通信がまだつながっていないことが多い。少し置いてから取りに行く */
+      if (Date.now() - lastFetch > 60000) setTimeout(() => { if (!document.hidden) refresh(true); }, RESUME_WAIT_MS);
     }
   });
   listen(window, 'pagehide', () => store.flush(true));

@@ -100,7 +100,8 @@ async function boot(opts = {}) {
   for (const [k, v] of Object.entries(opts.ls || {})) ls.setItem(k, v);
 
   const calls = [];
-  const net = { fail: opts.fail || null, delay: opts.delay || null, down: false };
+  /* drop：届く前に切れる（true を返した回だけ）。lose：GAS では処理されたのに、応答が届く前に切れる */
+  const net = { fail: opts.fail || null, delay: opts.delay || null, down: false, drop: null, lose: null };
   /* EP は開発用、EP2 は本番に見立てた別のウェブアプリ（中身は別の模擬環境） */
   const T2 = opts.other || null;
   w.fetch = async (url, o) => {
@@ -109,9 +110,11 @@ async function boot(opts = {}) {
     calls.push(Object.assign({ keepalive: !!o.keepalive, url: String(url) }, body));
     if (net.delay) await sleep(net.delay(body) || 0);
     if (net.down) throw new TypeError('offline');
+    if (net.drop && net.drop(body)) throw new TypeError('offline');
     const msg = net.fail && net.fail(body);
     const backend = String(url) === EP2 && T2 ? T2 : T;
     const text = msg ? JSON.stringify({ ok: false, error: msg }) : backend.ctx.route_(body);
+    if (net.lose && net.lose(body)) throw new TypeError('offline');
     return { ok: true, status: 200, text: async () => text };
   };
 
@@ -156,6 +159,46 @@ test('接続設定：未設定なら設定画面。URL の形と鍵を確かめ�
   await until(() => R.rows().length);
   assert.equal(R.w.localStorage.getItem('sk2_ep'), EP);
   assert.equal(R.$('#tabbar').style.display, '');
+  R.stop();
+});
+
+test('通信：一覧の取得は、一瞬切れても少し置いてやり直す', async () => {
+  const R = await boot();
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  let n = 0;
+  R.net.drop = (b) => b.action === 'getData' && n++ === 0;      // 1回目だけ切れる
+  const before = R.calls.filter((c) => c.action === 'getData').length;
+  await store.refresh();                                        // 失敗を投げずに取れる
+  assert.equal(R.calls.filter((c) => c.action === 'getData').length - before, 2);
+  R.stop();
+});
+
+test('通信：保存は1回だけやり直す。1回目が実は届いていたら、失敗とは言わずに最新を出す', async () => {
+  const R = await boot();
+  let n = 0;
+  R.net.lose = (b) => b.action === 'mutate' && n++ === 0;       // 保存はされたが、応答が届かない
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  await until(() => /最新を読み直しました/.test(R.toast()), 3000);
+  assert.doesNotMatch(R.toast(), /保存できませんでした/);
+  assert.equal(R.mutates().length, 2);
+  assert.equal(R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).status, 'waiting');
+  assert.match(R.$('#sheet .card-head').textContent, /結果待ち/);  // 元に戻さない
+  R.stop();
+});
+
+test('通信：鍵が違うと言われても、一覧が出ていれば消さずに上で知らせる', async () => {
+  const R = await boot();
+  R.w.localStorage.setItem('sk2_key', 'wrong');
+  const touch = (type, y) => {
+    const e = new R.w.Event(type, { bubbles: true });
+    e.touches = y == null ? [] : [{ clientX: 100, clientY: y }];
+    R.d.getElementById('view').dispatchEvent(e);
+  };
+  touch('touchstart', 10); touch('touchmove', 30); touch('touchmove', 200); touch('touchend');
+  await until(() => /鍵が違う/.test(R.$('#stale').textContent), 3000);
+  assert.equal(R.$('.setupBox'), null);
+  assert.ok(R.rows().length > 0);
   R.stop();
 });
 

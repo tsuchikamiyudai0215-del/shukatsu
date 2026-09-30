@@ -136,7 +136,8 @@ export function loadCache() {
 }
 
 export async function refresh() {
-  const r = await call('getData', {});
+  /* 読むだけなので、通信が一瞬切れたくらいなら2回までやり直す */
+  const r = await call('getData', {}, { retry: 2 });
   adopt(r);
   saveCache();
   emit('fetched');
@@ -191,7 +192,8 @@ async function send(id, item, keepalive) {
   item.sent = true;
   const base = s.confirmed.get(id);
   try {
-    const r = await call('mutate', { id, op: item.op, args: item.args, updatedAt: base ? base.updatedAt : '' }, { keepalive });
+    /* 通信が切れたときは1回だけやり直す。1回目が実は届いていたら、やり直しは「ほかの端末で変わっている」と返る（下で扱う） */
+    const r = await call('mutate', { id, op: item.op, args: item.args, updatedAt: base ? base.updatedAt : '' }, { keepalive, retry: 1 });
     adoptCompany(r.company, r.events);
     if (r.warning) {
       /* 保存はできたが、カレンダーの一部が直せなかった。失敗とは分けて知らせる */
@@ -200,6 +202,16 @@ async function send(id, item, keepalive) {
       report(w, item.op);
     }
   } catch (e) {
+    if (e.conflict && e.company && e.retried) {
+      /* やり直しでぶつかったのは、たぶん1回目が届いて保存できていたから。最新を出して、失敗とは言わない */
+      adoptCompany(e.company);
+      const q = s.queues.get(id);
+      if (q) q.length = 1;
+      const w = new Error('通信が一度切れたので、最新を読み直しました。');
+      w.warning = true;
+      report(w, item.op);
+      return;
+    }
     if (e.conflict && e.company) {
       adoptCompany(e.company);
       /* 古い画面を見て押した続きの操作も、送らずに捨てる */
