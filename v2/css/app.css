@@ -10,6 +10,8 @@
   --text:#FFFFFF; --muted:#A2A2B2; --dim:#656573;
   --blue:#0A84FF; --go:#30D158; --wait:#FF9F0A; --hot:#FF453A; --fail:#6E3E4B;
 
+  /* 一覧のタイルの影。タイルは60社分並ぶので、影は1つの軽いものにする（2重だとスクロールが重くなる） */
+  --tile-shadow:0 1px 3px rgba(0,0,0,.35);
   --glass-edge:
     0 2px 10px -4px rgba(0,0,0,0.4),
     0 10px 28px -14px rgba(0,0,0,0.5);
@@ -113,7 +115,7 @@ button,select,input{font-family:var(--body)}
 .stripitem{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:380px;
   text-align:left;cursor:pointer;background:var(--surface);
   border:none;border-radius:var(--r-card);padding:13px 16px;color:var(--text);
-  box-shadow:var(--glass-edge);
+  box-shadow:var(--tile-shadow);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .stripitem:active{transform:scale(.965);transition:transform .1s var(--press)}
 .stripitem .k{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);
@@ -130,7 +132,7 @@ button,select,input{font-family:var(--body)}
   contain:layout paint style;
   background:var(--surface);
   border:none;border-radius:var(--r-tile);
-  box-shadow:var(--glass-edge);
+  box-shadow:var(--tile-shadow);
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;
   opacity:var(--base-op, 1);
@@ -139,15 +141,15 @@ button,select,input{font-family:var(--body)}
   transition:transform .1s var(--press),background .1s var(--ease)}
 .row.is-fixed{
   background:linear-gradient(180deg, rgba(64,214,120,0.24) 0%, rgba(40,150,90,0.1) 100%), rgba(18,34,26,0.4);
-  box-shadow:var(--glass-edge)}
+  box-shadow:var(--tile-shadow)}
 .row.is-offer{
   background:linear-gradient(180deg, rgba(72,222,130,0.32) 0%, rgba(44,164,98,0.14) 100%), rgba(18,38,28,0.44);
-  box-shadow:var(--glass-edge), 0 0 24px -8px rgba(48,209,88,.35)}
+  box-shadow:var(--tile-shadow), 0 0 24px -8px rgba(48,209,88,.35)}
 .row.is-muted{--base-op:0.42}
 /* 締切まで2日以内。赤い数字だけでなく、面そのものにも熱を持たせる */
 .row.is-hot{
   background:linear-gradient(180deg, rgba(255,110,100,0.16) 0%, rgba(180,50,45,0.07) 100%), rgba(40,22,24,0.44);
-  box-shadow:var(--glass-edge), 0 0 26px -12px rgba(255,69,58,.5)}
+  box-shadow:var(--tile-shadow), 0 0 26px -12px rgba(255,69,58,.5)}
 /* 終わった会社はロゴも色を抜いて、視線が止まらないようにする */
 .row.is-muted .logo img{filter:grayscale(1) contrast(.9)}
 
@@ -309,11 +311,10 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   transition:transform .5s var(--spring),background .3s var(--ease),
              border-color .3s var(--ease),box-shadow .3s var(--ease);
 }
-/* すりガラス（backdrop-filter）は、この下のタブバーと、切り替えのつまみを指で動かしている間だけに使う。
-   スマホでは重いので、詳細・お知らせ・検索などは同じ色味の無地にしてある */
+/* すりガラス（backdrop-filter）は、切り替えのつまみを指で動かしている間だけに使う。
+   下のタブバーも無地にしてある：画面の下に固定なので、すりガラスだと一覧をスクロールするたびに後ろをぼかし直して重いため */
 .tabbar{position:fixed;left:50%;transform:translateX(-50%);
-  backdrop-filter:blur(32px) saturate(190%) brightness(1.04);
-  -webkit-backdrop-filter:blur(32px) saturate(190%) brightness(1.04);
+  background:linear-gradient(180deg, rgba(44,54,75,.98) 0%, rgba(24,30,45,.99) 100%);
   bottom:calc(18px + env(safe-area-inset-bottom));z-index:45;
   display:inline-flex;align-items:center;justify-content:center;gap:2px;
   white-space:nowrap;max-width:calc(100vw - 24px);
