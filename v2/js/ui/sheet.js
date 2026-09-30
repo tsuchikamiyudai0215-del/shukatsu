@@ -3,7 +3,7 @@
  *
  * ・開くと背景が縮み、下へスワイプすると閉じる
  * ・端末の「戻る」で閉じられるよう、開くときに履歴を1つ積む
- * ・背景を押して離したときだけ閉じる（入力欄から指を滑らせて外で離したときに閉じないように）
+ * ・追加と検索は、背景を押して離したときだけ閉じる（入力欄から指を滑らせて外で離したときに閉じないように）。詳細は背景では閉じない
  */
 import { setHtml } from '../html.js';
 import { isWide } from '../state.js';
@@ -219,6 +219,8 @@ export function initSheet(onClosed) {
   };
   const onDown = (e) => { st.downOnBackdrop = e.target.classList && e.target.classList.contains('sheet'); };
   const onClick = (e) => {
+    /* 詳細は、何もないところを押しただけでは閉じない（入力の途中でうっかり消える）。× か下へのスワイプで閉じる */
+    if (box().querySelector('.card.detail')) return;
     if (e.target.classList && e.target.classList.contains('sheet') && st.downOnBackdrop) closeSheet();
   };
   window.addEventListener('popstate', onPop);

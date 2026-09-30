@@ -220,7 +220,7 @@ function fullHtml(c) {
   const st = Domain.viewStatus(c, new Date());
   const col = st === 'waiting' ? 'var(--wait)' : (st === 'offer' || st === 'joined') ? 'var(--go)' : 'var(--muted)';
   const tabs = [['info', '概要'], ['events', '予定 ' + store.eventsOf(c.id).length], ['route', '選考ルート']];
-  return html`<div class="card-head"><div class="grab"></div><button class="sideclose" data-act="close-detail" aria-label="閉じる">✕</button><div style="display:flex;align-items:center;gap:12px">${logo(c, 56)}<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">${c.name}</div><div style="font-family:var(--mono);font-size:11px;color:${col};margin-top:3px">${Domain.position(c)} ${LABEL[st]}</div></div></div><div class="tabs">${tabs.map(([k, lab]) => html`<button data-act="tab" data-v="${k}" class="${ui.tab === k ? 'on' : ''}">${lab}</button>`)}</div></div><div class="tab-pane">${tabContent(c)}</div>`;
+  return html`<div class="card-head"><div class="grab"></div><button class="sideclose" data-act="close-detail" aria-label="閉じる"><svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg></button><div style="display:flex;align-items:center;gap:12px">${logo(c, 56)}<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">${c.name}</div><div style="font-family:var(--mono);font-size:11px;color:${col};margin-top:3px">${Domain.position(c)} ${LABEL[st]}</div></div></div><div class="tabs">${tabs.map(([k, lab]) => html`<button data-act="tab" data-v="${k}" class="${ui.tab === k ? 'on' : ''}">${lab}</button>`)}</div></div><div class="tab-pane">${tabContent(c)}</div>`;
 }
 
 export function sideEmpty() {

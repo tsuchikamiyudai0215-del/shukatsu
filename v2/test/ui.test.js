@@ -639,6 +639,32 @@ test('スマホはシートで開き、戻る操作で閉じる。幅 1000px 以
   W.stop();
 });
 
+test('詳細は、何もないところを押しただけでは閉じない（PC もスマホも）', async () => {
+  const press = (R, el) => {
+    el.dispatchEvent(new R.w.PointerEvent('pointerdown', { bubbles: true }));
+    el.click();
+  };
+  const W = await boot({ width: 1280 });
+  W.click(`.row[data-id="${W.ids.a}"]`);
+  press(W, W.$('#view'));
+  press(W, W.d.body);
+  assert.ok(W.$('#side .card-head'));
+  W.stop();
+
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.a}"]`);
+  press(R, R.$('#sheet .sheet'));
+  await sleep(400);
+  assert.ok(R.$('#sheet .card.detail'));
+  /* 追加の画面は、背景を押せば閉じる */
+  R.click('#sheet [data-act="close-detail"]');
+  await until(() => !R.$('#sheet .sheet'), 1000);
+  R.click('[data-act="add"]');
+  press(R, R.$('#sheet .sheet'));
+  await until(() => !R.$('#sheet .sheet'), 1000);
+  R.stop();
+});
+
 test('タブ：概要／予定（件数つき）／選考ルート', async () => {
   const R = await boot({ after: (T, ids) => T.api('addEvent', { companyId: ids.a, kind: '面接', startAt: at(3) }) });
   R.click(`.row[data-id="${R.ids.a}"]`);

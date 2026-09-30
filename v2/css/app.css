@@ -235,8 +235,9 @@ button,select,input{font-family:var(--body)}
 .sheet.out .card.fly{transition:transform .26s var(--out),opacity .22s var(--ease) !important}
 .sideclose{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:16px;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:var(--muted);
-  font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  line-height:1;z-index:5;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+  /* × は文字でなく線で描く。文字だと字体ごとに上下の余白が違い、丸の真ん中からずれる */
+  padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  z-index:5;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
   transition:transform .42s var(--spring),background .16s var(--ease),color .16s var(--ease)}
 .sideclose:active{transform:scale(.88);transition:transform .1s var(--press)}
 .sideclose:hover{background:rgba(255,255,255,.22);color:var(--text)}

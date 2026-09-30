@@ -414,15 +414,6 @@ export function start() {
   listen(document, 'focusout', () => setTimeout(() => {
     if (detailDirty && !isEditing()) { detailDirty = false; if (ui.openId) renderDetail(); }
   }, 0));
-  /* PCで右パネルの外を押したら閉じる。押し始めと離した所の両方が外のときだけ */
-  const OUTSIDE = '#side,.row,.hero,.stripitem,.tabbar,.chips,.seg';
-  let outsideDown = false;
-  listen(document, 'pointerdown', (e) => { outsideDown = !(e.target.closest && e.target.closest(OUTSIDE)); }, true);
-  listen(document, 'click', (e) => {
-    if (!isWide() || !ui.openId || isSheetOpen() || !outsideDown) return;
-    if (e.target.closest && e.target.closest(OUTSIDE + ',#sheet')) return;
-    closeDetail();
-  });
   /* 画面を離れるときは、待たせている保存を送り切る */
   listen(document, 'visibilitychange', () => {
     if (document.hidden) { store.flush(true); return; }
