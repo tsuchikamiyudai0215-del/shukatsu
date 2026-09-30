@@ -71,11 +71,6 @@ body::before{
     radial-gradient(120% 84% at 100% 16%, rgba(48,120,170,0.1) 0%, rgba(48,120,170,0.03) 46%, transparent 76%),
     radial-gradient(165% 105% at 50% 110%, rgba(40,70,130,0.14) 0%, rgba(40,70,130,0.035) 50%, transparent 80%);
 }
-body::after{
-  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.03;
-  transform:translateZ(0);
-  background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'/%3E%3C/filter%3E%3Crect%20width='120'%20height='120'%20filter='url(%23n)'/%3E%3C/svg%3E");
-}
 body{
   /* 斜めのスワイプで画面ごと横に動かないようにする。
      縦だけを指に追わせ、横スクロールが要る場所（チップ列）だけ後で戻す */
@@ -666,7 +661,8 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 .rail u.lk{height:11px;margin:0 -1px}
 .rlist{margin-top:14px}
 .rgate{border:1px solid transparent;border-radius:var(--r-field);padding:0 10px}
-.rgate.linked{border-color:rgba(10,132,255,.5);background:rgba(10,132,255,.07)}
+/* 枠の中にも上下の余白を取る。無いと、現在地の行の青い背景が枠の線に重なって見える */
+.rgate.linked{border-color:rgba(10,132,255,.5);background:rgba(10,132,255,.07);padding:6px 6px}
 .rlab{font-family:var(--mono);font-size:10px;color:var(--blue);letter-spacing:.04em;margin:6px 0 5px 4px}
 /* 1行は「⊖（削除）｜段階名（押すと現在地）｜≡（つかんで並べ替え）」。左右にスワイプしても削除できる。
    行は縦のスクロールだけブラウザに任せ（pan-y）、横の動きはスワイプに使う。≡は指の動きを全部こちらで受ける */

@@ -89,7 +89,11 @@ function renderAll(pageChanged) {
   syncPills();
   /* 切り替えの直後（1秒ほど）に保存などで描き直すと、入場の動きがもう一度流れる。切り替え以外では先に外す */
   if (!pageChanged) { const v = document.getElementById('view'); if (v) v.classList.remove('enter'); }
-  if (ui.page === 'pass') renderPassport(); else renderList(() => { if (!isEditing()) renderAll(); });
+  /* スマホで詳細などを開いている間は、後ろの見えない一覧を描き直さない。保存のたびに60社分を描き直すと、手前の操作が引っかかる。
+     閉じたときに initSheet の後片付けから renderAll が呼ばれるので、そこで1回だけ描き直す */
+  const hidden = !pageChanged && !isWide() && isSheetOpen() && document.getElementById('view');
+  if (hidden) { /* 描き直さない */ }
+  else if (ui.page === 'pass') renderPassport(); else renderList(() => { if (!isEditing()) renderAll(); });
   if (pageChanged) enter();
   if (ui.openId) {
     if (!store.company(ui.openId)) { ui.openId = null; if (isWide()) sideEmpty(); else if (isSheetOpen()) closeSheet(); }

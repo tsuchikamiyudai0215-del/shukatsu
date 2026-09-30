@@ -243,12 +243,17 @@ test('保存分が無く取得も失敗したら、再読み込みと接続設�
 
 test('保存を待たずに画面を先に変え、裏で送る。送るときは updatedAt を付ける', async () => {
   const R = await boot({ delay: (b) => (b.action === 'mutate' ? 200 : 0) });
-  R.click(`.row[data-id="${R.ids.b}"]`);
   const before = R.chip('wait');
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  const head = () => R.$('#sheet .card-head').textContent;
   R.click('#sheet [data-act="done"]');
-  assert.equal(R.chip('wait'), before + 1);          // 応答より先に変わっている
+  assert.match(head(), /結果待ち/);                     // 応答より先に変わっている
   assert.equal(R.mutates().length, 1);
   assert.ok(R.mutates()[0].args.updatedAt);
+  /* スマホで詳細を開いている間は、後ろの一覧を描き直さない。閉じたら1回で追いつく */
+  assert.equal(R.chip('wait'), before);
+  R.click('#sheet [data-act="close-detail"]');
+  await until(() => R.chip('wait') === before + 1);
   await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).status === 'waiting');
   R.stop();
 });
@@ -256,10 +261,10 @@ test('保存を待たずに画面を先に変え、裏で送る。送るとき�
 test('保存に失敗したら元に戻し、理由を出す', async () => {
   const R = await boot({ fail: (b) => (b.action === 'mutate' ? 'シートに書けませんでした。' : null) });
   R.click(`.row[data-id="${R.ids.b}"]`);
-  const before = R.chip('todo');
+  const head = () => R.$('#sheet .card-head').textContent;
   R.click('#sheet [data-act="skip"]');
-  assert.equal(R.chip('todo'), before - 1);
-  await until(() => R.chip('todo') === before);
+  assert.match(head(), /見送り/);
+  await until(() => /対応中/.test(head()));
   assert.match(R.toast(), /保存できませんでした：シートに書けませんでした/);
   R.stop();
 });
@@ -777,7 +782,9 @@ test('設定：ロゴを URL で指定するとシートにも保存し、手動
   R.$('#sheet #logoUrl').value = 'https://logo.example/b.png';
   R.click('#sheet [data-act="logo-set"]');
   await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).logoManual === true);
-  assert.ok(R.$$(`.row[data-id="${R.ids.b}"] img`).some((i) => i.getAttribute('src') === 'https://logo.example/b.png'));
+  assert.ok(R.$$('#sheet .card-head img').some((i) => i.getAttribute('src') === 'https://logo.example/b.png'));
+  R.click('#sheet [data-act="close-detail"]');                 // 一覧は閉じたときに描き直す
+  await until(() => R.$$(`.row[data-id="${R.ids.b}"] img`).some((i) => i.getAttribute('src') === 'https://logo.example/b.png'));
   R.stop();
 });
 
