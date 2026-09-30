@@ -569,6 +569,23 @@ test('レーンの並び：対応中は締切の近い順、終了は折りた�
   R.stop();
 });
 
+test('終了の絞り込みを何度押しても、「すべて」に並ぶ社数は変わらない', async () => {
+  const R = await boot();
+  const shown = () => R.$$('.lane:not(.is-filt-hidden) .row').length;
+  const first = shown();
+  R.click('.chiprow [data-v="end"]');
+  assert.equal(R.$$('.lane[data-lane="end"] .row').length, 1);   // 絞り込み中は開く
+  R.click('[data-act="toggle-lane"][data-v="end"]');             // 絞り込み中は閉じない
+  assert.equal(R.$$('.lane[data-lane="end"] .row').length, 1);
+  R.click('.chiprow [data-v="end"]');                            // もう一度押すと「すべて」に戻る
+  assert.equal(R.$('.chiprow .on').dataset.v, 'all');
+  assert.equal(shown(), first);
+  R.click('.chiprow [data-v="end"]');
+  R.click('.chiprow [data-v="end"]');
+  assert.equal(shown(), first);
+  R.stop();
+});
+
 test('タイル：短くした社名、段階、2日以内は赤く、終了は薄く', async () => {
   const R = await boot();
   const a = R.$(`.row[data-id="${R.ids.a}"]`);

@@ -204,12 +204,17 @@ const actions = Object.assign({
   add: () => { if (!isWide()) ui.openId = null; openAdd(); },
   filt: (el) => {
     const k = el.dataset.v;
+    const prev = ui.filt;
     ui.filt = ui.filt === k && k !== 'all' ? 'all' : k;
     saveUi();
-    if ((ui.filt === 'end' && !ui.endOpen) || (ui.filt === 'skip' && !ui.skipOpen)) { renderAll(); applyFilter(); return; }
+    /* 終了・見送りの欄は絞り込みで開け閉めが変わるので、出入りするときは組み直す */
+    const shut = (f) => (f === 'end' && !ui.endOpen) || (f === 'skip' && !ui.skipOpen);
+    if (shut(ui.filt) || shut(prev)) { renderAll(); applyFilter(); return; }
     applyFilter();
   },
   'toggle-lane': (el) => {
+    /* 絞り込み中はその欄しか無いので、閉じさせない */
+    if (ui.filt === el.dataset.v) return;
     if (el.dataset.v === 'end') ui.endOpen = !ui.endOpen; else ui.skipOpen = !ui.skipOpen;
     renderAll();
     applyFilter();
@@ -385,6 +390,9 @@ export function start() {
   store.resetStore();
   resetLogos();
   resetAdd();
+  /* iPhone（Chrome も中身は WebKit）だけ、見た目の軽くし方を変える。iPad は Mac のふりをするので、指で触れる数で見分ける */
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  document.documentElement.classList.toggle('ios', ios);
 
   /* 最初の描画は boot が行う。それより後の変化だけをここで描き直す */
   store.onChange(() => { if (hasConfig() && document.getElementById('view')) renderAll(); });

@@ -141,8 +141,6 @@ export function renderList(onEmptyReset) {
   const G = LANES.map((g) => Object.assign({ n: groups[g.k].length }, g)).filter((g) => g.n > 0);
   /* 保存していた絞り込みの行き先が空なら「すべて」に戻す（真っ白な一覧を出さない） */
   if (ui.filt !== 'all' && !G.some((g) => g.k === ui.filt)) { ui.filt = 'all'; saveUi(); }
-  if (ui.filt === 'end') ui.endOpen = true;
-  if (ui.filt === 'skip') ui.skipOpen = true;
 
   const rows = (k) => join(k === 'event' ? groups.event.map((a) => eventRowHtml(a.ev, a.c, now)) : groups[k].map((c) => rowHtml(c, evs, now)));
   const total = groups.event.length + groups.todo.length + groups.offer.length + groups.fixed.length + groups.wait.length;
@@ -156,7 +154,8 @@ export function renderList(onEmptyReset) {
 
   const lanes = G.map((g) => {
     if (g.k === 'end' || g.k === 'skip') {
-      const open = g.k === 'end' ? ui.endOpen : ui.skipOpen;
+      /* 絞り込んでいる間だけ開く。開いたことを覚えると、「すべて」に戻ったときに並ぶ社数が押した回数で変わる */
+      const open = ui.filt === g.k || (g.k === 'end' ? ui.endOpen : ui.skipOpen);
       return html`<section class="lane${hidden(g.k) ? ' is-filt-hidden' : ''}" data-lane="${g.k}"><button class="lab accord-btn" data-act="toggle-lane" data-v="${g.k}">${g.lab} ${g.n}件 ${open ? '▾' : '▸'}</button>${open && html`<div class="rows">${rows(g.k)}</div>`}</section>`;
     }
     return html`<section class="lane${hidden(g.k) ? ' is-filt-hidden' : ''}" data-lane="${g.k}"><div class="lab" style="color:${g.col}">${g.lab}<span class="cnt">${g.n}</span></div><div class="rows">${rows(g.k)}</div></section>`;

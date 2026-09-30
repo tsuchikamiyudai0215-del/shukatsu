@@ -146,6 +146,8 @@ button,select,input{font-family:var(--body)}
 .row.is-offer{
   background:linear-gradient(180deg, rgba(72,222,130,0.32) 0%, rgba(44,164,98,0.14) 100%), rgba(18,38,28,0.44);
   box-shadow:var(--tile-shadow), 0 0 24px -8px rgba(48,209,88,.35)}
+/* iPhone では、見えるときだけ描く仕組みが、スクロールのたびに描き始めと描き止めを繰り返して逆に重くなる。Android では効くので残す */
+.ios .row{content-visibility:visible}
 .row.is-muted{--base-op:0.42}
 /* 締切まで2日以内。赤い数字だけでなく、面そのものにも熱を持たせる */
 .row.is-hot{
@@ -442,11 +444,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   /* 画面の外まで伸ばすと、その分だけ横スクロールが生まれる */
   left:0;right:0;top:-18px;bottom:-6px;
   background:linear-gradient(180deg,
-    rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%);
-  -webkit-mask-image:linear-gradient(90deg,
-    transparent 0%, #000 7%, #000 93%, transparent 100%);
-  mask-image:linear-gradient(90deg,
-    transparent 0%, #000 7%, #000 93%, transparent 100%)}
+    rgba(4,4,10,0) 0%, rgba(4,4,10,.34) 34%, rgba(4,4,10,.34) 62%, rgba(4,4,10,0) 100%)}
 .chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0;
   touch-action:pan-x}
 .chiprow::-webkit-scrollbar{display:none}
@@ -475,9 +473,9 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .lane.is-filt-hidden{display:none !important}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{
-  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) both}
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) .row{
-  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) both !important;
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards !important;
   animation-delay:calc(var(--fi,0) * 18ms) !important}
 /* 浮き上がる数枚だけは、画面の外にあっても描く（content-visibility で描き止めると、動きの途中で出てくる） */
 #view .lanes.filt-in .row:not([data-still]){content-visibility:visible}
@@ -580,9 +578,11 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 /* タブや区分を切り替えたときの入り方。画面全体（60社分で数千pxの高さ）を動かしたり縮めたりすると、
    スマホでは1コマごとに描き直しになってスローモーションのように見えるので、見出し・絞り込み・最初の数枚だけを、
    少しだけ・短く・跳ね返りなしで浮かせる */
-@keyframes enterUp{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+/* 行き先（to）は書かない。書くと、薄くしてある終了・見送りのタイルも最後に濃さ1で止まってしまう。
+   終わったら何も残さない（backwards）ので、押したときに縮む動きも効く */
+@keyframes enterUp{from{opacity:0;transform:translate3d(0,10px,0)}}
 #view.enter .row,#view.enter .pcard,#view.enter .stripitem,#view.enter .hero,#view.enter .chips{
-  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) both}
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards}
 #view.enter .row,#view.enter .pcard{animation-delay:calc(var(--ei,0) * 18ms)}
 
 @media (prefers-reduced-motion:reduce){
