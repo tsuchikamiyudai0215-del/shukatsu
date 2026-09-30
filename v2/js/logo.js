@@ -101,8 +101,10 @@ function mono(c, s) {
   return html`<div class="logo mono" style="width:${s}px;height:${s}px;border-radius:${s / 2}px" data-id="${c.id}" data-sz="${s}"><span style="font-size:${Math.round(s * 0.42)}px">${String(c.name || '').slice(0, 1)}</span></div>`;
 }
 
+/* 画像は描くのを止めずに読み解く（async）。sync にすると、切り替えのたびに最大60枚を読み解き終えるまで描けず、iPhone では重い。
+   一度読めた画像は keepLogos で使い回すので、描き直しで白く飛ぶことはない */
 function imgBox(c, s, u) {
-  return html`<div class="logo${L.ok.has(u) ? ' rdy' : ''}" style="width:${s}px;height:${s}px;border-radius:${s / 2}px" data-id="${c.id}" data-sz="${s}" data-doms="${logoDomains(c).join(',')}"><img decoding="sync" referrerpolicy="no-referrer" src="${safeUrl(u)}"></div>`;
+  return html`<div class="logo${L.ok.has(u) ? ' rdy' : ''}" style="width:${s}px;height:${s}px;border-radius:${s / 2}px" data-id="${c.id}" data-sz="${s}" data-doms="${logoDomains(c).join(',')}"><img decoding="async" referrerpolicy="no-referrer" src="${safeUrl(u)}"></div>`;
 }
 
 export function logo(c, size) {

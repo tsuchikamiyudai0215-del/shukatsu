@@ -103,11 +103,12 @@ button,select,input{font-family:var(--body)}
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .hero:active{transform:scale(.978);opacity:.86;transition:transform .1s var(--press)}
 .hero h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.028em;line-height:1.15}
-.cd{line-height:1;display:flex;align-items:baseline;margin-top:14px}
+/* 数字は毎秒書き換わるので、中の組み直しを外へ広げない（幅が変わってもページ全体を組み直さない） */
+.cd{line-height:1;display:flex;align-items:baseline;margin-top:14px;contain:layout style}
 .cd b{font-family:var(--disp);font-size:58px;font-weight:600;letter-spacing:-.045em;
   color:rgba(255,255,255,.96);
-  text-shadow:0 1px 0 rgba(255,255,255,.28), 0 3px 26px rgba(255,255,255,.14),
-              0 -1px 1px rgba(0,0,0,.22)}
+  /* ぼかしの大きい光は毎秒描き直すと iPhone で重いので、細い縁の光だけにする */
+  text-shadow:0 1px 0 rgba(255,255,255,.28)}
 .cd s{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 10px 0 3px;text-decoration:none}
 
 /* ---------- strip & rows ---------- */

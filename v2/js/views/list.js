@@ -218,7 +218,9 @@ function tickCountdown(el, now, rerender) {
     return;
   }
   const p = (v) => ('0' + v).slice(-2);
-  el.style.color = r.ms < 172800000 ? 'var(--hot)' : 'var(--text)';
+  /* 毎秒書くと、そのたびに見た目の計算がやり直しになる。色が変わるときだけ書く */
+  const col = r.ms < 172800000 ? 'var(--hot)' : 'var(--text)';
+  if (el.style.color !== col) el.style.color = col;
   const key = [r.d, r.h, r.m, r.s].join(':');
   if (el.dataset.rendered === key) return;
   el.dataset.rendered = key;

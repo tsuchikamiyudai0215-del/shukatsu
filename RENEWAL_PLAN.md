@@ -335,6 +335,7 @@ sw.js / manifest.json
 
 - **1か月後の片付け（2026-10-29 ごろ）**：`v2/GAS_SETUP.md` の「1か月後の片付け」。旧版の GAS のデプロイを止める、旧版のシートの編集時のトリガー（`syncToCalendar`）と独自メニューを外す。一番上の `index.html` は残す。それまでは戻し方 B で戻せるよう、旧版の `Sheet1` と旧版の GAS は触らない
 - **ロゴが地球儀になっている会社**は、探し方を直したので、その会社で「自動で取り直す」を押せば公式ロゴか頭文字になる（三菱UFJ銀行の別コース3社は公式ロゴになることを確かめた）
+- **iPhone で重いとき（Android の Chrome は軽い）の残りの候補**：本人が iPhone で試して、まだ重ければ行う。4：絞り込みの列（上に留まる）の背景の左右をぼかす mask をやめる。5：タイルを画面に見えるときだけ描く content-visibility:auto を、iPhone のときだけやめる（Android では効いているので残す）。1〜3（キーボードの見張り・ロゴの読み解き・見出しの数字の光と組み直し）は 2026-09-30 に入れた
 - 開発用のカレンダー「就活ボード開発」は、本番と同じ日に予定が並んで紛らわしいので、Google カレンダーで隠しておく（消さない。開発用の GAS が使う）
 - GAS のコードを直したら、まず `npm run push` で開発用に送り、開発用のウェブアプリを同じデプロイ ID のまま新しい版に差し替えて試す（`npx clasp create-deployment --deploymentId <ID> --description "v2 開発版"`）。本番へは `npm run push:prod` のあと、本番用のウェブアプリも同じデプロイ ID のまま新しい版に差し替える（`npx clasp -P .clasp.prod.json create-deployment --deploymentId <本番のID> --description "v2 本番"`）。本番に関わるので、送る前に本人に聞く
 - 3章の「区分」は決めた（インターンと本選考の2つ。`v2/js/state.js` の `TERMS`）。「管理用の行」は、`kind` 列で見分ける形で作ってある

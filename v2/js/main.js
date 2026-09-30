@@ -347,16 +347,29 @@ function pullToRefresh() {
   });
 }
 
+/*
+ * キーボードの高さを --kb に入れる。iPhone は、スクロールでアドレスバーが縮んだり伸びたりするたびにも
+ * visualViewport の resize・scroll が続けて届く。そのたびに html の変数を書き換えると、ページ全体の見た目を
+ * 計算し直すことになり、スクロールが重くなる。文字を入れる欄にいるときだけ測り、値が変わったときだけ書く
+ */
 function keyboardWatch() {
   const vv = window.visualViewport;
   if (!vv) return;
+  let last = -1;
   const apply = () => {
-    const gap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    const a = document.activeElement;
+    const typing = !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+    const gap = typing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+    if (gap === last) return;
+    last = gap;
     document.documentElement.style.setProperty('--kb', gap + 'px');
     document.body.classList.toggle('kb-open', gap > 120);
   };
   listen(vv, 'resize', apply);
   listen(vv, 'scroll', apply);
+  /* 欄から出たら、キーボードの分を戻す（キーボードが閉じる動きのあとに測り直す） */
+  listen(document, 'focusin', apply);
+  listen(document, 'focusout', () => setTimeout(apply, 0));
   apply();
 }
 

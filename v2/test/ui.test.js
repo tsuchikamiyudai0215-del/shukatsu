@@ -119,6 +119,8 @@ async function boot(opts = {}) {
   };
 
   if (!main) main = await import(pathToFileURL(path.join(__dirname, '../js/main.js')).href);
+  /* iPhone のキーボードやアドレスバーで変わる、見えている範囲の大きさ（jsdom には無いので、試すときだけ渡す） */
+  if (opts.vv) w.visualViewport = opts.vv(w);
   const app = main.start();
   if (opts.wait !== false) await app.ready;
   const d = w.document;
@@ -159,6 +161,31 @@ test('接続設定：未設定なら設定画面。URL の形と鍵を確かめ�
   await until(() => R.rows().length);
   assert.equal(R.w.localStorage.getItem('sk2_ep'), EP);
   assert.equal(R.$('#tabbar').style.display, '');
+  R.stop();
+});
+
+test('キーボードの見張り：文字を入れていない間は、見えている範囲が変わってもページの変数を書き換えない（iPhone のスクロールを重くしない）', async () => {
+  let vv;
+  const R = await boot({ vv: (w) => {
+    vv = new w.EventTarget();
+    Object.assign(vv, { height: w.innerHeight, offsetTop: 0 });
+    return vv;
+  } });
+  const html = R.d.documentElement;
+  let writes = 0;
+  const orig = html.style.setProperty.bind(html.style);
+  html.style.setProperty = (k, v) => { if (k === '--kb') writes++; return orig(k, v); };
+  /* スクロールでアドレスバーが縮んだり伸びたりした（文字は入れていない） */
+  for (let i = 0; i < 10; i++) { vv.height = R.w.innerHeight - (i % 2 ? 60 : 0); vv.dispatchEvent(new R.w.Event('resize')); }
+  assert.equal(writes, 0);
+  assert.equal(R.d.body.classList.contains('kb-open'), false);
+  /* 追加の画面で会社名の欄に入ると、キーボードの高さを入れる */
+  R.click('[data-act="add"]');
+  R.$('#nC').focus();
+  vv.height = R.w.innerHeight - 340;
+  vv.dispatchEvent(new R.w.Event('resize'));
+  assert.equal(html.style.getPropertyValue('--kb'), '340px');
+  assert.ok(R.d.body.classList.contains('kb-open'));
   R.stop();
 });
 
