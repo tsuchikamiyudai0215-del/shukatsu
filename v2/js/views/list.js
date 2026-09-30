@@ -18,6 +18,8 @@ const LANES = [
   { k: 'end', lab: '終了', col: 'var(--dim)' },
   { k: 'skip', lab: '見送り', col: 'var(--dim)' }
 ];
+/* 切り替えたときに浮き上がらせるタイルの数。スマホの1画面に見えるのはこのくらい */
+const MOVE_ROWS = 10;
 const LANE_OF = { todo: 'todo', waiting: 'wait', offer: 'offer', joined: 'fixed', failed: 'end', skipped: 'skip' };
 
 export function termCompanies() {
@@ -161,7 +163,11 @@ export function renderList(onEmptyReset) {
   });
 
   keepLogos(view, () => setHtml(view, html`${stripHtml(mgmt, now)}${top}<div class="chips"><div class="chiprow"><button data-act="filt" data-v="all" class="${ui.filt === 'all' ? 'on' : ''}">すべて<b>${total}</b></button>${G.map((g) => html`<button data-act="filt" data-v="${g.k}" class="${ui.filt === g.k ? 'on' : ''}">${g.lab}<b style="color:${ui.filt === g.k ? '' : g.col}">${g.n}</b></button>`)}</div></div><div class="lanes${ui.filt === 'all' ? '' : ' single'}">${lanes}</div>`));
-  view.querySelectorAll('.row, .pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
+  /* 浮き上がるのは画面に見えている最初の数枚だけ。60社分を1枚ずつ動かすと、スマホでは切り替えのたびに重い */
+  view.querySelectorAll('.row, .pcard').forEach((el, i) => {
+    el.style.setProperty('--ei', Math.min(i, 12));
+    el.toggleAttribute('data-still', i >= MOVE_ROWS);
+  });
   /* 見出しに出ていない締切や予定も、時刻を過ぎればレーンやタイルが変わる。一番近い時刻を覚えておき、過ぎたら組み直す */
   const soon = [];
   all.forEach((c) => { if (c.dueAt && Domain.viewStatus(c, new Date(now)) === 'todo') soon.push(instant(c.dueAt)); });
@@ -230,7 +236,7 @@ export function applyFilter() {
   });
   const vis = box.querySelectorAll('.lane:not(.is-filt-hidden) .row');
   box.classList.remove('filt-in');
-  vis.forEach((r, i) => { r.style.animation = 'none'; r.style.setProperty('--fi', Math.min(i, 12)); });
+  vis.forEach((r, i) => { r.style.animation = 'none'; r.style.setProperty('--fi', Math.min(i, 12)); r.toggleAttribute('data-still', i >= MOVE_ROWS); });
   void box.offsetWidth;
   vis.forEach((r) => { r.style.animation = ''; });
   box.classList.add('filt-in');

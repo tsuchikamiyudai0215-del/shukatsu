@@ -240,6 +240,10 @@ button,select,input{font-family:var(--body)}
 
 /* ---------- detail ---------- */
 .card-head{flex:0 0 auto;padding-right:46px;animation:rise .4s var(--spring) both}
+/* スマホの詳細は、カードが下から出てくる動きだけにする。見出しと中身まで同時に動かすと、出てくる動きが引っかかる。
+   中身が横から入る動きは、タブを切り替えたとき（swap）だけ。PC の右パネルは出てくる動きが無いので、見出しと中身を動かす */
+.sheet .card .card-head,.sheet .card .tab-pane{animation:none}
+.sheet .card .tab-pane.swap{animation:tabPaneIn .42s var(--spring) both}
 .tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
   padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
@@ -474,7 +478,11 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) .row{
   animation:rise .5s var(--spring) both !important;
   animation-delay:calc(var(--fi,0) * 26ms) !important}
-#view .lanes.filt-in .row{content-visibility:visible}
+/* 浮き上がる数枚だけは、画面の外にあっても描く（content-visibility で描き止めると、動きの途中で出てくる） */
+#view .lanes.filt-in .row:not([data-still]){content-visibility:visible}
+/* 残りのタイルは動かさない。60社分を1枚ずつ動かすと、スマホでは2秒近く動きが続いて、次の操作まで重くなる */
+#view.enter .row[data-still],#view.enter .pcard[data-still],
+#view .lanes.filt-in .lane:not(.is-filt-hidden) .row[data-still]{animation:none !important}
 .accord-btn{width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted);
   transition:transform .42s var(--spring),opacity .2s var(--ease)}
 .accord-btn:active{transform:scale(.98);opacity:.8;transition:transform .1s var(--press)}

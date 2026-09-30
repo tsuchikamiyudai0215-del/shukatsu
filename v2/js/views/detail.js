@@ -386,7 +386,9 @@ export const detailActions = {
       setHtml(pane, tabContent(c));
       bindReorder(pane.querySelector('.rlist'), { onMove: moveStage, onRemove: removeStageAt });
       pane.scrollTop = 0;
+      pane.classList.remove('swap');
       pane.style.animation = 'none'; void pane.offsetWidth; pane.style.animation = '';
+      pane.classList.add('swap');
     }
   },
 
