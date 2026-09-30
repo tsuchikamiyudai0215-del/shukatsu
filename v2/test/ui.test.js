@@ -187,6 +187,26 @@ test('通信：保存は1回だけやり直す。1回目が実は届いていた
   R.stop();
 });
 
+test('通信：1回目が届いていないのに、やり直しの前にほかの端末で変わっていたら、届いたとはみなさずに知らせる', async () => {
+  const R = await boot();
+  let n = 0;
+  R.net.drop = (b) => {
+    if (b.action !== 'mutate' || n++ > 0) return false;
+    /* 1回目は届かない。その間に、ほかの端末で業種が変わった */
+    const cur = R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
+    R.T.api('mutate', { id: R.ids.b, op: 'setIndustry', args: { industry: '金融' }, updatedAt: cur.updatedAt });
+    return true;
+  };
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  await until(() => /ほかの端末/.test(R.toast()), 3000);
+  assert.doesNotMatch(R.toast(), /最新を読み直しました/);
+  const server = R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
+  assert.equal(server.status, 'todo');                         // 完了にした操作は保存されていない
+  assert.equal(server.industry, '金融');
+  R.stop();
+});
+
 test('通信：鍵が違うと言われても、一覧が出ていれば消さずに上で知らせる', async () => {
   const R = await boot();
   R.w.localStorage.setItem('sk2_key', 'wrong');

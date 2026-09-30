@@ -187,6 +187,18 @@ function pump(id, keepalive) {
   send(id, head, keepalive);
 }
 
+/* 保存したときに変わりうる中身。updatedAt・ロゴ・カレンダーの対応表・フォルダは、操作と関係なく変わるので比べない */
+const STATE_KEYS = ['name', 'term', 'status', 'stage', 'route', 'routeLinks', 'lostStage', 'dueAt', 'dueHasTime',
+  'submittedAt', 'resultAt', 'url', 'loginId', 'domain', 'industry'];
+
+/* サーバーの最新（server）が、確定した写し（base）にこの操作（item）をかけた形と同じか */
+function landed(base, item, server) {
+  if (!base || !server) return false;
+  let want;
+  try { want = Domain.apply(base, Object.assign({}, item.args, { type: item.op }), item.at); } catch (e) { return false; }
+  return STATE_KEYS.every((k) => JSON.stringify(want[k] == null ? '' : want[k]) === JSON.stringify(server[k] == null ? '' : server[k]));
+}
+
 async function send(id, item, keepalive) {
   s.inflight.add(id);
   item.sent = true;
@@ -202,8 +214,9 @@ async function send(id, item, keepalive) {
       report(w, item.op);
     }
   } catch (e) {
-    if (e.conflict && e.company && e.retried) {
-      /* やり直しでぶつかったのは、たぶん1回目が届いて保存できていたから。最新を出して、失敗とは言わない */
+    if (e.conflict && e.company && e.retried && landed(base, item, e.company)) {
+      /* やり直しでぶつかり、しかもサーバーの最新がこの操作をかけたあとの形になっている。1回目が届いて保存できていた。
+         最新を出して、失敗とは言わない。形が違うなら、たまたまほかで変わっただけなので、下のふつうの「ぶつかった」として扱う */
       adoptCompany(e.company);
       const q = s.queues.get(id);
       if (q) q.length = 1;
