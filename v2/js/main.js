@@ -396,7 +396,8 @@ export function start() {
   resetLogos();
   resetAdd();
   /* iPhone（Chrome も中身は WebKit）だけ、見た目の軽くし方を変える。iPad は Mac のふりをするので、指で触れる数で見分ける */
-  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const nav = window.navigator;
+  const ios = /iPhone|iPad|iPod/.test(nav.userAgent) || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1);
   document.documentElement.classList.toggle('ios', ios);
 
   /* 最初の描画は boot が行う。それより後の変化だけをここで描き直す */

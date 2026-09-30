@@ -87,6 +87,7 @@ async function boot(opts = {}) {
   global.requestAnimationFrame = (f) => setTimeout(f, 0);
   global.cancelAnimationFrame = (t) => clearTimeout(t);
   Object.defineProperty(w, 'innerWidth', { value: opts.width || 390, configurable: true });
+  if (opts.ua) Object.defineProperty(w.navigator, 'userAgent', { value: opts.ua, configurable: true });
   w.scrollTo = () => {};
   w.confirm = () => true;
   w.CSS = { escape: (s) => String(s).replace(/[^\w-]/g, (c) => '\\' + c) };
@@ -612,6 +613,15 @@ test('レーンの並び：対応中は締切の近い順、終了は折りた�
   R.click('[data-act="toggle-lane"][data-v="end"]');
   assert.equal(R.$$('.lane[data-lane="end"] .row').length, 1);
   R.stop();
+});
+
+test('iPhone（Chrome も）のときだけ html に ios を付け、軽い見た目に切り替える', async () => {
+  const I = await boot({ ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0 Mobile/15E148 Safari/604.1' });
+  assert.ok(I.d.documentElement.classList.contains('ios'));
+  I.stop();
+  const A = await boot({ ua: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36' });
+  assert.equal(A.d.documentElement.classList.contains('ios'), false);
+  A.stop();
 });
 
 test('終了の絞り込みを何度押しても、「すべて」に並ぶ社数は変わらない', async () => {
