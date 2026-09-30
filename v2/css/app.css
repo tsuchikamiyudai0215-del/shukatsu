@@ -474,10 +474,10 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .lane.is-filt-hidden{display:none !important}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{
-  animation:rise .4s var(--spring) both}
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) both}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) .row{
-  animation:rise .5s var(--spring) both !important;
-  animation-delay:calc(var(--fi,0) * 26ms) !important}
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) both !important;
+  animation-delay:calc(var(--fi,0) * 18ms) !important}
 /* 浮き上がる数枚だけは、画面の外にあっても描く（content-visibility で描き止めると、動きの途中で出てくる） */
 #view .lanes.filt-in .row:not([data-still]){content-visibility:visible}
 /* 残りのタイルは動かさない。60社分を1枚ずつ動かすと、スマホでは2秒近く動きが続いて、次の操作まで重くなる */
@@ -576,12 +576,13 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 @keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
 @keyframes sweep{to{transform:translateX(100%)}}
 
-#view.enter{animation:rise .34s var(--spring)}
-#view.enter .row,#view.enter .pcard,#view.enter .stripitem{animation:rise .55s var(--spring) both}
-#view.enter .row{animation-delay:calc(var(--ei,0) * 28ms)}
-#view.enter .pcard{animation-delay:calc(var(--ei,0) * 48ms)}
-#view.enter .hero{animation:rise .52s var(--spring) both}
-#view.enter .chips{animation:rise .38s var(--spring) .06s both}
+/* タブや区分を切り替えたときの入り方。画面全体（60社分で数千pxの高さ）を動かしたり縮めたりすると、
+   スマホでは1コマごとに描き直しになってスローモーションのように見えるので、見出し・絞り込み・最初の数枚だけを、
+   少しだけ・短く・跳ね返りなしで浮かせる */
+@keyframes enterUp{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+#view.enter .row,#view.enter .pcard,#view.enter .stripitem,#view.enter .hero,#view.enter .chips{
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) both}
+#view.enter .row,#view.enter .pcard{animation-delay:calc(var(--ei,0) * 18ms)}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
