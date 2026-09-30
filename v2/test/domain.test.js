@@ -214,6 +214,32 @@ test('ルートの並べ替え・現在地の付け替え', () => {
   assert.equal(n.stage, '独自面談');
 });
 
+test('現在地を行き着いた段階にすると参加決定・内定になり、前へ戻すと対応中に戻る', () => {
+  /* インターン：前の初期のルートで、途中の「インターン」を現在地にする（適性検査から） */
+  const intern = co({ term: 'インターン', stage: '適性検査', dueAt: '2030-01-10T12:00', dueHasTime: true });
+  let n = D.apply(intern, { type: 'setRoute', route: ['エントリー', 'ES', '適性検査', 'GD', '面接', 'インターン', '内定'], stage: 'インターン' }, NOW);
+  assert.equal(n.status, 'joined');
+  assert.equal(n.dueAt, '');
+  assert.equal(n.resultAt, '2026-09-24');
+  /* 最後の段階（内定）を現在地にしても参加決定 */
+  n = D.apply(co({ term: 'インターン', stage: '面接' }), { type: 'setRoute', route: D.LEGACY_ROUTE, stage: '内定' }, NOW);
+  assert.equal(n.status, 'joined');
+  /* 本選考は内定。途中の「インターン」は行き着いた段階ではない */
+  n = D.apply(co({ stage: 'ES' }), { type: 'setRoute', route: D.LEGACY_ROUTE, stage: '内定' }, NOW);
+  assert.equal(n.status, 'offer');
+  const main = D.apply(co({ stage: 'ES' }), { type: 'setRoute', route: ['ES', 'インターン', '内定'], stage: 'インターン' }, NOW);
+  assert.equal(main.status, 'todo');
+  /* 前の段階へ戻すと対応中。結果日も消える */
+  const back = D.apply(n, { type: 'setRoute', route: D.LEGACY_ROUTE, stage: '面接' }, NOW);
+  assert.equal(back.status, 'todo');
+  assert.equal(back.resultAt, '');
+  /* 並べ替えだけ（現在地を渡さない）では状態は変えない */
+  assert.equal(D.apply(co({ stage: '内定' }), { type: 'setRoute', route: D.LEGACY_ROUTE }, NOW).status, 'todo');
+  /* 見送りは現在地を動かしても見送りのまま */
+  const skipped = D.apply(co({ stage: 'ES' }), { type: 'skip' }, NOW);
+  assert.equal(D.apply(skipped, { type: 'setRoute', route: D.LEGACY_ROUTE, stage: '内定' }, NOW).status, 'skipped');
+});
+
 test('落選中に現在地を付け替えると、落ちた段階も合わせて動く', () => {
   const failed = D.apply(co({ stage: '面接' }), { type: 'fail' }, NOW);
   const n = D.apply(failed, { type: 'setRoute', route: D.routeOf(failed), stage: 'GD' }, NOW);

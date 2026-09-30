@@ -150,6 +150,8 @@ function bindGesture() {
     if (e.touches.length !== 1) return;
     /* キーボードが出ている間は入力中なので、スワイプで閉じない（候補を見ようとして消えてしまう） */
     if (document.body.classList.contains('kb-open')) { tracking = false; return; }
+    /* 選考ルートの ≡ は行の並べ替えに使うので、下へ動かしても詳細を閉じない */
+    if (e.target.closest && e.target.closest('.rgrip')) { tracking = false; return; }
     y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
     t0 = Date.now(); dy = 0; active = false; tracking = true; from = e.target;
     card.classList.remove('spring', 'fly');

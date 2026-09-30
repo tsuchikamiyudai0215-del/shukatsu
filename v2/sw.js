@@ -14,7 +14,7 @@
  *
  * 保存するファイルや方針を変えたら VERSION を上げること。古い保存分が捨てられる。
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const PREFIX = 'shukatsu2-';
 const CODE = PREFIX + 'code-' + VERSION;
 const ASSET = PREFIX + 'asset-' + VERSION;
@@ -37,6 +37,7 @@ const CODE_URLS = [
   './js/store.js',
   './js/ui/liquid.js',
   './js/ui/notice.js',
+  './js/ui/reorder.js',
   './js/ui/sheet.js',
   './js/views/add.js',
   './js/views/detail.js',

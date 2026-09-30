@@ -101,6 +101,8 @@ function renderAll(pageChanged) {
 }
 
 function editingInDetail() {
+  /* 選考ルートの行をつかんでいる間は、詳細を描き直すと行が消えて指から外れる */
+  if (document.body.classList.contains('route-dragging')) return true;
   const a = document.activeElement;
   return !!(a && a.closest && a.closest('#side, #sheet .card.detail'));
 }

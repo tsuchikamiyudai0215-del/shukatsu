@@ -12,6 +12,7 @@ import { call } from '../api.js';
 import { logo, keepLogos, manualValue, setManualUrl, refetch, fromFile, forgetLogo } from '../logo.js';
 import { toast, busy, copyText } from '../ui/notice.js';
 import { showSheet, closeSheet, isSheetOpen } from '../ui/sheet.js';
+import { bindReorder } from '../ui/reorder.js';
 import { dtField, dtValue, snapFields, restoreFields } from './fields.js';
 import { rem, since, fdate, ftime, evActive, evOngoing, evWhen, evDays, spanText, byStart, gcalUrl } from '../format.js';
 
@@ -187,7 +188,8 @@ function eventsTab(c, now) {
 
 function routeTab(c) {
   const rt = Domain.routeOf(c), cur = Domain.position(c);
-  const row = (s, i) => html`<div class="rrow"><span class="rnum">${i + 1}</span><button class="rname${cur === s ? ' on' : ''}" data-act="route-cur" data-v="${i}">${s}${cur === s && html` <span class="rcur">現在</span>`}</button><button class="gh rbtn" data-act="route-up" data-v="${i}" aria-label="上へ">↑</button><button class="gh rbtn" data-act="route-down" data-v="${i}" aria-label="下へ">↓</button><button class="gh rbtn rm" data-act="route-rm" data-v="${i}" aria-label="削除">×</button></div>`;
+  /* ⊖ で削除、段階名を押すと現在地、≡ をつかんで並べ替え（左右のスワイプでも削除）。ボタンは行ごとに2つだけにする */
+  const row = (s, i) => html`<div class="rrow${cur === s ? ' cur' : ''}" data-i="${i}"><button class="rminus" data-act="route-rm" data-v="${i}" aria-label="${s}を削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.2"/><path d="M7.5 12h9" stroke-linecap="round"/></svg></button><button class="rname" data-act="route-cur" data-v="${i}">${s}${cur === s && html`<span class="rcur">現在</span>`}</button><span class="rgrip" aria-label="${s}を並べ替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span></div>`;
   /* 段階 i と i+1 の境目。つなぐと、2つの結果が1回で出る扱いになる */
   const joint = (i) => {
     const on = Domain.isLinked(c, rt[i]), verb = on ? '切る' : 'つなぐ';
@@ -204,7 +206,7 @@ function routeTab(c) {
       : html`<div class="rgate">${body}</div>`;
     return html`${box}${gi < all.length - 1 && joint(start - 1)}`;
   });
-  return html`<div style="margin-top:18px">${railHtml(c)}<div class="rlist">${gates}</div><div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div><div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">段階名を押すと現在地になります。↑↓で並べ替え、×で削除。今の段階を消すと、次の段階が現在地になります。<br>段階の間の「つなぐ」を押すと、枠に入った段階は結果が1回で出る扱いになります。出したら「提出して次へ」で、結果待ちを通らずに次の段階へ進めます。「切る」で元に戻ります。<br>自分で足した名前は、次から上の一覧にも出ます。</div></div>`;
+  return html`<div style="margin-top:18px">${railHtml(c)}<div class="rlist">${gates}</div><div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div><div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">段階名を押すと現在地になります。最後の段階（インターンは「インターン」も）を現在地にすると、参加決定（本選考は内定）になります。<br>≡をつかんで上下に動かすと並べ替え、⊖か左右のスワイプで削除します。今の段階を消すと、次の段階が現在地になります。<br>段階の間の「つなぐ」を押すと、枠に入った段階は結果が1回で出る扱いになります。出したら「提出して次へ」で、結果待ちを通らずに次の段階へ進めます。「切る」で元に戻ります。<br>自分で足した名前は、次から上の一覧にも出ます。</div></div>`;
 }
 
 function tabContent(c) {
@@ -236,6 +238,7 @@ function paintInto(card, c) {
   const y = pane ? pane.scrollTop : 0;
   const snap = same ? snapFields(card) : null;
   keepLogos(card, () => setHtml(card, fullHtml(c)));
+  bindReorder(card.querySelector('.rlist'), { onMove: moveStage, onRemove: removeStageAt });
   card.dataset.id = c.id;
   if (same) {
     const head = card.querySelector('.card-head');
@@ -381,6 +384,7 @@ export const detailActions = {
     const c = current();
     if (pane && c) {
       setHtml(pane, tabContent(c));
+      bindReorder(pane.querySelector('.rlist'), { onMove: moveStage, onRemove: removeStageAt });
       pane.scrollTop = 0;
       pane.style.animation = 'none'; void pane.offsetWidth; pane.style.animation = '';
     }
@@ -506,21 +510,18 @@ export const detailActions = {
   },
 
   'route-cur': (el) => {
+    /* 行を左右にスワイプしたあとに来る click では、現在地を変えない */
+    const r = el.closest && el.closest('.rrow');
+    if (r && r.dataset.swiped) return;
     const c = current();
     const rt = Domain.routeOf(c), s = rt[+el.dataset.v];
     if (Domain.position(c) === s) return;
-    saveRoute(rt, s, s + ' を現在地にしました。');
+    const goal = Domain.goalOf(c.term) === 'joined' ? '参加決定' : '内定';
+    const toGoal = Domain.isGoalStage(c.term, rt, s) && (c.status === 'todo' || c.status === 'waiting');
+    const back = !Domain.isGoalStage(c.term, rt, s) && (c.status === 'offer' || c.status === 'joined');
+    saveRoute(rt, s, s + ' を現在地にしました。' + (toGoal ? goal + 'にしました。' : back ? '対応中に戻しました。' : ''));
   },
-  'route-up': (el) => move(+el.dataset.v, -1),
-  'route-down': (el) => move(+el.dataset.v, 1),
-  /* 今の段階も消せる。そのときは、どこが現在地になるかを先に見せて確かめる */
-  'route-rm': (el) => {
-    const c = current();
-    const name = Domain.routeOf(c)[+el.dataset.v];
-    const to = Domain.removalTarget(c, name);
-    if (to && !window.confirm(name + 'を消して、現在地を' + to + 'にします。')) return;
-    act('removeStage', { stage: name }, to ? name + ' を消して、' + to + ' を現在地にしました。' : name + ' を外しました。');
-  },
+  'route-rm': (el) => removeStageAt(+el.dataset.v),
   'route-link': (el) => {
     const c = current();
     const rt = Domain.routeOf(c), name = rt[+el.dataset.v], next = rt[+el.dataset.v + 1];
@@ -565,12 +566,23 @@ export const detailActions = {
   }
 };
 
-function move(i, d) {
+/* 段階を i 番目から to 番目へ動かす。≡をつかんで並べ替えたとき */
+export function moveStage(from, to) {
   const rt = Domain.routeOf(current());
-  const j = i + d;
-  if (j < 0 || j >= rt.length) return;
-  [rt[i], rt[j]] = [rt[j], rt[i]];
-  saveRoute(rt, '');
+  if (from < 0 || from >= rt.length || to < 0 || to >= rt.length || from === to) return;
+  const [s] = rt.splice(from, 1);
+  rt.splice(to, 0, s);
+  saveRoute(rt, '', s + ' を動かしました。');
+}
+
+/* 今の段階も消せる。そのときは、どこが現在地になるかを先に見せて確かめる。⊖ と左右のスワイプから */
+function removeStageAt(i) {
+  const c = current();
+  const name = Domain.routeOf(c)[i];
+  if (!name) return;
+  const to = Domain.removalTarget(c, name);
+  if (to && !window.confirm(name + 'を消して、現在地を' + to + 'にします。')) return;
+  act('removeStage', { stage: name }, to ? name + ' を消して、' + to + ' を現在地にしました。' : name + ' を外しました。');
 }
 
 /* change で動くもの（チェックボックスとファイル選択） */

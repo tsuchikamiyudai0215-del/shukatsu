@@ -304,8 +304,9 @@ test('ルートの編集は 400ms まとめて送り、保存待ちの分は届�
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);
   R.click('#sheet [data-act="tab"][data-v="route"]');
-  R.click('#sheet [data-act="route-down"][data-v="0"]');
-  R.click('#sheet [data-act="route-down"][data-v="1"]');
+  const det = await import(pathToFileURL(path.join(__dirname, '../js/views/detail.js')).href);
+  det.moveStage(0, 1);                                 // ≡ をつかんで並べ替えたのと同じ
+  det.moveStage(1, 2);
   const want = ['ES', '適性検査', 'エントリー', 'GD', '面接', '最終面接', '内定'];
   const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
   await store.refresh();                               // 送る前に最新が届いた
@@ -322,7 +323,7 @@ test('画面を離れるときに、保存待ちの編集を送り切る', async
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);
   R.click('#sheet [data-act="tab"][data-v="route"]');
-  R.click('#sheet [data-act="route-down"][data-v="0"]');
+  (await import(pathToFileURL(path.join(__dirname, '../js/views/detail.js')).href)).moveStage(0, 1);
   R.w.dispatchEvent(new R.w.Event('pagehide'));
   assert.equal(R.mutates().length, 1);
   assert.equal(R.mutates()[0].keepalive, true);
@@ -833,6 +834,90 @@ test('ルートタブ：現在地・並べ替え・削除・候補から追加�
   R.click('#sheet [data-act="route-cur"][data-v="2"]');
   assert.match(R.$('#sheet .card-head').textContent, /適性検査/);
   await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).stage === '適性検査', 1500);
+  R.stop();
+});
+
+test('ルートの行：⊖で削除・段階名で現在地・≡をつかんで並べ替え・左右のスワイプで削除', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.a}"]`);                      // ES にいるインターンの会社（前の初期のルート）
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  const rows = () => R.$$('#sheet .rrow[data-i]');
+  assert.equal(rows().length, Domain.LEGACY_ROUTE.length);
+  rows().forEach((r) => {
+    assert.ok(r.querySelector('.rminus') && r.querySelector('.rname') && r.querySelector('.rgrip'));
+  });
+  assert.equal(R.$$('#sheet [data-act="route-up"], #sheet [data-act="route-down"]').length, 0);
+  assert.ok(rows()[1].classList.contains('cur'));              // 現在地の行は色を変える
+  const route = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.a).route;
+
+  /* 行の位置を決めておく（jsdom は並べて描かないので） */
+  const place = () => rows().forEach((r, i) => { r.getBoundingClientRect = () => ({ top: 100 + i * 96, height: 52, left: 0, width: 300 }); });
+  const fire = (el, type, x, y) => {
+    const e = new R.w.Event(type, { bubbles: true, cancelable: true });
+    Object.assign(e, { pointerId: 1, clientX: x, clientY: y });
+    el.dispatchEvent(e);
+  };
+  /* ≡ をつかんで、エントリー（1番目）を2つ下へ */
+  place();
+  const grip = rows()[0].querySelector('.rgrip');
+  fire(grip, 'pointerdown', 280, 120);
+  assert.ok(R.d.body.classList.contains('route-dragging'));    // 動かしている間は描き直さない
+  fire(grip, 'pointermove', 280, 320);
+  assert.match(rows()[0].style.transform, /200px/);
+  fire(grip, 'pointerup', 280, 320);
+  assert.equal(R.d.body.classList.contains('route-dragging'), false);
+  await until(() => route()[2] === 'エントリー', 1500);
+  assert.deepEqual(route().slice(0, 3), ['ES', '適性検査', 'エントリー']);
+
+  /* GD の行を右へ払うと削除（今の段階ではないので確かめない） */
+  place();
+  const gd = rows().find((r) => r.querySelector('.rname').textContent === 'GD');
+  fire(gd.querySelector('.rname'), 'pointerdown', 60, 400);
+  fire(gd.querySelector('.rname'), 'pointermove', 220, 402);
+  assert.ok(gd.classList.contains('swipe'));
+  fire(gd.querySelector('.rname'), 'pointerup', 220, 402);
+  await until(() => !route().includes('GD'), 1500);
+
+  /* 縦に動かしただけでは消さない（スクロール） */
+  place();
+  const mt = rows().find((r) => r.querySelector('.rname').textContent === '面接');
+  fire(mt.querySelector('.rname'), 'pointerdown', 60, 400);
+  fire(mt.querySelector('.rname'), 'pointermove', 64, 520);
+  fire(mt.querySelector('.rname'), 'pointerup', 64, 520);
+  assert.equal(mt.classList.contains('swipe'), false);
+  await sleep(500);
+  assert.ok(route().includes('面接'));
+
+  /* ≡ を下へ動かしても、詳細は閉じない（下へ引いて閉じる動きに使わない） */
+  const g2 = rows()[0].querySelector('.rgrip');
+  const touch = (type, y) => {
+    const e = new R.w.Event(type, { bubbles: true, cancelable: true });
+    e.touches = y == null ? [] : [{ clientX: 280, clientY: y }];
+    g2.dispatchEvent(e);
+  };
+  touch('touchstart', 100); touch('touchmove', 110); touch('touchmove', 400); touch('touchend');
+  await sleep(400);
+  assert.ok(R.$('#sheet .card'));
+
+  /* ⊖ でも削除できる */
+  R.click(rows().find((r) => r.querySelector('.rname').textContent === '最終面接').querySelector('.rminus'));
+  await until(() => !route().includes('最終面接'), 1500);
+  R.stop();
+});
+
+test('ルートで最後の段階を現在地にすると参加決定になり、前に戻すと対応中に戻る', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.a}"]`);
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  const co = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.a);
+  const last = R.$$('#sheet .rrow[data-i]').length - 1;
+  R.click(`#sheet [data-act="route-cur"][data-v="${last}"]`);   // 内定（最後）
+  assert.match(R.toast(), /参加決定にしました/);
+  await until(() => co().status === 'joined', 1500);
+  assert.equal(co().dueAt, '');
+  R.click('#sheet [data-act="route-cur"][data-v="1"]');          // ES に戻す
+  assert.match(R.toast(), /対応中に戻しました/);
+  await until(() => co().status === 'todo', 1500);
   R.stop();
 });
 

@@ -66,8 +66,9 @@ export function restoreFields(root, m) {
   }
 }
 
-/* 入力中か。裏の再取得で描き直すのを、ここで待たせる */
+/* 入力中か。裏の再取得で描き直すのを、ここで待たせる。選考ルートの行をつかんで動かしている間も同じ扱い */
 export function isEditing() {
+  if (document.body && document.body.classList.contains('route-dragging')) return true;
   const a = document.activeElement;
   return !!(a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
 }

@@ -668,15 +668,26 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
 .rgate{border:1px solid transparent;border-radius:var(--r-field);padding:0 10px}
 .rgate.linked{border-color:rgba(10,132,255,.5);background:rgba(10,132,255,.07)}
 .rlab{font-family:var(--mono);font-size:10px;color:var(--blue);letter-spacing:.04em;margin:6px 0 5px 4px}
-.rrow{display:flex;align-items:center;gap:6px;min-height:48px}
-.rnum{font-family:var(--mono);font-size:10px;color:var(--dim);width:16px;flex:0 0 auto}
-.rname{flex:1;min-width:0;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;
-  color:var(--muted);padding:12px 0;font-family:inherit}
-.rname.on{color:var(--text);font-weight:600}
-.rcur{font-family:var(--mono);font-size:9px;color:var(--blue);font-weight:400}
-.gh.rbtn{width:40px;height:36px;padding:0;flex:0 0 auto;font-size:14px;
-  display:inline-flex;align-items:center;justify-content:center}
-.gh.rbtn.rm{color:var(--hot)}
+/* 1行は「⊖（削除）｜段階名（押すと現在地）｜≡（つかんで並べ替え）」。左右にスワイプしても削除できる。
+   行は縦のスクロールだけブラウザに任せ（pan-y）、横の動きはスワイプに使う。≡は指の動きを全部こちらで受ける */
+.rrow{display:flex;align-items:center;gap:2px;min-height:52px;position:relative;touch-action:pan-y;
+  border-radius:12px;transition:transform .22s var(--ease),background .2s var(--ease)}
+.rrow.cur{background:rgba(10,132,255,.12)}
+.rminus{width:40px;height:44px;border:none;background:none;padding:0;flex:0 0 auto;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--hot)}
+.rminus svg{width:22px;height:22px}
+.rname{flex:1;min-width:0;text-align:left;background:none;border:none;font-size:15px;cursor:pointer;
+  color:var(--muted);padding:14px 4px;font-family:inherit}
+.rrow.cur .rname{color:var(--text);font-weight:600}
+.rcur{font-family:var(--mono);font-size:9px;color:var(--blue);font-weight:600;margin-left:6px;
+  padding:2px 6px;border-radius:999px;background:rgba(10,132,255,.18);vertical-align:2px}
+.rgrip{width:44px;height:44px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  color:var(--dim);touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
+.rgrip svg{width:20px;height:20px}
+/* つかんでいる行は浮かせて、指にそのまま付いてこさせる。ほかの行は動いてすき間を空ける */
+.rrow.lift{z-index:5;transition:none;background:rgb(44,54,75);box-shadow:0 10px 28px -6px rgba(0,0,0,.65);cursor:grabbing}
+.rrow.swipe{transition:none;background:rgba(255,69,58,.2)}
+.rrow.swipe.far{background:rgba(255,69,58,.42)}
 .rjoint{display:flex;align-items:center;gap:10px;height:44px}
 .rjoint::before,.rjoint::after{content:'';flex:1;border-top:1px solid var(--line-soft)}
 .rgate.linked .rjoint::before,.rgate.linked .rjoint::after{border-top:1px dotted rgba(255,255,255,.2)}

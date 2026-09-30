@@ -169,6 +169,15 @@ var Domain = (function () {
   }
 
   /* 次に通過すると最後（内定・参加決定）になるか。ボタンの文言を変えるのに使う */
+  /* 行き着いた段階か。ルートの最後の段階のほか、インターンの区分では「インターン」も行き着いた段階とみなす
+     （前の初期のルートの会社は、最後が「内定」で、「インターン」が途中にあるため） */
+  function isGoalStage(term, route, stage) {
+    stage = str(stage);
+    if (!stage || !route || !route.length) return false;
+    if (stage === route[route.length - 1]) return true;
+    return goalOf(term) === 'joined' && stage === 'インターン';
+  }
+
   function isFinalStep(c) {
     var r = routeOf(c), i = r.indexOf(str(c.stage));
     return i >= 0 && i >= r.length - 2;
@@ -335,13 +344,25 @@ var Domain = (function () {
 
     /* ルートの並べ替え・追加と、現在地の付け替え。段階を消すときは removeStage を使う。
        印（links）を渡さなければ、今の印を新しいルートに合わせて残す */
-    setRoute: function (c, op) {
+    setRoute: function (c, op, now) {
       var next = normalizeRoute(op.route);
       var stage = str(op.stage).trim();
       if (stage) {
         if (next.indexOf(stage) < 0) fail('ルートに無い段階は現在地にできません。');
         c.stage = stage;
         if (c.lostStage) c.lostStage = stage;
+        /* 現在地を「行き着いた段階」にしたら、通過で最後まで進んだときと同じく参加決定（本選考は内定）にする。
+           そこから前の段階へ戻したら、対応中に戻す。落選・見送りは、現在地を動かしても状態は変えない */
+        var goal = isGoalStage(c.term, next, stage);
+        if (goal && (c.status === 'todo' || c.status === 'waiting')) {
+          c.status = goalOf(c.term);
+          c.resultAt = today(now);
+          c.submittedAt = '';
+          clearDue(c);
+        } else if (!goal && (c.status === 'offer' || c.status === 'joined')) {
+          c.status = 'todo';
+          c.resultAt = '';
+        }
       } else {
         /* 今の段階がもともとルートに無い行（移行前のデータなど）は、止めずに通す */
         var cur = position(c);
@@ -919,6 +940,7 @@ var Domain = (function () {
     termOf: termOf,
     goalOf: goalOf,
     isFinalStep: isFinalStep,
+    isGoalStage: isGoalStage,
     isOverdue: isOverdue,
     viewStatus: viewStatus,
     isAutoSent: isAutoSent,

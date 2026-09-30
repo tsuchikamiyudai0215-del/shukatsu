@@ -10,7 +10,9 @@ const path = require('node:path');
 const ORIGIN = 'https://example.github.io';
 const BASE = ORIGIN + '/shukatsu/v2/';
 const SRC = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
-const CODE = 'shukatsu2-code-v1', ASSET = 'shukatsu2-asset-v1', LOGO = 'shukatsu2-logo-v1';
+/* 版は sw.js から読む。保存するファイルを変えるたびに上げるので、ここに書くと合わなくなる */
+const VERSION = SRC.match(/const VERSION = '([^']+)'/)[1];
+const CODE = 'shukatsu2-code-' + VERSION, ASSET = 'shukatsu2-asset-' + VERSION, LOGO = 'shukatsu2-logo-' + VERSION;
 
 function env(net) {
   const stores = {};
