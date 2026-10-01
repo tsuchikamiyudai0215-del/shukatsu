@@ -29,8 +29,17 @@ export function validEndpoint(ep) {
     /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/[\w\/-]*$/.test(ep);
 }
 
-/* 応答をこれ以上待たない。GAS は初めの1回が遅いことがあるので長めにとる */
-const TIMEOUT_MS = 25000;
+/* 応答をこれ以上待たない。GAS は初めの1回が遅いうえ、読むときもロックを最長20秒待つので、混んでいると25秒では足りない */
+const TIMEOUT_MS = 40000;
+
+/* 出している最中の通信。スマホではアプリが裏に回ると時計ごと止まり、打ち切りの時計も進まない。
+   戻ってきたときに、もう打ち切っているはずの時間がたったものを打ち切る（abortStale） */
+const active = new Set();
+
+export function abortStale() {
+  const now = Date.now();
+  for (const a of active) if (now - a.t0 > TIMEOUT_MS) a.ctl.abort();
+}
 /* やり直すまでの間。スマホはアプリを切り替えた直後など、一瞬つながらないことが多い */
 const RETRY_WAIT_MS = [1000, 3000];
 /* GAS 側の一時的な失敗（混み合い・ロック待ちの時間切れなど）。少し置けば通ることが多い */
@@ -67,6 +76,8 @@ async function once(action, args, opts) {
   if (!ep || !key) throw new Error('接続設定がありません。');
   const ctl = !opts.keepalive && typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : 0;
+  const mine = ctl ? { ctl, t0: Date.now() } : null;
+  if (mine) active.add(mine);
   let res, text;
   try {
     res = await window.fetch(ep, {
@@ -84,6 +95,7 @@ async function once(action, args, opts) {
     throw transient('通信できませんでした。');
   } finally {
     clearTimeout(timer);
+    if (mine) active.delete(mine);
   }
   let j;
   try {

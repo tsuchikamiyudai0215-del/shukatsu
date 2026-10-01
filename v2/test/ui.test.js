@@ -106,7 +106,7 @@ async function boot(opts = {}) {
 
   const calls = [];
   /* drop：届く前に切れる（true を返した回だけ）。lose：GAS では処理されたのに、応答が届く前に切れる */
-  const net = { fail: opts.fail || null, delay: opts.delay || null, down: false, drop: null, lose: null };
+  const net = { fail: opts.fail || null, delay: opts.delay || null, down: false, drop: null, lose: null, hang: opts.hang || null };
   /* EP は開発用、EP2 は本番に見立てた別のウェブアプリ（中身は別の模擬環境） */
   const T2 = opts.other || null;
   w.fetch = async (url, o) => {
@@ -114,6 +114,10 @@ async function boot(opts = {}) {
     const body = JSON.parse(o.body);
     calls.push(Object.assign({ keepalive: !!o.keepalive, url: String(url) }, body));
     if (net.delay) await sleep(net.delay(body) || 0);
+    /* hang：返事が来ないまま止まる（スマホが裏に回って止まった通信のつもり）。打ち切られたときだけ失敗する */
+    if (net.hang && net.hang(body)) {
+      return new Promise((_, rej) => { if (o.signal) o.signal.addEventListener('abort', () => rej(new TypeError('aborted'))); });
+    }
     if (net.down) throw new TypeError('offline');
     if (net.drop && net.drop(body)) throw new TypeError('offline');
     const msg = net.fail && net.fail(body);
@@ -124,6 +128,7 @@ async function boot(opts = {}) {
   };
 
   if (!main) main = await import(pathToFileURL(path.join(__dirname, '../js/main.js')).href);
+  main.setSlowWait(opts.slow || 6000);
   /* iPhone のキーボードやアドレスバーで変わる、見えている範囲の大きさ（jsdom には無いので、試すときだけ渡す） */
   if (opts.vv) w.visualViewport = opts.vv(w);
   /* 「取り消す」の待ち時間。ふだんのテストではすぐ送る */
@@ -236,6 +241,45 @@ test('通信：アプリに戻ったときの裏の取り直しは、失敗し�
     await sleep(4500);                                          // やり直しの2回が済むまで待つ
   } finally { Date.now = real; }
   assert.equal(seen.some((t) => /取得できませんでした/.test(t)), false);
+  assert.ok(R.rows().length > 0);
+  R.stop();
+});
+
+test('通信：裏に回って止まったままの取得は、アプリに戻ったときに打ち切ってやり直す。重ねて取りに行かない', async () => {
+  const R = await boot();
+  const gets = () => R.calls.filter((c) => c.action === 'getData').length;
+  let hang = true;
+  R.net.hang = (b) => b.action === 'getData' && hang;
+  const real = Date.now;
+  let skew = 120000;
+  Date.now = () => real() + skew;                               // 前に取ってから2分たって戻ってきた
+  try {
+    R.d.dispatchEvent(new R.w.Event('visibilitychange'));
+    await until(() => gets() === 2, 3000);                       // 取りに行ったが、返事が来ないまま止まった
+    R.d.dispatchEvent(new R.w.Event('visibilitychange'));
+    await sleep(1200);
+    assert.equal(gets(), 2);                                     // 取りに行っている最中は、もう1本出さない
+    hang = false;
+    skew += 60000;                                               // 裏にいる間に1分たった（打ち切りの時計は止まっていた）
+    R.d.dispatchEvent(new R.w.Event('visibilitychange'));
+    await until(() => gets() === 3, 4000);                       // 止まっていた分を打ち切って、やり直した
+  } finally { Date.now = real; }
+  assert.ok(R.rows().length > 0);
+  R.stop();
+});
+
+test('控えが無くて返事が遅いときは、読み込みの画面に「再読み込み」を出す', async () => {
+  let hang = true;
+  const R = await boot({ hang: (b) => b.action === 'getData' && hang, slow: 150, wait: false });
+  await until(() => R.$('#splashMore [data-act="reload"]'), 2000);
+  assert.match(R.$('#splashMore').textContent, /サーバーの返事を待っています/);
+  /* 止まった通信を片付けてから終える（40秒の打ち切りの時計が残らないように） */
+  hang = false;
+  const api = await import(pathToFileURL(path.join(__dirname, '../js/api.js')).href);
+  const real = Date.now;
+  Date.now = () => real() + 60000;
+  try { api.abortStale(); } finally { Date.now = real; }
+  await R.app.ready;
   assert.ok(R.rows().length > 0);
   R.stop();
 });

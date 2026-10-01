@@ -8,7 +8,7 @@
 import { html, setHtml } from './html.js';
 import { ui, resetUi, saveUi, TERMS, isWide } from './state.js';
 import * as store from './store.js';
-import { hasConfig, clearConfig, note } from './api.js';
+import { hasConfig, clearConfig, note, abortStale } from './api.js';
 import { resetLogos, hydrate, logoLoaded, logoFailed, onLogoChange, importLegacyManual } from './logo.js';
 import { toast, staleShow, staleHide, busy, clearNoticeTimers } from './ui/notice.js';
 import { initSheet, closeSheet, closeThen, dropSheet, isSheetOpen } from './ui/sheet.js';
@@ -132,7 +132,16 @@ function setPage(p) {
 /* アプリに戻ってから最新を取りに行くまでの間 */
 const RESUME_WAIT_MS = 800;
 
-async function refresh(quiet) {
+/* 取りに行っている最中なら、もう1本は出さずに同じ結果を待つ（戻るたびに重ねて出すと、混んでいる GAS をさらに詰まらせる） */
+let refreshing = null;
+
+function refresh(quiet) {
+  if (!refreshing) refreshing = refreshOnce(quiet).finally(() => { refreshing = null; });
+  else if (!quiet) staleShow();
+  return refreshing;
+}
+
+async function refreshOnce(quiet) {
   if (!quiet) staleShow();
   try {
     await store.refresh();
@@ -169,6 +178,11 @@ async function boot() {
     await refresh(false);
     return;
   }
+  /* 控えが無いと、返事が来るまで読み込みの画面のまま。遅いときは、待っていることと「再読み込み」を出す */
+  const slow = setTimeout(() => {
+    const more = document.getElementById('splashMore');
+    if (more && !booted) setHtml(more, html`<div>サーバーの返事を待っています。</div><button class="gh" data-act="reload">再読み込み</button>`);
+  }, SLOW_MS);
   try {
     await store.refresh();
     lastFetch = Date.now();
@@ -177,8 +191,15 @@ async function boot() {
   } catch (e) {
     if (e.unauthorized) { hideSplash(); renderSetup(e.message); return; }
     showLoadError(e);
+  } finally {
+    clearTimeout(slow);
   }
 }
+
+/* 読み込みの画面に「再読み込み」を出すまでの間 */
+let SLOW_MS = 6000;
+/* テストで縮めるため */
+export function setSlowWait(ms) { SLOW_MS = ms; }
 
 async function connect() {
   const { err, changed } = readSetup();
@@ -394,6 +415,7 @@ export function start() {
   cleanups = [];
   booted = false;
   detailDirty = false;
+  refreshing = null;
   resetUi();
   store.resetStore();
   resetLogos();
@@ -426,6 +448,8 @@ export function start() {
   /* 画面を離れるときは、待たせている保存を送り切る */
   listen(document, 'visibilitychange', () => {
     if (document.hidden) { store.flush(true); return; }
+    /* 裏にいる間に止まっていた通信は、時計も止まっていて打ち切られていない。ここで打ち切ってやり直させる */
+    abortStale();
     if (!isEditing() && hasConfig() && document.getElementById('view')) {
       renderAll();
       /* 戻った直後は、スマホの通信がまだつながっていないことが多い。少し置いてから取りに行く */
