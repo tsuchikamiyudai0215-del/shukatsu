@@ -4,6 +4,8 @@
 import { start, settlePills } from './main.js';
 
 start();
+/* ページに直接書いた「始まらなかったとき」の見張りに、始まったことを知らせる */
+window.__started = true;
 window.addEventListener('load', settlePills);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(settlePills);
 

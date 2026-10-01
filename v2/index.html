@@ -49,5 +49,24 @@
 <div id="toast"></div>
 <div id="busy">SAVING…</div>
 
+<script>
+/* 画面の部品（js）が読み込めずにアプリが始まらないと、読み込みの画面のまま止まる。
+   部品が無くても動くよう、ここだけはページに直接書く。10秒たっても始まっていなければ「再読み込み」を出す */
+setTimeout(function () {
+  if (window.__started) return;
+  var more = document.getElementById('splashMore');
+  if (!more) return;
+  var t = document.createElement('div');
+  t.textContent = '画面を読み込めませんでした。';
+  var b = document.createElement('button');
+  b.className = 'gh';
+  b.textContent = '再読み込み';
+  b.addEventListener('click', function () { location.reload(); });
+  more.textContent = '';
+  more.appendChild(t);
+  more.appendChild(b);
+}, 10000);
+</script>
+
 </body>
 </html>

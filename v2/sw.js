@@ -5,6 +5,9 @@
  *     → 更新がすぐ届き、圏外でも開ける。
  *       ファイルが分かれているので、古い保存版を先に返すと、新しい HTML と古い JS が混ざることがある。
  *       そのため部品より先に、必ずネットを見に行く。
+ *       ただし待つのは NET_WAIT_MS まで。GitHub Pages は入れ替えの最中などに返事が止まることがあり、
+ *       上限が無いと、失敗にもならずに真っ黒な画面のままになる。エラーの応答（404 など）のときも保存版を使う。
+ *       保存版で開いた画面は、部品も保存版でそろえる（新しい部品と混ざって動かなくなるのを防ぐ）
  *   アイコンなどの部品 : 保存版を先に返し、裏で取り直して次回に備える
  *   会社ロゴの画像     : 保存版を先に返し、裏で取り直す。溜めすぎたら古いものから捨てる
  *   Apps Script・Wikidata への通信 : 一切触らない（古いデータを返さない）
@@ -14,7 +17,11 @@
  *
  * 保存するファイルや方針を変えたら VERSION を上げること。古い保存分が捨てられる。
  */
-const VERSION = 'v2';
+const VERSION = 'v3';
+/* 画面のコードをネットから待つ上限 */
+const NET_WAIT_MS = 4000;
+/* 保存版で開いた画面（クライアント）。この画面の部品も保存版で返す。SW が眠ると忘れるが、そのときはネットを見に行くだけ */
+const fromCache = new Set();
 const PREFIX = 'shukatsu2-';
 const CODE = PREFIX + 'code-' + VERSION;
 const ASSET = PREFIX + 'asset-' + VERSION;
@@ -167,22 +174,48 @@ self.addEventListener('fetch', function (e) {
   if (isCode(url, req)) {
     /* ?以降が違うだけで別々に溜まらないよう、パスで保存する */
     const key = url.origin + url.pathname;
-    e.respondWith(
-      /* no-cache：ブラウザの HTTP キャッシュ（GitHub Pages は10分）を飛ばして、変わっていないかをサーバーに確かめる */
-      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
-        /* /v2 → /v2/ のような転送を中身ごと返すと、Safari が表示を拒む。転送は転送として返す */
-        if (res.redirected && req.mode === 'navigate') return Response.redirect(res.url, 302);
-        if (res.ok) e.waitUntil(putSafe(CODE, key, res.clone()));
-        return res;
-      }).catch(function () {
-        return caches.open(CODE).then(function (c) {
-          return c.match(key).then(function (hit) {
-            if (hit || req.mode !== 'navigate') return hit;
-            return c.match('./index.html').then(function (h) { return h || c.match('./'); });
-          });
-        }).then(function (hit) { return hit || Response.error(); });
-      })
-    );
+    const nav = req.mode === 'navigate';
+    const saved = function () {
+      return caches.open(CODE).then(function (c) {
+        return c.match(key).then(function (hit) {
+          if (hit || !nav) return hit;
+          return c.match('./index.html').then(function (h) { return h || c.match('./'); });
+        });
+      }).catch(function () { return null; });
+    };
+    /* 保存版で開いた画面の部品は、混ざらないよう保存版を先に返す */
+    if (!nav && fromCache.has(e.clientId)) {
+      e.respondWith(saved().then(function (hit) { return hit || fetch(req); }));
+      return;
+    }
+    /* 保存版で返したことを覚える（画面を開くときは、これから開く画面の id で） */
+    const usedCache = function (hit) {
+      if (hit && nav && e.resultingClientId) fromCache.add(e.resultingClientId);
+      return hit;
+    };
+    /* no-cache：ブラウザの HTTP キャッシュ（GitHub Pages は10分）を飛ばして、変わっていないかをサーバーに確かめる */
+    const net = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
+      if (res.ok) e.waitUntil(putSafe(CODE, key, res.clone()));
+      return res;
+    });
+    /* 待ち切れずに保存版を返したあとも、届いた分は保存して次に備える */
+    e.waitUntil(net.catch(function () {}));
+    let answered = false;
+    const viaNet = net.then(function (res) {
+      /* /v2 → /v2/ のような転送を中身ごと返すと、Safari が表示を拒む。転送は転送として返す */
+      if (res.redirected && nav) return Response.redirect(res.url, 302);
+      if (res.ok) return res;
+      /* 入れ替えの最中の 404 などは、保存版があればそちらを出す */
+      return saved().then(usedCache).then(function (hit) { return hit || res; });
+    }, function () {
+      return saved().then(usedCache).then(function (hit) { return hit || Response.error(); });
+    }).then(function (r) { answered = true; return r; });
+    /* 先にネットが答えていたら、何もしない（保存版で開いたと覚え違えないように） */
+    const late = new Promise(function (r) { setTimeout(r, NET_WAIT_MS); }).then(function () {
+      if (answered) return viaNet;
+      return saved().then(function (hit) { return hit ? usedCache(hit) : viaNet; });
+    });
+    e.respondWith(Promise.race([viaNet, late]));
     return;
   }
 

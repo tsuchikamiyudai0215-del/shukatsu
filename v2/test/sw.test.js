@@ -53,6 +53,8 @@ function env(net) {
   };
   E.ctx = {
     self, caches, Request: Req, URL, Set, Promise, console,
+    /* ネットを待つ上限は、テストでは短くする */
+    setTimeout: (f, ms) => setTimeout(f, Math.min(ms, 30)),
     fetch: (u, o) => E.net(typeof u === 'string' ? u : u.url, o || {}),
     Response: { error: () => ({ type: 'error' }), redirect: (u, s) => ({ type: 'redirect', u, s }) }
   };
@@ -105,6 +107,37 @@ test('コード：ネットを先に見る（no-cache）。500 で保存版を�
   assert.equal(r.tag, 'new');
   ({ r } = await E.fire('fetch', { request: E.req(BASE + 'js/none.js') }));
   assert.equal(r.type, 'error');
+});
+
+test('コード：ネットの返事が止まったら、待ち切れずに保存版で開く。その画面の部品も保存版でそろえる', async () => {
+  const E = env(async () => R({ tag: 'old' }));
+  await E.fire('install', {});
+  /* 返事が待ち時間より遅い（GitHub Pages の入れ替え中など）。テストでは待ち時間を30msに縮めてある */
+  E.net = () => new Promise((res) => setTimeout(() => res(R({ tag: 'late' })), 300));
+  let { r } = await E.fire('fetch', { request: E.req(BASE, { mode: 'navigate' }), resultingClientId: 'c1' });
+  assert.equal(r.tag, 'old');
+  /* ネットが戻っても、保存版で開いた画面の部品は保存版（新しい部品と混ぜない） */
+  E.net = async () => R({ tag: 'new' });
+  ({ r } = await E.fire('fetch', { request: E.req(BASE + 'js/main.js'), clientId: 'c1' }));
+  assert.equal(r.tag, 'old');
+  /* 別の画面はネットを先に見る */
+  ({ r } = await E.fire('fetch', { request: E.req(BASE + 'js/main.js'), clientId: 'c2' }));
+  assert.equal(r.tag, 'new');
+});
+
+test('コード：入れ替えの最中の 404 などは、保存版を出す。ネットが先に答えたら保存版で開いたとは覚えない', async () => {
+  const E = env(async () => R({ tag: 'old' }));
+  await E.fire('install', {});
+  E.net = async () => R({ status: 404, tag: '404' });
+  let { r } = await E.fire('fetch', { request: E.req(BASE + 'js/store.js') });
+  assert.equal(r.tag, 'old');
+  E.net = async () => R({ tag: 'new' });
+  ({ r } = await E.fire('fetch', { request: E.req(BASE, { mode: 'navigate' }), resultingClientId: 'c3' }));
+  assert.equal(r.tag, 'new');
+  await new Promise((res) => setTimeout(res, 60));               // 待ち時間の合図が遅れて動いても
+  E.net = async () => R({ tag: 'newer' });
+  ({ r } = await E.fire('fetch', { request: E.req(BASE + 'js/main.js'), clientId: 'c3' }));
+  assert.equal(r.tag, 'newer');
 });
 
 test('画面：圏外で開いたページは index.html で代用する。転送は転送として返す', async () => {
