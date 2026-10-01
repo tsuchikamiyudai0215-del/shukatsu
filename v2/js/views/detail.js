@@ -10,7 +10,7 @@ import { ui, isWide, setSetOpen, setOpenInChrome, stagePalette, rememberStage } 
 import * as store from '../store.js';
 import { call } from '../api.js';
 import { logo, keepLogos, manualValue, setManualUrl, refetch, fromFile, forgetLogo } from '../logo.js';
-import { toast, busy, copyText } from '../ui/notice.js';
+import { toast, toastUndo, busy, copyText } from '../ui/notice.js';
 import { showSheet, closeSheet, isSheetOpen } from '../ui/sheet.js';
 import { bindReorder } from '../ui/reorder.js';
 import { dtField, dtValue, snapFields, restoreFields } from './fields.js';
@@ -86,60 +86,73 @@ function railHtml(c) {
 const btn = (style, act, text, extra) => html`<button class="big" style="${style}" data-act="${act}"${extra || ''}>${text}</button>`;
 const note = (text) => html`<div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.7">${text}</div>`;
 
+/* まとまりの頭に置く、色の丸のアイコン（iPhone の「設定」や「探す」と同じ並べ方） */
+const ICONS = {
+  due: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/></svg>`,
+  wait: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10M7 20h10M8 4c0 5 8 5 8 8s-8 3-8 8M16 4c0 5-8 5-8 8"/></svg>`,
+  day: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="15" height="13.5" rx="2.5"/><path d="M4.5 10.5h15M9 4v3.5M15 4v3.5"/></svg>`,
+  key: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="12" r="3.5"/><path d="M12 12h8M17 12v3M20 12v2"/></svg>`,
+  more: html`<svg viewBox="0 0 24 24" fill="#fff"><circle cx="6.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="17.5" cy="12" r="1.9"/></svg>`
+};
+/* 見出しつきのまとまり。中身は行（.irow）を並べ、行どうしは細い線で区切る */
+const section = (icon, color, title, body) => html`<section class="ig"><div class="ig-head"><span class="ig-ic" style="background:${color}">${ICONS[icon]}</span><span class="ig-title">${title}</span></div>${body}</section>`;
+/* まとまりの中の、押せる行。文字だけで、色で意味を分ける（青：ふつう、赤：やめる方向） */
+const rowBtn = (act, text, tone) => html`<button class="irow ${tone || ''}" data-act="${act}">${text}</button>`;
+
 function infoTab(c, now) {
   const st = Domain.viewStatus(c, new Date(now));
-  const rt = Domain.routeOf(c), idx = rt.indexOf(Domain.position(c));
   const parts = [];
 
   if (st === 'todo') {
     const r = c.dueAt ? rem(c.dueAt, now) : null;
-    parts.push(html`<div style="margin-top:18px;padding-bottom:16px;border-bottom:1px solid var(--line-soft)"><div class="lab" style="margin:0 0 8px">締切まで</div>${r
+    parts.push(section('due', 'var(--blue)', '締切まで', html`<div class="ig-body">${r
       ? html`<div class="cd" style="margin-top:0;color:${r.ms < 172800000 ? 'var(--hot)' : 'var(--text)'}"><b style="font-size:50px">${r.d}</b><s>d</s><b style="font-size:50px">${('0' + r.h).slice(-2)}</b><s>h</s><b style="font-size:50px">${('0' + r.m).slice(-2)}</b><s>m</s></div><div class="sub">${fdate(c.dueAt)}${c.dueHasTime ? ' ' + ftime(c.dueAt) : ' 時刻未設定'}</div>`
-      : html`<div style="font-size:13px;color:var(--dim);margin:8px 0 12px">締切が未設定です。</div>`}${dtField('coDue', c.dueAt, '23:59')}<button class="gh" style="margin-top:8px;color:var(--text)" data-act="set-due">締切を保存</button>${c.dueAt && html`<button class="gh" style="margin:8px 0 0 8px" data-act="clear-due">未定にする</button>`}</div>`);
+      : html`<div style="font-size:15px;color:var(--muted)">締切が未設定です。</div>`}</div><div class="ig-body">${dtField('coDue', c.dueAt, '23:59')}</div>${rowBtn('set-due', '締切を保存', 'blue')}${c.dueAt && rowBtn('clear-due', '未定にする', 'blue')}`));
   }
   if (st === 'waiting') {
     const d = since(Domain.waitingSince(c), now);
     const goal = Domain.goalOf(c.term) === 'joined' ? '参加決定' : '内定';
-    parts.push(html`<div style="margin-top:18px;padding-bottom:18px;border-bottom:1px solid var(--line-soft)"><div class="lab" style="margin:0 0 8px">結果待ち</div><div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">${d == null ? '—' : d}</b><s>日経過</s></div>${Domain.isAutoSent(c, new Date(now)) && html`<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>`}<div style="display:flex;gap:10px;margin-top:16px"><button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass">${Domain.isFinalStep(c) ? goal : '通過'}</button><button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail">落選</button></div></div>`);
+    parts.push(section('wait', 'var(--wait)', '結果待ち', html`<div class="ig-body"><div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">${d == null ? '—' : d}</b><s>日経過</s></div>${Domain.isAutoSent(c, new Date(now)) && html`<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>`}<div style="display:flex;gap:10px;margin-top:16px"><button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass">${Domain.isFinalStep(c) ? goal : '通過'}</button><button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail">落選</button></div></div>`));
   }
   if (st === 'joined') {
     const ev = eventsOf(c.id).filter((e) => evActive(e, now))[0];
     const rr = ev ? rem(ev.startAt, now) : null;
-    parts.push(html`<div style="margin-top:18px;padding-bottom:16px;border-bottom:1px solid var(--line-soft)"><div class="lab" style="margin:0 0 8px">実施日まで</div>${rr
+    parts.push(section('day', 'var(--go)', '実施日まで', html`<div class="ig-body">${rr
       ? html`<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:50px">${rr.d}</b><s>日</s></div><div class="sub">${evWhen(ev)}${evDays(ev) > 1 ? '（' + evDays(ev) + '日間）' : ''}</div>`
       : ev ? html`<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:34px">開催中</b></div><div class="sub">${evWhen(ev)}</div>`
-        : html`<div style="font-size:12px;color:var(--dim);line-height:1.8">実施日が未登録です。「予定」タブで、種別「インターン」として日時を入れてください。</div>`}</div>`);
+        : html`<div style="font-size:14px;color:var(--muted);line-height:1.7">実施日が未登録です。「予定」タブで、種別「インターン」として日時を入れてください。</div>`}</div>`));
   }
 
   /* 開いてすぐ使うものを上に。スクロールせずに届く位置に置く */
   if (c.url || c.folderUrl) {
-    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
+    parts.push(html`<div style="display:flex;gap:10px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:var(--ios-fill);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
   }
-  /* ログインID・パスワード・結果日は、1つのまとまりに入れる（行どうしの区切りを薄くして、ひとかたまりに見せる） */
+  /* ログインID・パスワード・結果日は、1つのまとまりに入れる */
   const kvs = [];
   if (c.loginId) kvs.push(html`<button class="kv idrow" data-act="copy-id"><span>ログインID</span><span class="idval">${c.loginId}<i>コピー</i></span></button>`);
   /* パスワードは押したときだけ取りに行く。画面には伏せ字しか出さない */
   kvs.push(html`<button class="kv idrow" data-act="copy-pw"><span>パスワード</span><span class="idval">••••••<i>コピー</i></span></button>`);
   if (c.resultAt && ['offer', 'joined', 'failed'].includes(st)) kvs.push(html`<div class="kv"><span>結果日</span><span>${fdate(c.resultAt)}</span></div>`);
-  parts.push(html`<div class="group">${kvs}</div>`);
+  parts.push(section('key', '#8E8E93', 'ログイン', kvs));
 
-  /* よく押すものを先に */
+  /* よく押すものは、まとまりの外に大きなボタンで置く */
   /* 「次とまとめて結果が出る」段階は、結果待ちを通らずに次の段階へ進む */
   if (st === 'todo') {
     parts.push(Domain.isLinked(c, c.stage)
       ? btn('background:var(--blue);color:#fff', 'advance', '提出して' + Domain.nextStage(c) + 'へ')
       : btn('background:var(--blue);color:#fff', 'done', '完了にして結果待ちへ'));
   }
-  /* 締切経過で自動送りになっている行は、保存上はまだ対応中なので出さない */
-  if (c.status !== 'todo') parts.push(btn('background:rgba(255,255,255,.1);color:var(--text);font-weight:500', 'reopen', '対応中に戻す'));
-  if (st === 'waiting') parts.push(btn('background:rgba(255,255,255,.1);color:var(--muted);font-weight:500', 'join', '参加決定にする'));
 
-  /* ここから下は、たまにしか使わない操作 */
-  if (idx > 0) parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500', 'prev', '1段階戻す（' + rt[idx] + ' → ' + rt[idx - 1] + '）'));
-  if (st === 'todo' || st === 'waiting') parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500', 'skip', '見送りにする'));
+  /* たまにしか使わない操作は、文字だけの行にまとめる。段階を1つ戻すのは、押した直後の「取り消す」か、選考ルートのタブで */
+  const more = [];
+  /* 締切経過で自動送りになっている行は、保存上はまだ対応中なので出さない */
+  if (c.status !== 'todo') more.push(rowBtn('reopen', '対応中に戻す', 'blue'));
+  if (st === 'waiting') more.push(rowBtn('join', '参加決定にする', 'blue'));
   if (c.dueAt && st === 'todo') {
-    parts.push(html`<a class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(gcalUrl(c.name + ' ' + c.stage + ' 締切', c.dueAt, c.url, !c.dueHasTime))}">Googleカレンダーに追加</a>`);
+    more.push(html`<a class="irow blue" target="_blank" rel="noopener noreferrer" href="${safeUrl(gcalUrl(c.name + ' ' + c.stage + ' 締切', c.dueAt, c.url, !c.dueHasTime))}">Googleカレンダーに追加</a>`);
   }
+  if (st === 'todo' || st === 'waiting') more.push(rowBtn('skip', '見送りにする', 'red'));
+  if (more.length) parts.push(section('more', '#636366', 'そのほか', more));
   parts.push(settingsHtml(c));
   return join(parts);
 }
@@ -312,6 +325,27 @@ function act(op, args, label) {
   }
 }
 
+/* 「取り消す」を出す間。この間は送らずに待たせ、取り消されたら送らずに捨てる */
+let UNDO_MS = 5000;
+/* テストで待ち時間を縮めるため */
+export function setUndoWait(ms) { UNDO_MS = ms; }
+
+/* 完了・通過・落選・見送りなど、状態が大きく変わる操作。押し間違いは直後の「取り消す」で直す */
+function actUndo(op, label) {
+  const id = ui.openId;
+  let item;
+  try {
+    item = store.mutate(id, op, {}, { delay: UNDO_MS, alone: true, durable: true });
+  } catch (e) {
+    toast(e.message);
+    return;
+  }
+  toastUndo(label, () => {
+    if (store.cancel(id, item)) toast('取り消しました。', true);
+    else toast('もう保存していたので、取り消せませんでした。選考ルートのタブで段階を直せます。');
+  }, Math.max(UNDO_MS, 2500));
+}
+
 async function runBusy(action, args, okMsg) {
   busy(true);
   try {
@@ -394,38 +428,28 @@ export const detailActions = {
     }
   },
 
-  done: () => act('done', {}, '結果待ちに移しました。'),
+  done: () => actUndo('done', '結果待ちに移しました。'),
   advance: () => {
     const c = current();
     const next = c && Domain.nextStage(c);
-    act('advance', {}, next ? next + ' に進みました。' : '');
+    actUndo('advance', next ? next + ' に進みました。' : '次へ進みました。');
   },
   pass: () => {
     const c = current();
     const final = c && Domain.isFinalStep(c);
     const goal = c && Domain.goalOf(c.term) === 'joined' ? '参加決定' : '内定';
-    act('pass', {}, final ? goal + 'として記録しました。' : '通過を記録しました。');
+    actUndo('pass', final ? goal + 'として記録しました。' : '通過を記録しました。');
   },
-  fail: () => {
-    const c = current();
-    if (c && window.confirm(c.name + ' を選考終了にします。締切と、これから先の予定がカレンダーから消えます。')) act('fail', {}, '選考終了として記録しました。');
-  },
+  /* 落選と見送りは、取り消せるようになったので確かめない（押してすぐ「取り消す」で戻せる） */
+  fail: () => actUndo('fail', '選考終了として記録しました。'),
   reopen: () => {
     /* 戻すと落ちた段階と結果日が消え、記録タブの落選も減る。受け直しは別の行で記録を残すのが決まり */
     if (current().status === 'failed'
       && !window.confirm('落選の記録が消えます。受け直すなら、設定の『同じマイページで別の選考を追加』を使うと記録が残ります。')) return;
-    act('reopen', {}, '対応中に戻しました。');
+    actUndo('reopen', '対応中に戻しました。');
   },
-  join: () => act('join', {}, '参加決定にしました。'),
-  skip: () => {
-    const c = current();
-    if (c && window.confirm(c.name + ' を見送りにします。締切と、これから先の予定がカレンダーから消えます。')) act('skip', {}, '見送りにしました。');
-  },
-  prev: () => {
-    const c = current();
-    const rt = Domain.routeOf(c), i = rt.indexOf(Domain.position(c));
-    act('prev', {}, i > 0 ? rt[i - 1] + ' に戻しました。' : '');
-  },
+  join: () => actUndo('join', '参加決定にしました。'),
+  skip: () => actUndo('skip', '見送りにしました。'),
   'set-due': () => {
     const v = dtValue('coDue', root());
     if (!v) { toast('日付を入れてください。'); return; }

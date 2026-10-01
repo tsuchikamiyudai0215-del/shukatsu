@@ -138,6 +138,9 @@ async function refresh(quiet) {
     await store.refresh();
     lastFetch = Date.now();
     staleHide();
+    /* 前に「取り消す」の待ち時間中に閉じて、送れなかった操作があれば送り直す */
+    const n = store.replayOutbox();
+    if (n) note('送り直し', n + '件');
     return true;
   } catch (e) {
     /* 鍵が違うと言われても、一覧が出ているなら消さない。接続設定へ移るのは、出すものが何も無いときだけ */

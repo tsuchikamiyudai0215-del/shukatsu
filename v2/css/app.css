@@ -19,7 +19,14 @@
   /* 詳細・右パネル・検索・接続設定・お知らせの板。無地の濃紺に、縁の全周に細い光の輪を付ける。
      輪は上の辺がいちばん明るく、左右へ下りるにつれて消える（iOS のシートやアイコンの縁の光り方に合わせた）。
      上だけに白い線を引くと、無地の板では線だけが浮いて見える */
-  --panel:linear-gradient(180deg, rgba(40,49,68,.98) 0%, rgba(20,26,39,.99) 100%);
+  /* 板の色は、iPhone の「探す」などのシートに合わせた無地の濃いグレー */
+  /* 縁の輪と重ねて塗るので、色1つでもグラデーションの形で書く（重ねる下の段以外に色だけは書けない） */
+  --panel:linear-gradient(#1C1C1E,#1C1C1E);
+  /* 板の中のまとまり・ボタンの塗り・区切り線・2番目の文字（iPhone のダークモードの色） */
+  --ios-group:#2C2C2E;
+  --ios-fill:#3A3A3C;
+  --ios-sep:rgba(84,84,88,.65);
+  --ios-label2:rgba(235,235,245,.6);
   --rim:linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.10) 10%, rgba(255,255,255,.05) 45%, rgba(255,255,255,.07) 100%);
   /* ボタンの縁。板と同じく全周に淡い輪を付け、上の辺だけ少し明るくする。
      ボタンは色を style で直接塗るので、板のように border-box へグラデーションは敷けない。細い影を2本重ねて同じ見え方にする */
@@ -561,6 +568,42 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .dtf .dtf-t{flex:0 0 auto;width:auto;margin:0;padding:13px 8px;text-align:center}
 .dtf .dtf-c{color:var(--muted);font-family:var(--mono);font-size:13px}
 .dtf.no-time .dtf-t,.dtf.no-time .dtf-c{display:none}
+
+/* ---------- 詳細のまとまり（iPhone の「探す」「設定」と同じ並べ方） ----------
+   頭に色の丸いアイコンと太字の見出し、その下に行を並べ、行の間は左右を空けた細い線で区切る */
+.ig{margin-top:14px;background:var(--ios-group);border-radius:24px;padding:16px 0 2px;overflow:hidden}
+.ig-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:0 18px 12px}
+.ig-ic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ig-ic svg{width:18px;height:18px}
+.ig-title{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.ig > .ig-body,.ig > .irow,.ig > .kv{margin:0 18px;border-top:1px solid var(--ios-sep)}
+.ig > .ig-body{padding:14px 0}
+.ig > .ig-body .dtf{margin-top:0}
+.irow{display:block;width:calc(100% - 36px);background:none;border:none;text-align:left;cursor:pointer;
+  padding:14px 0;font-size:16px;color:var(--text);text-decoration:none;
+  transition:opacity .16s var(--ease)}
+.irow:active{opacity:.5;transition:none}
+.irow.blue{color:var(--blue)}
+.irow.red{color:var(--hot)}
+.ig > .kv{padding:14px 0;width:auto}
+.ig > button.kv.idrow{width:calc(100% - 36px);border-bottom:none;border-top:1px solid var(--ios-sep)}
+.ig .kv span:first-child{font-family:var(--body);font-size:16px;color:var(--text);letter-spacing:0}
+.ig .kv span:last-child{color:var(--ios-label2)}
+.ig .idval{font-size:14px}
+/* 板の中の入れ物と入力欄も、同じ灰色の段に合わせる */
+.card .group,.card .setsec,#side .group,#side .setsec{background:var(--ios-group);border-radius:20px}
+.card .f,#side .f{background:var(--ios-fill);border-color:transparent;box-shadow:none}
+.card .f:focus,#side .f:focus{background:var(--ios-fill);border-color:var(--blue)}
+.card .gh,#side .gh{background:var(--ios-fill);border-color:transparent}
+.card .sideclose,#side .sideclose{background:var(--ios-fill);border-color:transparent;box-shadow:none}
+
+/* 「取り消す」付きのお知らせ。押せるようにする */
+/* 左端を画面の真ん中に置いているので、幅を中身に合わせないと画面の半分で折り返す */
+#toast.undo{display:flex;align-items:center;gap:16px;pointer-events:auto;padding:10px 10px 10px 20px;
+  width:max-content;white-space:nowrap}
+#toast.undo button{background:none;border:none;color:var(--blue);font-size:14px;font-weight:600;
+  padding:6px 8px;cursor:pointer;white-space:nowrap}
+#toast.undo:not(.on){pointer-events:none}
 
 /* ---------- toast / setup ---------- */
 .emptyNote{color:var(--dim);font-size:13px;line-height:1.9;text-align:center;padding:36px 0}

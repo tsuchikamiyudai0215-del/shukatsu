@@ -1,6 +1,7 @@
 /*
  * 下に出る短いお知らせ（トースト）、上の「更新中…」、保存中の覆い。
  */
+import { html, setHtml } from '../html.js';
 
 let toastTimer = 0;
 let staleTimer = 0;
@@ -10,10 +11,31 @@ export function toast(msg, ok) {
   const el = document.getElementById('toast');
   if (!el) return;
   el.textContent = msg;
+  el.classList.remove('undo');
   el.style.borderColor = ok ? 'rgba(48,209,88,.6)' : 'rgba(255,69,58,.6)';
   el.classList.add('on');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('on'), ok ? 2200 : 3600);
+}
+
+/**
+ * 「取り消す」付きのお知らせ。ms の間だけ出し、押されたら onUndo を呼ぶ。
+ * 押し間違いは押した直後に気づくことが多いので、あとから探す「1段階戻す」ボタンより、ここで直せるようにする
+ */
+export function toastUndo(msg, onUndo, ms) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  setHtml(el, html`<span>${msg}</span><button type="button">取り消す</button>`);
+  el.querySelector('button').addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearTimeout(toastTimer);
+    el.classList.remove('on', 'undo');
+    onUndo();
+  }, { once: true });
+  el.classList.add('undo', 'on');
+  el.style.borderColor = '';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on', 'undo'), ms);
 }
 
 /* msg があれば赤枠で出して、しばらくしたら消す。無ければ「更新中…」を出したままにする */

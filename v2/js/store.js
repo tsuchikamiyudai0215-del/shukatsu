@@ -169,15 +169,74 @@ export function mutate(id, op, args = {}, opts = {}) {
   const q = queueOf(id);
   const last = q[q.length - 1];
   const sendAt = Date.now() + (opts.delay || 0);
-  if (opts.delay && last && last.op === op && !last.sent) {
+  let item;
+  if (opts.delay && !opts.alone && last && last.op === op && !last.sent) {
     last.args = args;
     last.at = at;
     last.sendAt = sendAt;
+    item = last;
   } else {
-    q.push({ op, args, at, sendAt, sent: false });
+    item = { op, args, at, sendAt, sent: false };
+    q.push(item);
+  }
+  /* 「取り消す」の待ち時間中にアプリを閉じても消えないよう、端末にも控える */
+  if (opts.durable) {
+    const base = s.confirmed.get(id);
+    item.durable = true;
+    item.base = base ? String(base.updatedAt) : '';
+    saveOutbox();
   }
   emit('local');
   pump(id);
+  return item;
+}
+
+/**
+ * まだ送っていない操作を取り下げる（「取り消す」）。送ったあとなら false。
+ * 送る前に捨てるので、サーバーには何も届かず、締切などの値もそのまま残る
+ */
+export function cancel(id, item) {
+  const q = s.queues.get(id);
+  const i = q ? q.indexOf(item) : -1;
+  if (i < 0 || item.sent) return false;
+  q.splice(i, 1);
+  if (i === 0) clearTimeout(s.timers.get(id));
+  saveOutbox();
+  emit('local');
+  pump(id);
+  return true;
+}
+
+/* 待たせている操作の控え。届いたか取り消したら消す */
+function saveOutbox() {
+  const list = [];
+  for (const [id, q] of s.queues) {
+    for (const it of q) if (it.durable) list.push({ id, op: it.op, args: it.args, at: it.at.toISOString(), base: it.base });
+  }
+  if (list.length) storage.setJson('outbox', list);
+  else storage.remove('outbox');
+}
+
+/**
+ * 前に開いていたときに送れなかった操作を送り直す。最新を取ったあとに呼ぶ。
+ * サーバーの会社が控えたときのまま（updatedAt が同じ）のときだけ送る。
+ * 変わっていれば、実は届いていたか、ほかで変わったので、二重に保存しないよう捨てる
+ */
+export function replayOutbox() {
+  const list = storage.getJson('outbox', []);
+  storage.remove('outbox');
+  let n = 0;
+  for (const r of Array.isArray(list) ? list : []) {
+    const c = s.confirmed.get(r.id);
+    if (!c || String(c.updatedAt) !== r.base || (s.queues.get(r.id) || []).length) continue;
+    queueOf(r.id).push({ op: r.op, args: r.args || {}, at: new Date(r.at), sendAt: 0, sent: false, durable: true, base: r.base });
+    n++;
+  }
+  if (!n) return 0;
+  saveOutbox();
+  emit('local');
+  for (const id of s.queues.keys()) pump(id);
+  return n;
 }
 
 function pump(id, keepalive) {
@@ -243,6 +302,8 @@ async function send(id, item, keepalive) {
     const q = s.queues.get(id);
     if (q && q[0] === item) q.shift();
     s.inflight.delete(id);
+    /* 届いた（または失敗を知らせた）ので、控えから外す。応答を受け取れずにページが閉じたら控えは残り、次に開いたときに確かめる */
+    saveOutbox();
     saveCache();
     emit('saved');
     pump(id);

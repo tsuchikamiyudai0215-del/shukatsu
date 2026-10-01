@@ -68,13 +68,17 @@ function standard(T) {
 }
 
 async function boot(opts = {}) {
-  const T = mk({ API_KEY: 'k' });
-  /* 前からある会社として試すので、ルートを渡さずに足した会社は前の初期のルート（エントリー → … → 内定）にする */
-  const api0 = T.api;
-  T.api = (action, args, key) => api0(action,
-    action === 'addCompany' && args && !args.route ? Object.assign({ route: Domain.LEGACY_ROUTE }, args) : args, key);
-  const ids = opts.seed === false ? {} : standard(T);
-  if (opts.after) opts.after(T, ids);
+  /* opts.T を渡すと、前の起動と同じ模擬のサーバーにつなぐ（アプリを閉じて開き直すのを試すため） */
+  const T = opts.T || mk({ API_KEY: 'k' });
+  let ids = opts.ids || {};
+  if (!opts.T) {
+    /* 前からある会社として試すので、ルートを渡さずに足した会社は前の初期のルート（エントリー → … → 内定）にする */
+    const api0 = T.api;
+    T.api = (action, args, key) => api0(action,
+      action === 'addCompany' && args && !args.route ? Object.assign({ route: Domain.LEGACY_ROUTE }, args) : args, key);
+    ids = opts.seed === false ? {} : standard(T);
+    if (opts.after) opts.after(T, ids);
+  }
   const errors = [];
   const vc = new VirtualConsole();
   vc.on('jsdomError', (e) => errors.push(e.message));
@@ -122,6 +126,8 @@ async function boot(opts = {}) {
   if (!main) main = await import(pathToFileURL(path.join(__dirname, '../js/main.js')).href);
   /* iPhone のキーボードやアドレスバーで変わる、見えている範囲の大きさ（jsdom には無いので、試すときだけ渡す） */
   if (opts.vv) w.visualViewport = opts.vv(w);
+  /* 「取り消す」の待ち時間。ふだんのテストではすぐ送る */
+  (await import(pathToFileURL(path.join(__dirname, '../js/views/detail.js')).href)).setUndoWait(opts.undo || 0);
   const app = main.start();
   if (opts.wait !== false) await app.ready;
   const d = w.document;
@@ -757,19 +763,69 @@ test('概要：結果待ちの経過日数と「通過／落選」。最後の�
   R.stop();
 });
 
-test('概要：落選は確認してから。1段階戻す・対応中に戻す・参加決定にする', async () => {
-  const R = await boot();
+test('概要：落選・見送り・完了などは、押した直後の「取り消す」で戻せる。取り消したら何も送らない', async () => {
+  const R = await boot({ undo: 600 });
+  const server = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.w);
   R.click(`.row[data-id="${R.ids.w}"]`);
-  let asked = '';
-  R.w.confirm = (m) => { asked = m; return false; };
+  assert.equal(R.$('#sheet [data-act="prev"]'), null);                 // 「1段階戻す」のボタンはもう無い
   R.click('#sheet [data-act="fail"]');
-  assert.match(asked, /選考終了/);
-  assert.equal(R.mutates().length, 0);
+  assert.match(R.$('#sheet .card-head').textContent, /選考終了/);       // 画面は先に変わる
+  assert.match(R.toast(), /取り消す/);
+  R.click('#toast button');
+  assert.match(R.toast(), /取り消しました/);
+  assert.match(R.$('#sheet .card-head').textContent, /結果待ち/);
+  await sleep(900);
+  assert.equal(R.mutates().length, 0);                                 // 取り消した操作は送らない
+  assert.equal(server().status, 'waiting');
+  /* 取り消さなければ、待ったあとで送る */
   R.click('#sheet [data-act="join"]');
-  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.w).status === 'joined');
+  assert.equal(R.mutates().length, 0);
+  await until(() => server().status === 'joined');
   R.click('#sheet [data-act="reopen"]');
-  R.click('#sheet [data-act="prev"]');
-  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.w).stage === 'ES');
+  await until(() => server().status === 'todo');
+  R.stop();
+});
+
+test('「取り消す」の待ち時間中に閉じても、次に開いたときに送り直す。サーバーで変わっていたら送らない', async () => {
+  const R = await boot({ undo: 5000 });
+  const server = (T, id) => T.api('getData', {}).companies.find((c) => c.id === id);
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  const ls = { sk2_outbox: R.w.localStorage.getItem('sk2_outbox'), sk2_cache: R.w.localStorage.getItem('sk2_cache') };
+  assert.ok(ls.sk2_outbox);
+  assert.doesNotMatch(ls.sk2_outbox, /"pw"/);                          // 控えにパスワードは入らない
+  R.stop();                                                           // 送る前にアプリが閉じた
+  assert.equal(server(R.T, R.ids.b).status, 'todo');
+  const R2 = await boot({ T: R.T, ids: R.ids, ls });
+  await until(() => server(R.T, R.ids.b).status === 'waiting');
+  await until(() => !R2.w.localStorage.getItem('sk2_outbox'));
+  R2.stop();
+
+  /* 閉じている間にほかの端末で変わっていたら、控えは捨てて送らない */
+  const R3 = await boot({ undo: 5000 });
+  R3.click(`.row[data-id="${R3.ids.b}"]`);
+  R3.click('#sheet [data-act="skip"]');
+  const ls3 = { sk2_outbox: R3.w.localStorage.getItem('sk2_outbox'), sk2_cache: R3.w.localStorage.getItem('sk2_cache') };
+  R3.stop();
+  const cur = server(R3.T, R3.ids.b);
+  R3.T.api('mutate', { id: R3.ids.b, op: 'setIndustry', args: { industry: '金融' }, updatedAt: cur.updatedAt });
+  const R4 = await boot({ T: R3.T, ids: R3.ids, ls: ls3 });
+  await sleep(300);
+  assert.equal(server(R3.T, R3.ids.b).status, 'todo');
+  assert.equal(R4.mutates().length, 0);
+  assert.equal(R4.w.localStorage.getItem('sk2_outbox'), null);
+  R4.stop();
+});
+
+test('「取り消す」は、もう送ったあとなら取り消せないと伝える（画面を離れて送り切ったときなど）', async () => {
+  const R = await boot({ undo: 600 });
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  store.flush();
+  await until(() => R.mutates().length === 1);
+  R.click('#toast button');
+  assert.match(R.toast(), /取り消せませんでした/);
   R.stop();
 });
 
