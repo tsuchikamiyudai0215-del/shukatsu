@@ -21,6 +21,9 @@
      上だけに白い線を引くと、無地の板では線だけが浮いて見える */
   --panel:linear-gradient(180deg, rgba(40,49,68,.98) 0%, rgba(20,26,39,.99) 100%);
   --rim:linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.10) 10%, rgba(255,255,255,.05) 45%, rgba(255,255,255,.07) 100%);
+  /* ボタンの縁。板と同じく全周に淡い輪を付け、上の辺だけ少し明るくする。
+     ボタンは色を style で直接塗るので、板のように border-box へグラデーションは敷けない。細い影を2本重ねて同じ見え方にする */
+  --btn-rim:inset 0 0 0 1px rgba(255,255,255,.08), inset 0 1px 0 rgba(255,255,255,.22);
 
   --spring:cubic-bezier(0.32, 0.72, 0, 1);
   --spring-soft:cubic-bezier(0.16, 1, 0.3, 1);
@@ -196,7 +199,7 @@ button,select,input{font-family:var(--body)}
 .acts{display:flex;gap:8px;padding:0 17px 14px 74px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:var(--muted);
   border-radius:var(--r-chip);padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
-  display:inline-block;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);
+  display:inline-block;box-shadow:var(--btn-rim);
   transition:transform .42s var(--spring),background .16s var(--ease),color .16s var(--ease)}
 .gh:active{transform:scale(.9);transition:transform .1s var(--press)}
 /* 再描画のたびに img は作り直される。画像が乗る前に白い下地が見えると
@@ -261,12 +264,17 @@ button,select,input{font-family:var(--body)}
    中身が横から入る動きは、タブを切り替えたとき（swap）だけ。PC の右パネルは出てくる動きが無いので、見出しと中身を動かす */
 .sheet .card .card-head,.sheet .card .tab-pane{animation:none}
 .sheet .card .tab-pane.swap{animation:tabPaneIn .42s var(--spring) both}
-.tabs{display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--line-soft);position:relative}
+/* × は見出しの上の方にあるので、タブの列は × のための右の余白まで使う（引き継ぎを右端に置く幅を取る） */
+.tabs{display:flex;gap:2px;margin-top:20px;margin-right:-46px;border-bottom:1px solid var(--line-soft);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
-  padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;
+  padding:11px 12px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
   transition:color .2s var(--ease),border-color .2s var(--ease),transform .42s var(--spring)}
 .tabs button:active{transform:scale(.94);transition:transform .1s var(--press)}
 .tabs button.on{color:var(--text);border-bottom-color:var(--text)}
+/* 本選考への引き継ぎ。めったに押さないので、タブの右端に文字だけで小さく置く */
+.tabs .carry{margin-left:auto;align-self:center;padding:6px 2px 6px 10px;border:none;border-bottom:none;
+  background:none;color:var(--go);font-size:11.5px;font-weight:500;opacity:.8;white-space:nowrap}
+.tabs .carry.done{color:var(--dim);opacity:1;cursor:default}
 .tab-pane{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
   touch-action:pan-y;-webkit-overflow-scrolling:touch;
   padding-bottom:32px;padding-right:4px;animation:tabPaneIn .42s var(--spring) both}
@@ -310,8 +318,10 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .card .big{border-radius:var(--r-in-sheet)}
 .big{width:100%;padding:14px 0;border-radius:var(--r-field);border:none;font-size:14px;font-weight:600;
   cursor:pointer;margin-top:12px;display:block;text-align:center;text-decoration:none;
-  box-shadow:0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.35);
+  box-shadow:0 4px 14px rgba(0,0,0,.4), var(--btn-rim);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
+/* マイページと書類フォルダは、上の辺だけの白い線のままにする（本人の好み） */
+.big.topline{box-shadow:0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.35)}
 .big:active{transform:scale(.94);transition:transform .1s var(--press)}
 .big[disabled]{opacity:.4;cursor:default}
 .rail{display:flex;align-items:center}

@@ -566,7 +566,7 @@ test('区分の切り替えは「インターン」「本選考」。端末に�
   assert.deepEqual(R.$$('#seg button').map((b) => b.querySelector('span').textContent), ['インターン', '本選考']);
   assert.ok(R.$(`.row[data-id="${old.id}"]`));
   R.click(`.row[data-id="${old.id}"]`);
-  assert.match(R.$('#sheet').textContent, /本選考に引き継ぐ|本選考に登録済み/);
+  assert.ok(R.$('#sheet .tabs [data-act="carry"], #sheet .tabs .carry.done'));
   R.stop();
 });
 
@@ -723,7 +723,7 @@ test('詳細は、何もないところを押しただけでは閉じない（PC
 test('タブ：概要／予定（件数つき）／選考ルート', async () => {
   const R = await boot({ after: (T, ids) => T.api('addEvent', { companyId: ids.a, kind: '面接', startAt: at(3) }) });
   R.click(`.row[data-id="${R.ids.a}"]`);
-  assert.deepEqual(R.$$('#sheet .tabs button').map((b) => b.textContent), ['概要', '予定 1', '選考ルート']);
+  assert.deepEqual(R.$$('#sheet .tabs [data-act="tab"]').map((b) => b.textContent), ['概要', '予定 1', '選考ルート']);
   R.click('#sheet [data-act="tab"][data-v="route"]');
   assert.ok(R.$('#sheet .rail'));
   R.stop();
@@ -827,13 +827,19 @@ test('パスワード：伏せ字の欄から変える。保存したら欄を�
   R.stop();
 });
 
-test('概要：本選考に引き継ぐと、本選考に切り替えて新しい行を開く', async () => {
+test('本選考に引き継ぐ：タブの右端の小さなボタンから。概要のボタンの列には並べない。引き継いだら本選考に切り替えて新しい行を開く', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.a}"]`);
-  R.click('#sheet [data-act="carry"]');
+  assert.equal(R.$('#sheet .tab-pane [data-act="carry"]'), null);
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  R.click('#sheet .tabs [data-act="carry"]');                    // どのタブを開いていても押せる
   await until(() => R.$('#sg1.on'));
   await until(() => /エー/.test((R.$('#sheet .card-head') || { textContent: '' }).textContent));
   assert.ok(R.rows().includes('エー'));
+  assert.equal(R.$('#sheet .carry'), null);                       // 本選考の行には出さない
+  R.click('#sg0');
+  R.click(`.row[data-id="${R.ids.a}"]`);
+  await until(() => R.$('#sheet .tabs .carry.done'));               // 引き継ぎ済みは押せない印だけ
   R.stop();
 });
 

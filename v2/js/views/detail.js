@@ -63,7 +63,7 @@ function extHref(url) {
 function myPageLink(url) {
   const href = extHref(url);
   const toApp = !/^https?:/i.test(href);
-  return html`<a class="big" style="flex:1;margin:0;background:#fff;color:#000"${toApp ? '' : html` target="_blank"`} rel="noopener noreferrer" href="${safeUrl(href)}">マイページ</a>`;
+  return html`<a class="big topline" style="flex:1;margin:0;background:#fff;color:#000"${toApp ? '' : html` target="_blank"`} rel="noopener noreferrer" href="${safeUrl(href)}">マイページ</a>`;
 }
 
 // ============================================================
@@ -113,7 +113,7 @@ function infoTab(c, now) {
 
   /* 開いてすぐ使うものを上に。スクロールせずに届く位置に置く */
   if (c.url || c.folderUrl) {
-    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
+    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big topline" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
   }
   /* ログインID・パスワード・結果日は、1つのまとまりに入れる（行どうしの区切りを薄くして、ひとかたまりに見せる） */
   const kvs = [];
@@ -136,13 +136,7 @@ function infoTab(c, now) {
 
   /* ここから下は、たまにしか使わない操作 */
   if (idx > 0) parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500', 'prev', '1段階戻す（' + rt[idx] + ' → ' + rt[idx - 1] + '）'));
-  if (st === 'todo' || st === 'waiting') parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500', 'skip', '見送りにする'));
-  if (Domain.termOf(c.term) !== '本選考' && c.kind !== 'mgmt') {
-    const already = !!Domain.duplicateOf(store.companies(), c.name, '本選考');
-    parts.push(already
-      ? html`<button class="big" style="background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500" disabled>本選考に登録済み</button>`
-      : btn('background:transparent;border:1px solid rgba(48,209,88,.4);color:var(--go);font-weight:500', 'carry', '本選考に引き継ぐ'));
-  }
+  if (st === 'todo' || st === 'waiting') parts.push(btn('background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500', 'skip', '見送りにする'));
   if (c.dueAt && st === 'todo') {
     parts.push(html`<a class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(gcalUrl(c.name + ' ' + c.stage + ' 締切', c.dueAt, c.url, !c.dueHasTime))}">Googleカレンダーに追加</a>`);
   }
@@ -216,11 +210,19 @@ function tabContent(c) {
   return infoTab(c, now);
 }
 
+/* 本選考への引き継ぎは、区分ごとに1回押すだけなので、概要のボタンの列には並べず、上のタブの右端に小さく置く */
+function carryHtml(c) {
+  if (Domain.termOf(c.term) === '本選考' || c.kind === 'mgmt') return '';
+  return Domain.duplicateOf(store.companies(), c.name, '本選考')
+    ? html`<span class="carry done">本選考あり</span>`
+    : html`<button class="carry" data-act="carry" aria-label="本選考に引き継ぐ">本選考へ ›</button>`;
+}
+
 function fullHtml(c) {
   const st = Domain.viewStatus(c, new Date());
   const col = st === 'waiting' ? 'var(--wait)' : (st === 'offer' || st === 'joined') ? 'var(--go)' : 'var(--muted)';
   const tabs = [['info', '概要'], ['events', '予定 ' + store.eventsOf(c.id).length], ['route', '選考ルート']];
-  return html`<div class="card-head"><div class="grab"></div><button class="sideclose" data-act="close-detail" aria-label="閉じる"><svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg></button><div style="display:flex;align-items:center;gap:12px">${logo(c, 56)}<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">${c.name}</div><div style="font-family:var(--mono);font-size:11px;color:${col};margin-top:3px">${Domain.position(c)} ${LABEL[st]}</div></div></div><div class="tabs">${tabs.map(([k, lab]) => html`<button data-act="tab" data-v="${k}" class="${ui.tab === k ? 'on' : ''}">${lab}</button>`)}</div></div><div class="tab-pane">${tabContent(c)}</div>`;
+  return html`<div class="card-head"><div class="grab"></div><button class="sideclose" data-act="close-detail" aria-label="閉じる"><svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg></button><div style="display:flex;align-items:center;gap:12px">${logo(c, 56)}<div><div style="font-size:19px;font-weight:700;letter-spacing:-.01em">${c.name}</div><div style="font-family:var(--mono);font-size:11px;color:${col};margin-top:3px">${Domain.position(c)} ${LABEL[st]}</div></div></div><div class="tabs">${tabs.map(([k, lab]) => html`<button data-act="tab" data-v="${k}" class="${ui.tab === k ? 'on' : ''}">${lab}</button>`)}${carryHtml(c)}</div></div><div class="tab-pane">${tabContent(c)}</div>`;
 }
 
 export function sideEmpty() {
