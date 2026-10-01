@@ -63,7 +63,7 @@ function extHref(url) {
 function myPageLink(url) {
   const href = extHref(url);
   const toApp = !/^https?:/i.test(href);
-  return html`<a class="big topline" style="flex:1;margin:0;background:#fff;color:#000"${toApp ? '' : html` target="_blank"`} rel="noopener noreferrer" href="${safeUrl(href)}">マイページ</a>`;
+  return html`<a class="big" style="flex:1;margin:0;background:#fff;color:#000"${toApp ? '' : html` target="_blank"`} rel="noopener noreferrer" href="${safeUrl(href)}">マイページ</a>`;
 }
 
 // ============================================================
@@ -113,7 +113,7 @@ function infoTab(c, now) {
 
   /* 開いてすぐ使うものを上に。スクロールせずに届く位置に置く */
   if (c.url || c.folderUrl) {
-    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big topline" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
+    parts.push(html`<div style="display:flex;gap:8px;margin-top:14px">${c.url && html`${myPageLink(c.url)}`}${c.folderUrl && html`<a class="big" style="flex:1;margin:0;background:rgba(255,255,255,.12);color:var(--text);font-weight:500" target="_blank" rel="noopener noreferrer" href="${safeUrl(c.folderUrl)}">書類フォルダ</a>`}</div>`);
   }
   /* ログインID・パスワード・結果日は、1つのまとまりに入れる（行どうしの区切りを薄くして、ひとかたまりに見せる） */
   const kvs = [];

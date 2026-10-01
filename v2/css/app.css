@@ -320,8 +320,6 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   cursor:pointer;margin-top:12px;display:block;text-align:center;text-decoration:none;
   box-shadow:0 4px 14px rgba(0,0,0,.4), var(--btn-rim);
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
-/* マイページと書類フォルダは、上の辺だけの白い線のままにする（本人の好み） */
-.big.topline{box-shadow:0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.35)}
 .big:active{transform:scale(.94);transition:transform .1s var(--press)}
 .big[disabled]{opacity:.4;cursor:default}
 .rail{display:flex;align-items:center}
