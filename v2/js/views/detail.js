@@ -138,9 +138,8 @@ function infoTab(c, now) {
   /* よく押すものは、まとまりの外に大きなボタンで置く */
   /* 「次とまとめて結果が出る」段階は、結果待ちを通らずに次の段階へ進む */
   if (st === 'todo') {
-    parts.push(Domain.isLinked(c, c.stage)
-      ? btn('background:var(--blue);color:#fff', 'advance', '提出して' + Domain.nextStage(c) + 'へ')
-      : btn('background:var(--blue);color:#fff', 'done', '完了にして結果待ちへ'));
+    const [act, text] = Domain.isLinked(c, c.stage) ? ['advance', '提出して' + Domain.nextStage(c) + 'へ'] : ['done', '完了にして結果待ちへ'];
+    parts.push(html`<div class="primary"><button class="big" style="background:var(--blue);color:#fff;margin:0" data-act="${act}">${text}</button></div>`);
   }
 
   /* たまにしか使わない操作は、文字だけの行にまとめる。段階を1つ戻すのは、押した直後の「取り消す」か、選考ルートのタブで */

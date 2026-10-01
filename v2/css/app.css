@@ -597,6 +597,12 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .card .gh,#side .gh{background:var(--ios-fill);border-color:transparent}
 .card .sideclose,#side .sideclose{background:var(--ios-fill);border-color:transparent;box-shadow:none}
 
+/* いちばんよく押すボタン（完了にして結果待ちへ）。中身をスクロールしても、板の下の端に貼り付いて見えている。
+   本来の位置までスクロールしたら、そこに収まる。後ろの文字と重ならないよう、上を板の色でぼかす */
+/* 中身の欄は下に 32px の余白があり、貼り付く位置はその上になる。そのぶん下げて、板の下の端まで埋める */
+.primary{position:sticky;bottom:-32px;z-index:3;margin:14px 0 -20px;padding:12px 0 20px;
+  background:linear-gradient(180deg,rgba(28,28,30,0) 0%,#1C1C1E 14px)}
+
 /* 「取り消す」付きのお知らせ。押せるようにする */
 /* 左端を画面の真ん中に置いているので、幅を中身に合わせないと画面の半分で折り返す */
 #toast.undo{display:flex;align-items:center;gap:16px;pointer-events:auto;padding:10px 10px 10px 20px;
