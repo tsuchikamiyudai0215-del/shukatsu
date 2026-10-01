@@ -12,7 +12,9 @@
  *
  * 大きな変更を入れたら VERSION を上げること。古い保存分が破棄される。
  */
-const VERSION = 'v4';
+const VERSION = 'v5';
+/* 画面の骨組みをネットから待つ上限。過ぎたら保存版を返す */
+const NET_WAIT_MS = 4000;
 const SHELL = 'shukatsu-shell-' + VERSION;
 const ASSET = 'shukatsu-asset-' + VERSION;
 const LOGO  = 'shukatsu-logo-' + VERSION;
@@ -157,25 +159,35 @@ self.addEventListener('fetch', function (e) {
   if (isShell) {
     /* ?以降が違うだけで別々に溜まらないよう、パスで保存する */
     const key = url.origin + url.pathname;
-    e.respondWith(
-      /* no-cache：ブラウザの HTTP キャッシュ（GitHub Pages は10分）を飛ばして、
-         変わっていないかをサーバーに確かめる。変わっていなければ 304 で軽い */
-      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
-        /* /repo → /repo/ のような転送を中身ごと返すと、Safari が表示を拒む。
-           転送は転送として返し、ブラウザに付け直させる */
-        if (res.redirected && req.mode === 'navigate') return Response.redirect(res.url, 302);
-        /* エラーページで保存版を上書きしない */
-        if (res.ok) e.waitUntil(putSafe(SHELL, key, res.clone()));
-        return res;
-      }).catch(function () {
-        return caches.open(SHELL).then(function (c) {
-          /* c.match は Promise を返すので、|| でつながず順に当たる */
-          return c.match(key)
-            .then(function (hit) { return hit || c.match('./index.html'); })
-            .then(function (hit) { return hit || c.match('./'); });
-        }).then(function (hit) { return hit || Response.error(); });
-      })
-    );
+    const saved = function () {
+      return caches.open(SHELL).then(function (c) {
+        /* c.match は Promise を返すので、|| でつながず順に当たる */
+        return c.match(key)
+          .then(function (hit) { return hit || c.match('./index.html'); })
+          .then(function (hit) { return hit || c.match('./'); });
+      }).catch(function () { return null; });
+    };
+    /* no-cache：ブラウザの HTTP キャッシュ（GitHub Pages は10分）を飛ばして、
+       変わっていないかをサーバーに確かめる。変わっていなければ 304 で軽い */
+    const net = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
+      /* エラーページで保存版を上書きしない */
+      if (res.ok) e.waitUntil(putSafe(SHELL, key, res.clone()));
+      return res;
+    });
+    e.waitUntil(net.catch(function () {}));
+    const viaNet = net.then(function (res) {
+      /* /repo → /repo/ のような転送を中身ごと返すと、Safari が表示を拒む。
+         転送は転送として返し、ブラウザに付け直させる */
+      if (res.redirected && req.mode === 'navigate') return Response.redirect(res.url, 302);
+      if (res.ok) return res;
+      return saved().then(function (hit) { return hit || res; });
+    }, function () {
+      return saved().then(function (hit) { return hit || Response.error(); });
+    });
+    /* 待つのは NET_WAIT_MS まで。GitHub Pages の返事が止まると、上限が無いと真っ黒な画面のままになる */
+    const late = new Promise(function (r) { setTimeout(r, NET_WAIT_MS); })
+      .then(saved).then(function (hit) { return hit || viaNet; });
+    e.respondWith(Promise.race([viaNet, late]));
     return;
   }
 

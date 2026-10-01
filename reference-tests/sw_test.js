@@ -1,6 +1,8 @@
 const vm=require('vm'),fs=require('fs'),path=require('path');
 let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('✗ '+m)}};
 const ORIGIN='https://example.github.io',BASE=ORIGIN+'/app/';
+/* 版は sw.js から読む（上げるたびにここを直さなくてよいように） */
+const V=fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8').match(/const VERSION = '([^']+)'/)[1];
 function env(net){
  const stores={};
  const keyOf=k=>typeof k==='string'?new URL(k,BASE).href:k.url;
@@ -15,7 +17,7 @@ function env(net){
   match:async k=>{for(const c of Object.values(stores)){const r=await c.match(k);if(r)return r}}};
  const L={};const self={location:new URL(BASE+'sw.js'),addEventListener:(t,f)=>L[t]=f,skipWaiting:async()=>{},clients:{claim:async()=>{}}};
  const Req=function(u,o){return {url:new URL(u,BASE).href,...o}};
- const ctx={self,caches,fetch:(u,o)=>net(typeof u==='string'?u:u.url,o||{}),Request:Req,URL,Set,Promise,
+ const ctx={self,caches,fetch:(u,o)=>net(typeof u==='string'?u:u.url,o||{}),Request:Req,URL,Set,Promise,setTimeout:(f,ms)=>setTimeout(f,Math.min(ms,30)),
   Response:{error:()=>({type:'error'}),redirect:(u,s)=>({type:'redirect',u,s})},console};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8'),ctx);
  async function fire(type,ev){const w=[];let rw;const e={...ev,waitUntil:p=>w.push(p),respondWith:p=>rw=p};L[type](e);const r=rw?await rw:undefined;await Promise.all(w.map(p=>Promise.resolve(p).catch(()=>{})));for(let i=0;i<3;i++)await Promise.all(w.map(p=>Promise.resolve(p).catch(()=>{})));return {r,handled:!!rw}}
@@ -27,8 +29,8 @@ const R=(o)=>({ok:o.status>=200&&o.status<300,status:o.status||200,type:o.type||
  // install：部品が1つ欠けても入れ替わる
  let E=env(async u=>u.endsWith('favicon-32.png')?R({status:404}):R({status:200,tag:u}));
  await E.fire('install',{});
- ok(await (await E.ctx.caches.open('shukatsu-shell-v4')).match('./index.html'),'骨組みを保存');
- ok(await (await E.ctx.caches.open('shukatsu-asset-v4')).match('./icon-192.png'),'部品を保存（1つ欠けても続行）');
+ ok(await (await E.ctx.caches.open('shukatsu-shell-'+V)).match('./index.html'),'骨組みを保存');
+ ok(await (await E.ctx.caches.open('shukatsu-asset-'+V)).match('./icon-192.png'),'部品を保存（1つ欠けても続行）');
 
  // 骨組み：no-cache、404は保存しない、圏外は保存版
  let calls=[];E=env(async(u,o)=>{calls.push(o);return R({status:200,tag:'new'})});
@@ -37,7 +39,7 @@ const R=(o)=>({ok:o.status>=200&&o.status<300,status:o.status||200,type:o.type||
  ok(r.tag==='new','骨組みはネット優先');ok(calls.some(o=>o.cache==='no-cache'),'no-cache で確認');
  let shellNet=async()=>R({status:500,tag:'err'});E.ctx.fetch=(u,o)=>shellNet(u,o);
  await E.fire('fetch',{request:E.req(BASE,{mode:'navigate'})});
- const saved=await (await E.ctx.caches.open('shukatsu-shell-v4')).match(BASE);ok(saved&&saved.tag!=='err','500で保存版を上書きしない');
+ const saved=await (await E.ctx.caches.open('shukatsu-shell-'+V)).match(BASE);ok(saved&&saved.tag!=='err','500で保存版を上書きしない');
  shellNet=async()=>{throw TypeError('offline')};
  ({r}=await E.fire('fetch',{request:E.req(BASE+'?q=2',{mode:'navigate'})}));ok(r&&r.tag==='new','圏外は保存版');
  ({r}=await E.fire('fetch',{request:E.req(ORIGIN+'/other/',{mode:'navigate'})}));ok(r&&(r.tag==='new'),'未保存のページは index.html で代用');
@@ -49,13 +51,13 @@ const R=(o)=>({ok:o.status>=200&&o.status<300,status:o.status||200,type:o.type||
  let modes=[];E=env(async(u,o)=>{modes.push(o.mode||'req');return R({status:200,type:'cors',tag:'L1'})});
  ({r}=await E.fire('fetch',{request:E.req(logo,{destination:'image'})}));
  ok(r.tag==='L1'&&modes[0]==='cors','ロゴは CORS で取得');
- ok(await (await E.ctx.caches.open('shukatsu-logo-v4')).match(logo),'ロゴを保存');
+ ok(await (await E.ctx.caches.open('shukatsu-logo-'+V)).match(logo),'ロゴを保存');
  E.ctx.fetch=async()=>{throw TypeError('offline')};
  ({r}=await E.fire('fetch',{request:E.req(logo,{destination:'image'})}));ok(r.tag==='L1','圏外でも保存版');
  const miss='https://icons.duckduckgo.com/ip3/none.ico';
  E.ctx.fetch=async()=>R({status:404,type:'cors'});
  await E.fire('fetch',{request:E.req(miss,{destination:'image'})});
- ok(!(await (await E.ctx.caches.open('shukatsu-logo-v4')).match(miss)),'404は保存しない');
+ ok(!(await (await E.ctx.caches.open('shukatsu-logo-'+V)).match(miss)),'404は保存しない');
  let seen=[];E.ctx.fetch=async(u,o)=>{seen.push(o?o.mode:'req');if(o&&o.mode==='cors')throw TypeError('cors');return R({status:0,type:'opaque',tag:'op'})};
  const g='https://www.google.com/s2/favicons?domain=b.jp&sz=256';
  ({r}=await E.fire('fetch',{request:E.req(g,{destination:'image'})}));ok(r.tag==='op','CORS不可なら従来の形式で取得');
@@ -72,7 +74,7 @@ const R=(o)=>({ok:o.status>=200&&o.status<300,status:o.status||200,type:o.type||
  // 件数の上限
  E=env(async()=>R({status:200,type:'cors'}));
  for(let i=0;i<340;i++)await E.fire('fetch',{request:E.req('https://icons.duckduckgo.com/ip3/d'+i+'.ico',{destination:'image'})});
- const n=(await (await E.ctx.caches.open('shukatsu-logo-v4')).keys()).length;ok(n<=300+20,'ロゴ件数の上限 '+n);
+ const n=(await (await E.ctx.caches.open('shukatsu-logo-'+V)).keys()).length;ok(n<=300+20,'ロゴ件数の上限 '+n);
 
  // activate：古い版を消す
  await E.ctx.caches.open('shukatsu-logo-v3');await E.fire('activate',{});ok(!(await E.ctx.caches.keys()).includes('shukatsu-logo-v3'),'古い版を削除');
