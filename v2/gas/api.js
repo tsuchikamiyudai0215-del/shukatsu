@@ -6,6 +6,7 @@
  * 鍵が URL に残らないよう、呼び出しは POST だけで受ける。
  *
  * ロックはこのルーターで1回だけ取る。各処理の中では取らない（二重に取ると、内側の解放で外側まで外れる）。
+ * 読むだけの getData と getPassword はロックを取らない。
  */
 
 var LOCK_WAIT_MS = 20000;
@@ -66,24 +67,27 @@ function route_(payload) {
     if (payload.action === 'getData') {
       var hit = cacheGet_();
       if (hit) return hit;
+      /* 読むだけなのでロックは取らない。取ると、カレンダーを直している保存の後ろに並んで最長20秒待たされ、
+         その間に画面がやり直すと待つ実行が積み上がって、同時に動ける数の上限を超える（「ページが見つかりません」になる）。
+         保存の途中に読んだ一覧をキャッシュに入れないよう、読む前後で「書いた印」が変わっていないときだけ入れる */
+      var stamp = writeStamp_();
+      var fresh = JSON.stringify(a.fn(args));
+      if (writeStamp_() === stamp) cachePut_(fresh);
+      return fresh;
     }
     if (a.lock === false) return JSON.stringify(a.fn(args));
 
     var lock = LockService.getScriptLock();
     lock.waitLock(LOCK_WAIT_MS);
     try {
-      if (payload.action === 'getData') {
-        /* 待っている間に誰かが入れていれば、それを使う */
-        var again = cacheGet_();
-        if (again) return again;
-        var fresh = JSON.stringify(a.fn(args));
-        cachePut_(fresh);
-        return fresh;
-      }
       /* 書き込みの前に捨てる。途中で失敗しても、古い一覧を配り続けないように */
+      markWrite_();
       bustCache_();
       return JSON.stringify(a.fn(args));
     } finally {
+      /* 書き終わったあとにも印を付け直す。書いている間に読み始めた一覧を、キャッシュに入れさせないため */
+      markWrite_();
+      bustCache_();
       lock.releaseLock();
     }
   } catch (err) {
@@ -106,6 +110,15 @@ function cachePut_(json) {
 }
 function bustCache_() {
   try { CacheService.getScriptCache().remove(CACHE_KEY); } catch (e) {}
+}
+
+/* 書いた印。書き込みのたびに変わる値。消えていたら空文字（読む前後で比べるだけなので、それでもよい） */
+var STAMP_KEY = 'wrote';
+function writeStamp_() {
+  try { return CacheService.getScriptCache().get(STAMP_KEY) || ''; } catch (e) { return 'x' + Math.random(); }
+}
+function markWrite_() {
+  try { CacheService.getScriptCache().put(STAMP_KEY, String(Date.now()) + Math.random(), 21600); } catch (e) {}
 }
 
 // ============================================================

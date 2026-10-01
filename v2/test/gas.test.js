@@ -136,6 +136,33 @@ test('getData はパスワードとカレンダーの対応表を載せない。
   assert.equal(T.heldLock(), false);
 });
 
+test('getData はロックを取らない（保存の後ろに並ばせない）', () => {
+  const T = mk();
+  addCo(T);
+  const n = T.lockCount();
+  T.api('getData', {});
+  T.cache.data = undefined;
+  T.api('getData', {});
+  assert.equal(T.lockCount(), n);
+  /* 書き込みはロックを取る */
+  mutate(T, T.api('getData', {}).companies[0], 'setIndustry', { industry: '金融' });
+  assert.equal(T.lockCount(), n + 1);
+});
+
+test('保存の途中に読んだ一覧は、キャッシュに入れない', () => {
+  const T = mk();
+  addCo(T);
+  T.cache.data = undefined;
+  const orig = T.ctx.ACTIONS.getData.fn;
+  /* 読んでいる最中に、ほかの実行が書き込んだ */
+  T.ctx.ACTIONS.getData.fn = (a) => { const r = orig(a); T.ctx.markWrite_(); return r; };
+  assert.equal(T.api('getData', {}).ok, true);
+  assert.equal(T.cache.data, undefined);
+  T.ctx.ACTIONS.getData.fn = orig;
+  T.api('getData', {});
+  assert.ok(T.cache.data);                                    // 何も書かれていなければ入れる
+});
+
 test('書き込むとキャッシュを捨てる', () => {
   const T = mk();
   const c = addCo(T);

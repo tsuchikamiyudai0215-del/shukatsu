@@ -189,6 +189,7 @@ function mk(props) {
   mkFolder(PARENT, '就活（開発用）');
 
   let held = false;
+  let locks = 0;
   const cache = {};
   const scriptProps = Object.assign({
     SHEET_ID: DEV_SHEET, CALENDAR_ID: DEV_CAL, DRIVE_PARENT_ID: PARENT, API_KEY: 'secret-key'
@@ -214,7 +215,7 @@ function mk(props) {
     },
     LockService: {
       getScriptLock: () => ({
-        waitLock() { if (held) throw new Error('ロックを二重に取った'); held = true; },
+        waitLock() { if (held) throw new Error('ロックを二重に取った'); held = true; locks++; },
         releaseLock() { held = false; }
       })
     },
@@ -249,6 +250,7 @@ function mk(props) {
     ctx, books, calendars, allEvents, calCalls, folders, cache, scriptProps, log, opened,
     dev: books[DEV_SHEET],
     heldLock: () => held,
+    lockCount: () => locks,
     /* 画面からの呼び出しと同じ形で呼び、結果はこちら側のオブジェクトにして返す */
     api(action, args, key) {
       return JSON.parse(ctx.route_({ key: key === undefined ? scriptProps.API_KEY : key, action, args }));
