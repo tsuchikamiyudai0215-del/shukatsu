@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>バイトシフト</title>
+<style>
+:root{
+  --bg:#EEF1F0; --panel:#FFFFFF; --ink:#1D2A28; --sub:#5B6866; --line:#C9D1CF;
+  --shift:#6A57E0; --shift-soft:#E4E0FB; --warn:#B4441F; --ok:#2F7A55;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",Meiryo,sans-serif;
+  font-size:15px;line-height:1.6}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ink);color:#fff}
+.head-in{max-width:760px;margin:0 auto;padding:10px 14px 0}
+h1{font-size:17px;margin:0 0 8px;font-weight:700;letter-spacing:.02em}
+nav{display:flex;gap:2px}
+nav button{flex:1;border:0;background:transparent;color:#B9C4C2;padding:9px 0 11px;font:inherit;
+  border-bottom:3px solid transparent;cursor:pointer}
+nav button[aria-selected="true"]{color:#fff;border-bottom-color:var(--shift)}
+main{max-width:760px;margin:0 auto;padding:14px}
+section[hidden]{display:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:14px}
+h2{font-size:15px;margin:0 0 10px}
+label{display:block;margin:6px 0}
+input[type=date],input[type=month],input[type=number],input[type=text],input[type=url],select{
+  font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink);max-width:100%}
+button{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink);cursor:pointer}
+button.primary{background:var(--shift);border-color:var(--shift);color:#fff;font-weight:700}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9C8FF0;outline-offset:1px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.hint{margin:6px 0;padding:8px 10px;background:var(--shift-soft);border-radius:4px;font-size:14px}
+.hint:empty{display:none}
+.muted{color:var(--sub);font-size:13px}
+.err{color:var(--warn)}
+.okmsg{color:var(--ok)}
+.canvas-wrap{display:flex;justify-content:center;background:#DDE3E1;border-radius:4px;overflow:hidden}
+#cv{display:block;max-width:100%;max-height:72vh;touch-action:none}
+#loupe{position:fixed;z-index:20;width:150px;height:150px;border-radius:50%;border:3px solid var(--shift);
+  background:#fff;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+#strip{display:block;width:100%;border:1px solid var(--line);border-radius:4px;margin:6px 0}
+
+/* その日のシフト：表と同じ30分のマス */
+.day-grid{overflow-x:auto;padding-bottom:4px}
+.cells{display:grid;grid-template-columns:repeat(36,22px);gap:0;width:max-content}
+.cells .hr{font-size:11px;color:var(--sub);grid-column:span 2;padding-left:2px;border-left:1px solid var(--line)}
+.cells button{height:30px;padding:0;border:0;border-left:1px solid var(--line);border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);border-radius:0;background:#fff}
+.cells button:nth-of-type(odd){border-left-color:var(--ink)}
+.cells button.on{background:var(--shift)}
+.cells button:last-child{border-right:1px solid var(--line)}
+.times{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}
+.calc{font-size:14px}
+.calc b{font-size:18px}
+
+ul.plain{list-style:none;margin:0;padding:0}
+ul.plain li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+ul.plain li:last-child{border-bottom:0}
+.x{border:0;background:transparent;color:var(--warn);font-size:18px;padding:2px 8px}
+
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tbl{overflow-x:auto}
+th,td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--sub);font-weight:400;font-size:12px}
+.total{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+.total .yen{font-size:30px;font-weight:700;letter-spacing:.01em}
+.total .when{color:var(--sub)}
+.warns li{color:var(--warn);font-size:14px;margin:4px 0}
+.set-grid{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center}
+.set-grid label{margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="head-in">
+    <h1>バイトシフト</h1>
+    <nav role="tablist">
+      <button role="tab" data-tab="read" aria-selected="true">読み取り</button>
+      <button role="tab" data-tab="pay" aria-selected="false">給与</button>
+      <button role="tab" data-tab="settings" aria-selected="false">設定</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<!-- 読み取り -->
+<section id="tab-read">
+  <div class="panel">
+    <h2>シフト画像</h2>
+    <label>画像を選ぶ（複数まとめて選べます）<br><input type="file" id="files" accept="image/*" multiple></label>
+    <label>1枚目の日付 <input type="date" id="firstDate"></label>
+    <p class="muted">画像はこの端末の中だけで読み取ります。送るのは、自分の勤務日と時間だけです。</p>
+    <p id="queueInfo" class="muted"></p>
+  </div>
+
+  <div class="panel" id="editor" hidden>
+    <div class="bar">
+      <button data-act="rotL">左に90°回す</button>
+      <button data-act="rotR">右に90°回す</button>
+      <button data-act="straighten">斜めを直す</button>
+      <button data-act="resetImg">元の画像に戻す</button>
+    </div>
+    <p id="hint" class="hint"></p>
+    <div class="canvas-wrap"><canvas id="cv"></canvas></div>
+    <div class="bar">
+      <button data-act="pickRow" class="primary">自分の行を指定する</button>
+    </div>
+  </div>
+
+  <div class="panel" id="result" hidden>
+    <h2>この日のシフト</h2>
+    <div class="bar">
+      <label>日付 <input type="date" id="rDate"></label>
+      <label><input type="checkbox" id="rHoliday"> 休日出勤（店の休日に出た日だけ）</label>
+    </div>
+    <p class="muted">切り出した自分の行です。右端の「実務時間」と下の実働が合っているか見てください。</p>
+    <canvas id="strip"></canvas>
+    <p class="muted">マスをタップすると、勤務と空きを切り替えられます。</p>
+    <div class="day-grid"><div class="cells" id="cells"></div></div>
+    <div class="times">
+      <select id="rStart" aria-label="開始"></select> 〜 <select id="rEnd" aria-label="終了"></select>
+    </div>
+    <p class="calc" id="rCalc"></p>
+    <div class="bar">
+      <button id="addDay" class="primary">この日を追加</button>
+      <button id="skipDay">この日はシフトなし</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>登録待ち</h2>
+    <ul class="plain" id="pending"></ul>
+    <p class="muted" id="pendingEmpty">まだありません。</p>
+    <div class="bar">
+      <button id="manualAdd">画像なしで1日追加</button>
+      <button id="submit" class="primary" disabled>カレンダーとシートに登録</button>
+    </div>
+    <p id="submitMsg"></p>
+  </div>
+</section>
+
+<!-- 給与 -->
+<section id="tab-pay" hidden>
+  <div class="panel">
+    <div class="bar">
+      <input type="month" id="payMonth" aria-label="対象の月">
+      <button id="loadMonth" class="primary">この月を表示</button>
+    </div>
+    <div id="payOut"><p class="muted">月を選んで「この月を表示」を押してください。</p></div>
+  </div>
+</section>
+
+<!-- 設定 -->
+<section id="tab-settings" hidden>
+  <div class="panel">
+    <h2>接続</h2>
+    <label>Apps Script のURL<br><input type="url" id="sUrl" style="width:100%" placeholder="https://script.google.com/macros/s/.../exec"></label>
+    <label>合言葉（setup実行時にログに出たもの）<br><input type="text" id="sToken" style="width:100%" autocomplete="off"></label>
+    <div class="bar"><button id="saveConn" class="primary">この端末に保存して読み込む</button></div>
+    <p id="connMsg"></p>
+  </div>
+
+  <div class="panel" id="payrollPanel" hidden>
+    <h2>給与の設定</h2>
+    <div class="set-grid">
+      <label for="sTransport">交通費（1日）</label><span><input type="number" id="sTransport" min="0" step="1" style="width:7em"> 円</span>
+      <label for="sOt">残業の倍率</label><span><input type="number" id="sOt" min="1" step="0.01" style="width:6em"> 倍</span>
+      <label for="sHol">休日出勤の倍率</label><span><input type="number" id="sHol" min="1" step="0.01" style="width:6em"> 倍</span>
+      <label for="sPayday">支払日（翌月）</label><span><input type="number" id="sPayday" min="1" max="31" step="1" style="width:5em"> 日</span>
+      <label for="sCal">カレンダー名</label><span><input type="text" id="sCal" style="width:10em"></span>
+    </div>
+    <p class="muted">休憩は店のルールで固定です（拘束5時間を超えたら1時間）。残業は1日の実働が8時間を超えた分です。</p>
+
+    <h2 style="margin-top:16px">時給</h2>
+    <p class="muted">「この日から」の時給を足していくと、前の月は前の時給のまま計算されます。</p>
+    <ul class="plain" id="wageList"></ul>
+    <div class="bar">
+      <input type="date" id="wFrom" aria-label="適用開始日">
+      <input type="number" id="wVal" min="0" step="1" placeholder="時給" style="width:7em" aria-label="時給">
+      <button id="wAdd">追加</button>
+    </div>
+
+    <h2 style="margin-top:16px">東京都の最低賃金</h2>
+    <p class="muted">時給がこれを下回る日があると、給与の画面に注意が出ます。毎年10月ごろに更新してください。</p>
+    <ul class="plain" id="minList"></ul>
+    <div class="bar">
+      <input type="date" id="mFrom" aria-label="発効日">
+      <input type="number" id="mVal" min="0" step="1" placeholder="金額" style="width:7em" aria-label="最低賃金">
+      <button id="mAdd">追加</button>
+    </div>
+
+    <div class="bar" style="margin-top:14px"><button id="saveSettings" class="primary">給与の設定を保存</button></div>
+    <p id="setMsg"></p>
+  </div>
+</section>
+</main>
+
+<canvas id="loupe" width="150" height="150" hidden></canvas>
+
+<script>
+'use strict';
+/* ===== 表の形（シフト表のテンプレートに合わせた値） ===== */
+const GRID_START_HOUR = 6;    // 表の左端は6時
+const CELLS = 36;             // 6時〜24時を30分ずつ
+const BREAK_OVER_HOURS = 5;   // 店のルール：拘束5時間を超えたら
+const BREAK_HOURS = 1;        //             休憩1時間
+const OT_DAILY_HOURS = 8;
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const minToHHMM = m => pad(Math.floor(m/60)) + ':' + pad(m%60);
+const hhmmToMin = s => { const [h,m] = s.split(':').map(Number); return h*60+m; };
+const cellToMin = i => GRID_START_HOUR*60 + i*30;
+const addDays = (dstr, n) => { const d = new Date(dstr+'T00:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+const WD = ['日','月','火','水','木','金','土'];
+const dateLabel = dstr => { const d = new Date(dstr+'T00:00:00'); return (d.getMonth()+1)+'/'+d.getDate()+'('+WD[d.getDay()]+')'; };
+
+function calcDay(start, end){
+  const span = (hhmmToMin(end) - hhmmToMin(start)) / 60;
+  const brk = span > BREAK_OVER_HOURS ? BREAK_HOURS : 0;
+  const work = Math.max(0, span - brk);
+  return { span, brk, work, ot: Math.max(0, work - OT_DAILY_HOURS) };
+}
+
+/* ===== タブ ===== */
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x===b));
+  ['read','pay','settings'].forEach(t => $('tab-'+t).hidden = (t !== b.dataset.tab));
+  if (b.dataset.tab === 'settings' && localStorage.getItem('shift.url')) loadSettings();
+}));
+
+/* ===== Apps Script との通信 ===== */
+async function api(action, payload = {}){
+  const url = localStorage.getItem('shift.url'), token = localStorage.getItem('shift.token');
+  if (!url || !token) throw new Error('設定タブでURLと合言葉を入れてください。');
+  const res = await fetch(url, { method:'POST', body: JSON.stringify({ action, token, ...payload }) });
+  let j;
+  try { j = await res.json(); } catch(e){ throw new Error('Apps Script から返事を読めませんでした。URLとデプロイの設定を確かめてください。'); }
+  if (!j.ok) throw new Error(j.error || '登録できませんでした。');
+  return j;
+}
+
+/* ===== 画像の読み込みと表示 ===== */
+const cv = $('cv'), cctx = cv.getContext('2d');
+let queue = [], qIdx = -1;
+let work = null, original = null, workData = null;
+let mode = null, taps = [];
+let nextDate = null;
+
+$('firstDate').value = (() => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); })();
+
+$('files').addEventListener('change', e => {
+  queue = [...e.target.files].sort((a,b) => a.name.localeCompare(b.name, 'ja', {numeric:true}));
+  qIdx = -1; nextDate = $('firstDate').value;
+  nextImage();
+});
+
+function nextImage(){
+  qIdx++;
+  $('result').hidden = true;
+  if (qIdx >= queue.length){
+    $('editor').hidden = true;
+    $('queueInfo').textContent = queue.length ? '選んだ画像はすべて見終わりました。' : '';
+    return;
+  }
+  $('queueInfo').textContent = (qIdx+1) + ' / ' + queue.length + ' 枚目：' + queue[qIdx].name;
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 2400, s = Math.min(1, MAX / Math.max(img.width, img.height));
+    original = document.createElement('canvas');
+    original.width = Math.round(img.width*s); original.height = Math.round(img.height*s);
+    original.getContext('2d').drawImage(img, 0, 0, original.width, original.height);
+    URL.revokeObjectURL(img.src);
+    setWork(cloneCanvas(original));
+    $('editor').hidden = false;
+    setMode(null);
+    $('hint').textContent = '向きが横なら回してください。紙の写真など斜めに写っているときは「斜めを直す」を使います。';
+  };
+  img.src = URL.createObjectURL(queue[qIdx]);
+}
+
+function cloneCanvas(c){ const n = document.createElement('canvas'); n.width=c.width; n.height=c.height; n.getContext('2d').drawImage(c,0,0); return n; }
+function setWork(c){ work = c; workData = null; redraw(); }
+function getData(){ if (!workData) workData = work.getContext('2d', {willReadFrequently:true}).getImageData(0,0,work.width,work.height); return workData; }
+
+function redraw(){
+  cv.width = work.width; cv.height = work.height;
+  cctx.drawImage(work, 0, 0);
+  const r = Math.max(6, work.width/180);
+  cctx.lineWidth = Math.max(2, work.width/500);
+  taps.forEach((p,i) => {
+    cctx.strokeStyle = '#6A57E0'; cctx.fillStyle = 'rgba(106,87,224,.35)';
+    cctx.beginPath(); cctx.arc(p.x, p.y, r, 0, Math.PI*2); cctx.fill(); cctx.stroke();
+    if (i>0 && mode==='straighten'){ cctx.beginPath(); cctx.moveTo(taps[i-1].x,taps[i-1].y); cctx.lineTo(p.x,p.y); cctx.stroke(); }
+  });
+  if (mode==='pickRow' && taps.length===2){ cctx.beginPath(); cctx.moveTo(taps[0].x,taps[0].y); cctx.lineTo(taps[1].x,taps[1].y); cctx.stroke(); }
+}
+
+function rotate(dir){
+  const n = document.createElement('canvas'); n.width = work.height; n.height = work.width;
+  const x = n.getContext('2d');
+  x.translate(n.width/2, n.height/2); x.rotate(dir*Math.PI/2); x.drawImage(work, -work.width/2, -work.height/2);
+  setWork(n);
+}
+
+const HINTS = {
+  straighten: ['表の左上の角をタップ','右上の角をタップ','右下の角をタップ','左下の角をタップ'],
+  pickRow: ['自分の行で、6時のマスの左端をタップ（行の高さの真ん中）','同じ行で、23時のマスの右端をタップ'],
+};
+function setMode(m){ mode = m; taps = []; redraw(); $('hint').textContent = m ? HINTS[m][0] : ''; }
+
+document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+  const a = b.dataset.act;
+  if (!work) return;
+  if (a==='rotL') { setMode(null); rotate(-1); }
+  if (a==='rotR') { setMode(null); rotate(1); }
+  if (a==='resetImg') { setMode(null); setWork(cloneCanvas(original)); }
+  if (a==='straighten') setMode('straighten');
+  if (a==='pickRow') setMode('pickRow');
+}));
+
+/* タップ位置を拡大鏡で見せ、指を離した位置で決める */
+const loupe = $('loupe'), lctx = loupe.getContext('2d');
+function toCanvas(ev){ const r = cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*cv.width/r.width, y:(ev.clientY-r.top)*cv.height/r.height }; }
+function showLoupe(ev){
+  const p = toCanvas(ev), r = cv.getBoundingClientRect();
+  const src = 50 * cv.width / r.width; // 画面上の3倍に拡大
+  lctx.fillStyle='#fff'; lctx.fillRect(0,0,150,150);
+  lctx.drawImage(work, p.x - src/2, p.y - src/2, src, src, 0, 0, 150, 150);
+  lctx.strokeStyle='#6A57E0'; lctx.lineWidth=1.5;
+  lctx.beginPath(); lctx.moveTo(75,0); lctx.lineTo(75,150); lctx.moveTo(0,75); lctx.lineTo(150,75); lctx.stroke();
+  loupe.hidden = false;
+  const left = ev.clientX < window.innerWidth/2;
+  loupe.style.left = left ? (window.innerWidth - 165)+'px' : '15px';
+  loupe.style.top = (Math.max(70, ev.clientY - 190))+'px';
+}
+cv.addEventListener('pointerdown', ev => { if (!mode) return; cv.setPointerCapture(ev.pointerId); showLoupe(ev); });
+cv.addEventListener('pointermove', ev => { if (!mode || loupe.hidden) return; showLoupe(ev); });
+cv.addEventListener('pointerup', ev => {
+  if (!mode || loupe.hidden) return;
+  loupe.hidden = true;
+  taps.push(toCanvas(ev)); redraw();
+  const steps = HINTS[mode];
+  if (taps.length < steps.length){ $('hint').textContent = steps[taps.length]; return; }
+  if (mode==='straighten'){ const t = taps.slice(); setMode(null); straighten(t);
+    $('hint').textContent = '直しました。続けて「自分の行を指定する」を押してください。'; }
+  else if (mode==='pickRow'){ const t = taps.slice(); mode = null; $('hint').textContent = ''; readRow(t[0], t[1]); }
+});
+cv.addEventListener('pointercancel', () => { loupe.hidden = true; });
+
+/* ===== 斜めの補正（4点からの射影変換） ===== */
+function solve(A, b){
+  const n = b.length;
+  for (let i=0;i<n;i++){
+    let m = i; for (let k=i+1;k<n;k++) if (Math.abs(A[k][i])>Math.abs(A[m][i])) m=k;
+    [A[i],A[m]]=[A[m],A[i]]; [b[i],b[m]]=[b[m],b[i]];
+    for (let k=i+1;k<n;k++){ const f=A[k][i]/A[i][i]; for (let j=i;j<n;j++) A[k][j]-=f*A[i][j]; b[k]-=f*b[i]; }
+  }
+  const x = new Array(n);
+  for (let i=n-1;i>=0;i--){ let s=b[i]; for (let j=i+1;j<n;j++) s-=A[i][j]*x[j]; x[i]=s/A[i][i]; }
+  return x;
+}
+function homography(from, to){ // from[i] -> to[i]
+  const A=[], b=[];
+  for (let i=0;i<4;i++){
+    const {x,y}=from[i], {x:u,y:v}=to[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u);
+    A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v);
+  }
+  const h = solve(A,b); h.push(1); return h;
+}
+function straighten(pts){
+  const d = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+  let W = Math.max(d(pts[0],pts[1]), d(pts[3],pts[2])), H = Math.max(d(pts[0],pts[3]), d(pts[1],pts[2]));
+  const s = Math.min(1, 2400/Math.max(W,H)); W = Math.round(W*s); H = Math.round(H*s);
+  const dst = [{x:0,y:0},{x:W,y:0},{x:W,y:H},{x:0,y:H}];
+  const h = homography(dst, pts); // 出力の各画素が元画像のどこに当たるか
+  const src = getData(), sw = src.width, sh = src.height, sd = src.data;
+  const out = document.createElement('canvas'); out.width=W; out.height=H;
+  const octx = out.getContext('2d'), od = octx.createImageData(W,H);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+    const z = h[6]*x + h[7]*y + 1;
+    const sx = Math.round((h[0]*x + h[1]*y + h[2]) / z), sy = Math.round((h[3]*x + h[4]*y + h[5]) / z);
+    const o = (y*W + x)*4;
+    if (sx>=0 && sy>=0 && sx<sw && sy<sh){ const i=(sy*sw+sx)*4; od.data[o]=sd[i]; od.data[o+1]=sd[i+1]; od.data[o+2]=sd[i+2]; }
+    else { od.data[o]=od.data[o+1]=od.data[o+2]=255; }
+    od.data[o+3]=255;
+  }
+  octx.putImageData(od,0,0);
+  setWork(out);
+}
+
+/* ===== 自分の行のマスの色を読む ===== */
+let cellsOn = new Array(CELLS).fill(false);
+
+function px(d, x, y){
+  x = Math.round(x); y = Math.round(y);
+  if (x<0||y<0||x>=d.width||y>=d.height) return [1, 0];
+  const i = (y*d.width + x)*4, r=d.data[i]/255, g=d.data[i+1]/255, b=d.data[i+2]/255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  return [0.299*r + 0.587*g + 0.114*b, mx ? (mx-mn)/mx : 0];
+}
+function median(a){ a.sort((p,q)=>p-q); return a[Math.floor(a.length/2)]; }
+function pct(a, q){ a.sort((p,q2)=>p-q2); return a[Math.min(a.length-1, Math.floor(a.length*q))]; }
+
+function readRow(p0, p1){
+  const d = getData();
+  const ux = (p1.x-p0.x)/CELLS, uy = (p1.y-p0.y)/CELLS, len = Math.hypot(ux,uy);
+  const nx = -uy/len, ny = ux/len;
+  const at = (t, b) => px(d, p0.x + ux*t + nx*len*b, p0.y + uy*t + ny*len*b);
+  const scores = [];
+  for (let i=0;i<CELLS;i++){
+    // マスの中央の明るさと色の濃さ（中央値なので「休み」などの文字や罫線に引っぱられにくい）
+    const L = [], S = [];
+    for (let a=-3;a<=3;a++) for (const b of [-0.3,-0.15,0,0.15,0.3]){ const v = at(i+0.5+a/10, b); L.push(v[0]); S.push(v[1]); }
+    // まわりで一番白いところの明るさ（紙の写真の影や照明のむらを打ち消す）
+    const W = [];
+    for (let a=-8;a<=8;a++) for (let b=-10;b<=10;b++) W.push(at(i+0.5+a/4, b/4)[0]);
+    const white = pct(W, 0.95), lum = median(L), sat = median(S);
+    scores.push(Math.max(0, (white-lum)/Math.max(white,0.05)) + sat*0.5);
+  }
+  // 濃いマスと薄いマスの2組に分ける境目を探す
+  const sorted = scores.slice().sort((a,b)=>a-b);
+  let best = -1, thr = Infinity;
+  for (let k=1;k<sorted.length;k++){
+    const lo = sorted.slice(0,k), hi = sorted.slice(k);
+    const m1 = lo.reduce((s,v)=>s+v,0)/lo.length, m2 = hi.reduce((s,v)=>s+v,0)/hi.length;
+    const v = lo.length*hi.length*(m2-m1)*(m2-m1);
+    if (v>best && m2-m1 > 0.12){ best=v; thr=(sorted[k-1]+sorted[k])/2; }
+  }
+  cellsOn = scores.map(s => s >= thr);
+  drawStrip(p0, p1, ux, uy, len);
+  $('rDate').value = nextDate || $('firstDate').value;
+  $('rHoliday').checked = false;
+  syncFromCells();
+  $('result').hidden = false;
+  $('result').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function drawStrip(p0, p1, ux, uy, len){
+  const s = $('strip'), ang = Math.atan2(uy, ux);
+  const total = len*CELLS, W = Math.round(total*1.45), H = Math.round(len*3.2);
+  s.width = W; s.height = H;
+  const x = s.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+  const sx = p0.x - ux*CELLS*0.3, sy = p0.y - uy*CELLS*0.3; // 名前の欄から右端の数字まで
+  x.setTransform(1,0,0,1,0,H/2); x.rotate(-ang); x.translate(-sx,-sy);
+  x.drawImage(work,0,0);
+  x.setTransform(1,0,0,1,0,0);
+}
+
+/* マスと時間の選択を連動させる */
+const timeOpts = [];
+for (let i=0;i<=CELLS;i++) timeOpts.push(minToHHMM(cellToMin(i)));
+for (const id of ['rStart','rEnd']) $(id).innerHTML = timeOpts.map(t=>`<option>${t}</option>`).join('');
+
+function renderCells(){
+  const box = $('cells');
+  let html = '';
+  for (let h=0;h<CELLS/2;h++) html += `<span class="hr">${GRID_START_HOUR+h}</span>`;
+  for (let i=0;i<CELLS;i++) html += `<button type="button" data-i="${i}" class="${cellsOn[i]?'on':''}" aria-label="${minToHHMM(cellToMin(i))}"></button>`;
+  box.innerHTML = html;
+}
+$('cells').addEventListener('click', e => {
+  const i = e.target.dataset && e.target.dataset.i; if (i===undefined) return;
+  cellsOn[+i] = !cellsOn[+i]; syncFromCells();
+});
+function syncFromCells(){
+  const first = cellsOn.indexOf(true), last = cellsOn.lastIndexOf(true);
+  if (first >= 0){ $('rStart').value = timeOpts[first]; $('rEnd').value = timeOpts[last+1]; }
+  renderCells(); showCalc();
+}
+function syncFromTimes(){
+  const s = timeOpts.indexOf($('rStart').value), e = timeOpts.indexOf($('rEnd').value);
+  cellsOn = cellsOn.map((_,i) => i>=s && i<e);
+  renderCells(); showCalc();
+}
+$('rStart').addEventListener('change', syncFromTimes);
+$('rEnd').addEventListener('change', syncFromTimes);
+
+function currentDay(){
+  if (cellsOn.indexOf(true) < 0) return null;
+  const s = $('rStart').value, e = $('rEnd').value;
+  if (hhmmToMin(e) <= hhmmToMin(s)) return null;
+  return { date: $('rDate').value, start: s, end: e, holiday: $('rHoliday').checked };
+}
+function showCalc(){
+  const d = currentDay();
+  if (!d){ $('rCalc').innerHTML = '<span class="err">勤務のマスが見つかりませんでした。マスをタップするか、時間を選んでください。</span>'; return; }
+  const c = calcDay(d.start, d.end);
+  const gaps = cellsOn.slice(cellsOn.indexOf(true), cellsOn.lastIndexOf(true)+1).filter(v=>!v).length/2;
+  let note = '';
+  if (gaps !== c.brk) note = `<br><span class="muted">表の中の空き（休み）は${gaps}時間でした。計算は店のルールの休憩${c.brk}時間を使います。</span>`;
+  $('rCalc').innerHTML = `${d.start}〜${d.end}　拘束${c.span}時間・休憩${c.brk}時間　実働 <b>${c.work}</b> 時間` + (c.ot ? `（うち残業${c.ot}時間）` : '') + note;
+}
+
+/* ===== 登録待ち ===== */
+let pending = JSON.parse(localStorage.getItem('shift.pending') || '[]');
+function savePending(){ localStorage.setItem('shift.pending', JSON.stringify(pending)); renderPending(); }
+function renderPending(){
+  pending.sort((a,b)=>a.date.localeCompare(b.date));
+  $('pending').innerHTML = pending.map((p,i) => {
+    const c = calcDay(p.start, p.end);
+    return `<li><span>${dateLabel(p.date)}　${p.start}〜${p.end}　実働${c.work}h${p.holiday?'　休日出勤':''}</span><button class="x" data-del="${i}" aria-label="削除">×</button></li>`;
+  }).join('');
+  $('pendingEmpty').hidden = pending.length > 0;
+  $('submit').disabled = pending.length === 0;
+}
+$('pending').addEventListener('click', e => { const i = e.target.dataset.del; if (i===undefined) return; pending.splice(+i,1); savePending(); });
+
+$('addDay').addEventListener('click', () => {
+  const d = currentDay(); if (!d || !d.date) { showCalc(); return; }
+  pending = pending.filter(p => p.date !== d.date); pending.push(d); savePending();
+  nextDate = addDays(d.date, 1);
+  if (qIdx >= 0 && qIdx < queue.length) nextImage(); else $('result').hidden = true;
+});
+$('skipDay').addEventListener('click', () => {
+  nextDate = addDays($('rDate').value || $('firstDate').value, 1);
+  if (qIdx >= 0 && qIdx < queue.length) nextImage(); else $('result').hidden = true;
+});
+$('manualAdd').addEventListener('click', () => {
+  $('editor').hidden = true;
+  cellsOn = new Array(CELLS).fill(false);
+  $('strip').width = 0; $('strip').height = 0;
+  $('rDate').value = nextDate || $('firstDate').value; $('rHoliday').checked = false;
+  syncFromCells(); $('result').hidden = false; $('result').scrollIntoView({behavior:'smooth'});
+});
+
+$('submit').addEventListener('click', async () => {
+  $('submit').disabled = true; $('submitMsg').className = ''; $('submitMsg').textContent = '登録しています…';
+  try {
+    const r = await api('saveShifts', { shifts: pending });
+    $('submitMsg').className = 'okmsg'; $('submitMsg').textContent = `${r.saved}日分をカレンダーとシートに登録しました。`;
+    pending = []; savePending();
+  } catch(e){ $('submitMsg').className = 'err'; $('submitMsg').textContent = e.message; $('submit').disabled = false; }
+});
+renderPending();
+
+/* ===== 給与 ===== */
+$('payMonth').value = (() => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1); })();
+$('loadMonth').addEventListener('click', loadMonth);
+async function loadMonth(){
+  const out = $('payOut'); out.innerHTML = '<p class="muted">読み込んでいます…</p>';
+  try {
+    const r = await api('getMonth', { month: $('payMonth').value });
+    const t = r.total;
+    let html = `<div class="total"><span class="yen">${yen(t.total)}</span><span class="when">${r.payday.replace(/-/g,'/')} 支払い見込み</span></div>`;
+    html += `<p class="muted">${t.days}日・実働${t.work}時間${t.ot?`（残業${t.ot}時間）`:''}　給与${yen(t.wagePay)}＋交通費${yen(t.transport)}</p>`;
+    if (r.warnings.length) html += '<ul class="warns">' + r.warnings.map(w=>`<li>${w}</li>`).join('') + '</ul>';
+    if (r.rows.length){
+      html += '<div class="tbl"><table><thead><tr><th>日付</th><th>時間</th><th>実働</th><th>時給</th><th>給与</th><th></th></tr></thead><tbody>';
+      html += r.rows.map(x => `<tr><td>${dateLabel(x.date)}${x.holiday?' 休':''}</td><td>${x.start}〜${x.end}</td><td>${x.work}h${x.ot?`<br><span class="muted">残業${x.ot}h</span>`:''}</td><td>${x.wage.toLocaleString('ja-JP')}</td><td>${yen(x.pay)}</td><td><button class="x" data-deldate="${x.date}" aria-label="削除">×</button></td></tr>`).join('');
+      html += '</tbody></table></div>';
+      html += `<div class="bar"><button id="paydayBtn">給料日をカレンダーに入れる</button></div><p id="paydayMsg"></p>`;
+    } else html += '<p class="muted">この月のシフトはまだ登録されていません。</p>';
+    out.innerHTML = html;
+    const pb = $('paydayBtn');
+    if (pb) pb.addEventListener('click', async () => {
+      try { await api('setPaydayEvent', { month: $('payMonth').value }); $('paydayMsg').className='okmsg'; $('paydayMsg').textContent='給料日の予定を入れました。'; }
+      catch(e){ $('paydayMsg').className='err'; $('paydayMsg').textContent=e.message; }
+    });
+  } catch(e){ out.innerHTML = `<p class="err">${e.message}</p>`; }
+}
+$('payOut').addEventListener('click', async e => {
+  const d = e.target.dataset && e.target.dataset.deldate; if (!d) return;
+  if (!confirm(dateLabel(d)+' のシフトを削除します。カレンダーの予定も消えます。')) return;
+  try { await api('deleteShift', { date: d }); loadMonth(); } catch(err){ alert(err.message); }
+});
+
+/* ===== 設定 ===== */
+$('sUrl').value = localStorage.getItem('shift.url') || '';
+$('sToken').value = localStorage.getItem('shift.token') || '';
+$('saveConn').addEventListener('click', () => {
+  localStorage.setItem('shift.url', $('sUrl').value.trim());
+  localStorage.setItem('shift.token', $('sToken').value.trim());
+  loadSettings();
+});
+
+let settings = null;
+async function loadSettings(){
+  $('connMsg').className=''; $('connMsg').textContent = '読み込んでいます…';
+  try {
+    settings = (await api('getSettings')).settings;
+    $('connMsg').className='okmsg'; $('connMsg').textContent = 'つながりました。';
+    $('sTransport').value = settings.transport; $('sOt').value = settings.otRate; $('sHol').value = settings.holidayRate;
+    $('sPayday').value = settings.payday; $('sCal').value = settings.calendarName;
+    renderRates(); $('payrollPanel').hidden = false;
+  } catch(e){ $('connMsg').className='err'; $('connMsg').textContent = e.message; $('payrollPanel').hidden = true; }
+}
+function renderRates(){
+  const row = (r,i,kind) => `<li><span>${r.from.replace(/-/g,'/')} から　${Number(r.wage).toLocaleString('ja-JP')}円</span><button class="x" data-kind="${kind}" data-i="${i}" aria-label="削除">×</button></li>`;
+  settings.wages.sort((a,b)=>a.from.localeCompare(b.from)); settings.minWages.sort((a,b)=>a.from.localeCompare(b.from));
+  $('wageList').innerHTML = settings.wages.map((r,i)=>row(r,i,'wages')).join('');
+  $('minList').innerHTML = settings.minWages.map((r,i)=>row(r,i,'minWages')).join('');
+}
+for (const id of ['wageList','minList']) $(id).addEventListener('click', e => {
+  const k = e.target.dataset.kind; if (!k) return; settings[k].splice(+e.target.dataset.i,1); renderRates();
+});
+$('wAdd').addEventListener('click', () => { if (!$('wFrom').value || !$('wVal').value) return;
+  settings.wages = settings.wages.filter(r=>r.from!==$('wFrom').value); settings.wages.push({from:$('wFrom').value, wage:+$('wVal').value}); renderRates(); });
+$('mAdd').addEventListener('click', () => { if (!$('mFrom').value || !$('mVal').value) return;
+  settings.minWages = settings.minWages.filter(r=>r.from!==$('mFrom').value); settings.minWages.push({from:$('mFrom').value, wage:+$('mVal').value}); renderRates(); });
+$('saveSettings').addEventListener('click', async () => {
+  settings.transport = +$('sTransport').value; settings.otRate = +$('sOt').value; settings.holidayRate = +$('sHol').value;
+  settings.payday = +$('sPayday').value; settings.calendarName = $('sCal').value.trim() || 'バイト';
+  try { await api('saveSettings', { settings }); $('setMsg').className='okmsg'; $('setMsg').textContent='保存しました。'; }
+  catch(e){ $('setMsg').className='err'; $('setMsg').textContent=e.message; }
+});
+</script>
+</body>
+</html>
