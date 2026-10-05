@@ -575,15 +575,22 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 /* ---------- 詳細のまとまり（iPhone の「探す」「設定」と同じ並べ方） ----------
    頭に色の丸いアイコンと太字の見出し、その下に行を並べ、行の間は左右を空けた細い線で区切る */
 .ig{margin-top:14px;background:var(--ios-group);border-radius:24px;padding:16px 0 2px;overflow:hidden}
-.ig-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:0 18px 12px}
-.ig-ic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.ig-ic svg{width:18px;height:18px}
+/* アイコンは見出しの左に並べて1行にする。縦に重ねると見出し1つで 91px あり、まとまりが5〜6個で1画面が埋まった */
+.ig-head{display:flex;align-items:center;gap:12px;padding:0 18px 14px}
+.ig-ic{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ig-ic svg{width:17px;height:17px}
 .ig-title{font-size:17px;font-weight:700;letter-spacing:-.01em}
 .ig > .ig-body,.ig > .irow,.ig > .kv,.ig > .ig-row{margin:0 18px;border-top:1px solid var(--ios-sep)}
 /* 押すボタンではない行（予定の1件、スイッチの行） */
 .ig > .ig-row{display:flex;align-items:center;gap:12px;padding:12px 0;font-size:16px}
 .ig > .ig-row.ichk{justify-content:space-between;cursor:pointer;padding:10px 0}
 .irow.strong{font-weight:600}
+/* 押せる文字を2つ、1行に並べる（左寄せと右寄せ） */
+.ig > .ig-row.ibtns{padding:0;gap:0}
+.ibtns button{flex:1;background:none;border:none;color:var(--blue);font-size:16px;padding:14px 0;text-align:left;cursor:pointer;
+  transition:opacity .16s var(--ease)}
+.ibtns button + button{text-align:right}
+.ibtns button:active{opacity:.5;transition:none}
 /* まとまりの中の小さな見出しと、説明の文 */
 .ilab{font-size:13px;color:var(--ios-label2);margin:0 0 8px}
 .inote{font-size:12px;color:var(--ios-label2);line-height:1.7}
@@ -609,7 +616,8 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .irow:active{opacity:.5;transition:none}
 .irow.blue{color:var(--blue)}
 .irow.red{color:var(--hot)}
-.ig > .kv{padding:14px 0;width:auto}
+/* まとまりの中の行は、上の線だけで区切る。下にも線があると、まとまりの底に線が1本余って見える */
+.ig > .kv{padding:14px 0;width:auto;border-bottom:none}
 .ig > button.kv.idrow{width:calc(100% - 36px);border-bottom:none;border-top:1px solid var(--ios-sep)}
 .ig .kv span:first-child{font-family:var(--body);font-size:16px;color:var(--text);letter-spacing:0}
 .ig .kv span:last-child{color:var(--ios-label2)}

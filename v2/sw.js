@@ -17,7 +17,7 @@
  *
  * 保存するファイルや方針を変えたら VERSION を上げること。古い保存分が捨てられる。
  */
-const VERSION = 'v3';
+const VERSION = 'v4';
 /* 画面のコードをネットから待つ上限 */
 const NET_WAIT_MS = 4000;
 /* 保存版で開いた画面（クライアント）。この画面の部品も保存版で返す。SW が眠ると忘れるが、そのときはネットを見に行くだけ */
@@ -49,6 +49,7 @@ const CODE_URLS = [
   './js/views/add.js',
   './js/views/detail.js',
   './js/views/fields.js',
+  './js/views/ig.js',
   './js/views/list.js',
   './js/views/passport.js',
   './js/views/search.js',
