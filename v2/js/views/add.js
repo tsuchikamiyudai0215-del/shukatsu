@@ -24,7 +24,7 @@ function stageChoices() {
 export function openAdd() {
   const first = Domain.defaultRoute(ui.term)[0];
   /* 詳細と同じ「探す」の形のまとまりに分ける：会社／マイページ（任意）／選考 */
-  const company = section('building', 'var(--blue)', '会社', html`<div class="ig-body"><input class="f" id="nC" placeholder="例：三菱商事" autocomplete="off" data-input="suggest" style="margin:0"><div class="sug" id="nCSug"></div><div class="inote" style="margin-top:10px">2文字以上で候補が出ます。自分の呼び方のままでも登録できます。</div></div>`);
+  const company = section('building', 'var(--blue)', '会社', html`<div class="ig-body"><input class="f" id="nC" placeholder="例：三菱商事" autocomplete="off" data-input="suggest" style="margin:0"><div class="sug" id="nCSug"></div></div>`);
   const mypage = section('key', '#8E8E93', 'マイページ（任意）', html`<div class="ig-body"><div class="ilab">マイページURL</div><input class="f" id="nU" style="margin:0"><div class="ilab" style="margin-top:14px">ログインID</div><input class="f" id="nI" style="margin:0"><div class="ilab" style="margin-top:14px">ロゴ用ドメイン</div><input class="f" id="nD" placeholder="例：mitsubishicorp.com" style="margin:0"></div>`);
   const sel = section('flag', 'var(--go)', '選考', html`<div class="ig-body"><div class="ilab">段階</div><select class="f" id="nS" style="margin:0">${stageChoices().map((p) => html`<option${p === first ? html` selected` : ''}>${p}</option>`)}</select><div class="ilab" style="margin-top:14px">締切（任意）</div>${dtField('nDue', '', '23:59')}</div>`);
   showSheet(html`<div class="sheet"><div class="card" id="addCard"><div class="grab"></div><div style="font-size:22px;font-weight:700">選考を追加</div>${company}${mypage}${sel}<button class="big" style="background:var(--blue);color:#fff" data-act="add-company">追加する</button></div></div>`);

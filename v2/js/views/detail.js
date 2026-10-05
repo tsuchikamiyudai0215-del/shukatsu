@@ -158,19 +158,16 @@ function settingsHtml(c) {
   const isCo = c.kind !== 'mgmt';
   const names = Domain.INDUSTRY_NAMES.concat(INDUSTRY_HINTS).filter((x, i, a) => a.indexOf(x) === i);
   const row = (id, value, act, label, placeholder) => html`<div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="${id}" value="${value}" placeholder="${placeholder || ''}"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="${act}">${label}</button></div>`;
-  const tip = (text) => html`<div class="inote" style="margin-top:10px">${text}</div>`;
   /* 中身は概要と同じ「探す」の形のまとまり。押すものは青い文字の行、消すものは赤い文字の行にする */
-  const mypage = section('key', '#8E8E93', 'マイページの登録', html`<div class="ig-body"><input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="${c.url}" style="margin:0"><input class="f" id="coId" placeholder="ログインID" value="${c.loginId}"></div>${rowBtn('set-info', 'マイページを保存する', 'blue')}<div class="ig-body"><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="coPw" type="password" autocomplete="new-password" placeholder="パスワード（変えるときだけ入力）"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="set-pw">保存</button></div>${tip('パスワードはシートにだけ保存し、この端末と画面には残しません。')}</div><label class="ig-row ichk"><span>マイページを Chrome で開く</span><input type="checkbox" class="sw" id="chromeSw" data-change="chrome"${ui.openInChrome ? html` checked` : ''}></label><div class="ig-body inote">この端末だけの設定です。Chrome が無いと何も起きません。</div>`);
-  const company = isCo && html`${section('tag', 'var(--wait)', '業種', html`<div class="ig-body">${industryField(c, names, row)}${tip('記録タブの集計に使います。空なら社名から推定します。')}</div>`)}${section('pencil', 'var(--blue)', '会社名', html`<div class="ig-body">${row('renName', c.name, 'rename', '変更')}${tip('予定とカレンダーの見出しも付け替えます。')}</div>`)}${section('split', '#5E5CE6', '同じマイページで別の選考を追加', html`<div class="ig-body">${row('splitName', '', 'split', '追加', '例：' + Domain.shortName(c.name) + '（業務企画職）')}${tip('マイページ・ログイン・ロゴ・業種を引き継いだ行を作ります（コース別の選考に）。')}</div>`)}`;
-  const logoSec = section('photo', '#FF375F', 'ロゴ', html`<div class="ig-body">${row('logoUrl', manualValue(c), 'logo-set', '適用', '画像URLを貼って上書き')}${tip('URL を入れると、自動では変わらなくなります。')}</div>${rowBtn('logo-get', '自動で取り直す', 'blue')}<label class="irow blue">画像ファイルから選ぶ<input type="file" accept="image/*" style="display:none" data-change="logo-file"></label><div class="ig-body inote">画像ファイルはこの端末にだけ保存します。</div>`);
-  const del = section('trash', 'var(--hot)', 'この会社を削除', html`<div class="ig-body inote">${c.term}の行と、この会社の予定・カレンダー登録をまとめて消します。元に戻せません。書類フォルダは残します。</div>${rowBtn('delete-company', '削除する', 'red')}`);
+  const mypage = section('key', '#8E8E93', 'マイページの登録', html`<div class="ig-body"><input class="f" id="coUrl" placeholder="https://…（マイページのURL）" value="${c.url}" style="margin:0"><input class="f" id="coId" placeholder="ログインID" value="${c.loginId}"></div>${rowBtn('set-info', 'マイページを保存する', 'blue')}<div class="ig-body"><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="coPw" type="password" autocomplete="new-password" placeholder="パスワード（変えるときだけ入力）"><button class="gh" style="padding:0 14px;color:var(--text)" data-act="set-pw">保存</button></div></div><label class="ig-row ichk"><span>マイページを Chrome で開く</span><input type="checkbox" class="sw" id="chromeSw" data-change="chrome"${ui.openInChrome ? html` checked` : ''}></label>`);
+  const company = isCo && html`${section('tag', 'var(--wait)', '業種', html`<div class="ig-body">${industryField(c, names, row)}</div>`)}${section('pencil', 'var(--blue)', '会社名', html`<div class="ig-body">${row('renName', c.name, 'rename', '変更')}</div>`)}${section('split', '#5E5CE6', '同じマイページで別の選考を追加', html`<div class="ig-body">${row('splitName', '', 'split', '追加', '例：' + Domain.shortName(c.name) + '（業務企画職）')}</div>`)}`;
+  const logoSec = section('photo', '#FF375F', 'ロゴ', html`<div class="ig-body">${row('logoUrl', manualValue(c), 'logo-set', '適用', '画像URLを貼って上書き')}</div>${rowBtn('logo-get', '自動で取り直す', 'blue')}<label class="irow blue">画像ファイルから選ぶ<input type="file" accept="image/*" style="display:none" data-change="logo-file"></label>`);
+  const del = section('trash', 'var(--hot)', 'この会社を削除', html`${rowBtn('delete-company', '削除する', 'red')}`);
   return html`<details class="setwrap" id="setwrap"${ui.setOpen ? html` open` : ''}><summary>この会社の設定</summary>${mypage}${company}${logoSec}${del}</details>`;
 }
 
 /* 予定の種別は候補から選び、無ければ「自分で入力…」で名前を付ける（入れた名前は次から候補に出る） */
 const KIND_OWN = '__own';
-/* 終了を別の日にしたときの扱い。説明は要点だけにする（長いと追加の欄が下へ伸びる） */
-const HINT_TIMED = '終了を別の日にしたときは、連日オンで毎日その時間帯、オフで続けて1件になります。';
 
 function eventsTab(c, now) {
   const evs = eventsOf(c.id);
@@ -179,9 +176,9 @@ function eventsTab(c, now) {
     const r = rem(ev.startAt, now), live = evOngoing(ev, now);
     const span = spanText(ev);
     return html`<div class="ig-row"><span class="evd" style="font-size:${r ? '26px' : '13px'};color:${r ? (r.d <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? r.d : (live ? '開催中' : '—')}</span><div class="evb"><div class="evk">${ev.kind}${span && html`<span>${span}</span>`}</div><div class="sub">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}</div></div><button class="evx" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
-  }) : html`<div class="ig-body inote">面接や説明会、インターンの日時を入れると、予定レーンに並びます。カレンダーにも登録されます。</div>`;
+  }) : html`<div class="ig-body inote">予定はまだありません。</div>`;
   /* 追加の欄。終日・連日は手本（iPhone の設定）と同じ切り替えスイッチにする */
-  const add = html`<div class="ig-body"><select class="f" id="evKind" data-change="evkind-pick" style="margin:0">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div></div><label class="ig-row ichk"><span>終日（時刻を使わない）</span><input type="checkbox" class="sw" id="evAll" data-change="allday"></label><div class="ig-body"><div class="ilab" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="ilab" id="evEndLab" style="margin-top:14px">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}</div><label class="ig-row ichk" id="evDailyWrap"><span>毎日この時間帯（連日）</span><input type="checkbox" class="sw" id="evDaily"></label><div class="ig-body"><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin:0"><div class="inote" id="evHint" style="margin-top:10px">${HINT_TIMED}</div></div>${rowBtn('add-event', '予定を追加する', 'blue strong')}`;
+  const add = html`<div class="ig-body"><select class="f" id="evKind" data-change="evkind-pick" style="margin:0">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div></div><label class="ig-row ichk"><span>終日（時刻を使わない）</span><input type="checkbox" class="sw" id="evAll" data-change="allday"></label><div class="ig-body"><div class="ilab" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="ilab" id="evEndLab" style="margin-top:14px">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}</div><label class="ig-row ichk" id="evDailyWrap"><span>毎日この時間帯（連日）</span><input type="checkbox" class="sw" id="evDaily"></label><div class="ig-body"><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin:0"></div>${rowBtn('add-event', '予定を追加する', 'blue strong')}`;
   return html`${section('day', 'var(--go)', '予定', list)}${section('plus', 'var(--blue)', '予定を追加', add)}`;
 }
 
@@ -205,9 +202,8 @@ function routeTab(c) {
       : html`<div class="rgate">${body}</div>`;
     return html`${box}${gi < all.length - 1 && joint(start - 1)}`;
   });
-  const help = html`<div class="ig-body inote">段階名を押すと現在地（最後の段階なら参加決定・内定）。≡で並べ替え、⊖かスワイプで削除。「つなぐ」でつないだ段階は、結果が1回で出る扱いになります。</div>`;
   const add = html`<div class="ig-body"><div class="ilab">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="ilab" style="margin-top:14px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div></div>`;
-  return html`${section('flag', 'var(--go)', '進み具合', html`<div class="ig-body">${railHtml(c)}</div>`)}${section('list', 'var(--blue)', '選考ルート', html`<div class="ig-body"><div class="rlist">${gates}</div></div>${help}`)}${section('plus', '#636366', '段階を追加', add)}`;
+  return html`${section('flag', 'var(--go)', '進み具合', html`<div class="ig-body">${railHtml(c)}</div>`)}${section('list', 'var(--blue)', '選考ルート', html`<div class="ig-body"><div class="rlist">${gates}</div></div>`)}${section('plus', '#636366', '段階を追加', add)}`;
 }
 
 function tabContent(c) {
@@ -374,10 +370,9 @@ function toggleAllDay(on) {
   const dw = r.querySelector('#evDailyWrap');
   if (dw) dw.style.display = on ? 'none' : 'flex';
   if (on) { const d = r.querySelector('#evDaily'); if (d) d.checked = false; }
-  const a = r.querySelector('#evAtLab'), b = r.querySelector('#evEndLab'), h = r.querySelector('#evHint');
+  const a = r.querySelector('#evAtLab'), b = r.querySelector('#evEndLab');
   if (a) a.textContent = on ? '開始日' : '開始日時';
   if (b) b.textContent = on ? '終了日（任意）' : '終了日時（任意）';
-  if (h) setHtml(h, on ? html`1日だけなら、終了日は空のままで大丈夫です。` : html`${HINT_TIMED}`);
 }
 
 async function addEvent() {
