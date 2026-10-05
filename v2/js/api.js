@@ -104,6 +104,8 @@ async function once(action, args, opts) {
     /* Apps Script が止まったり混み合ったりすると、HTML のエラーページが返る */
     throw /<html/i.test(text) ? transient('GAS でエラーが起きました。少し待ってから試してください。') : new Error('応答の形が違います。');
   }
+  /* 「ok」なのに、あるはずの中身（一覧なら companies、保存なら company）が無いことがある。届いたとはみなさず、やり直す */
+  if (j && j.ok !== false && opts.expect && j[opts.expect] == null) throw transient('応答の中身が足りませんでした。');
   if (j && j.ok === false) {
     const msg = j.error === 'unauthorized' ? '鍵が違います。' : String(j.error || 'エラーが起きました。');
     const err = j.error !== 'unauthorized' && !j.conflict && TRANSIENT.test(msg) ? transient(msg) : new Error(msg);
@@ -120,6 +122,7 @@ async function once(action, args, opts) {
  * ・通信が切れた・GAS が一時的に失敗したときは、opts.retry の回数まで少し置いてやり直す。
  *   やり直したあとの失敗には err.retried を付ける（1回目が実は届いていたかもしれないので）
  * ・keepalive は、画面を閉じる間際に送り切るときに使う。やり直さない
+ * ・expect に名前を渡すと、応答にその中身が無いときは一時的な失敗として扱う
  */
 export async function call(action, args, opts = {}) {
   const times = opts.keepalive ? 0 : Math.max(0, opts.retry || 0);

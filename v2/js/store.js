@@ -137,7 +137,7 @@ export function loadCache() {
 
 export async function refresh() {
   /* 読むだけなので、通信が一瞬切れたくらいなら2回までやり直す */
-  const r = await call('getData', {}, { retry: 2 });
+  const r = await call('getData', {}, { retry: 2, expect: 'companies' });
   /* 手元に会社があるのに0社で返ってきたら、取り込まない。全部消した覚えは無いはずなので、
      GAS 側の一時的な読み違いとみなし、画面と端末の控えを空で上書きしない */
   const had = s.order.length;
@@ -265,22 +265,47 @@ function landed(base, item, server) {
   return STATE_KEYS.every((k) => JSON.stringify(want[k] == null ? '' : want[k]) === JSON.stringify(server[k] == null ? '' : server[k]));
 }
 
+/* 一時的に送れなかった保存を、もう一度送るまでの間。少しずつ延ばす */
+let RESEND_MS = [5000, 15000, 30000, 60000];
+/* テストで縮めるため */
+export function setResendWait(list) { RESEND_MS = list; }
+
 async function send(id, item, keepalive) {
   s.inflight.add(id);
   item.sent = true;
   const base = s.confirmed.get(id);
+  /* 送り直しの前に、もう届いているかを確かめる。GAS は書き込んだあとの返事で 404 になることがあり、
+     そのあと一覧を取り直すと、手元はもう保存後の形になっている。そこへ同じ操作を送ると二重にかかる（通過で2段階進むなど） */
+  if (item.first && base && String(base.updatedAt) !== String(item.first.updatedAt) && landed(item.first, item, base)) {
+    const q = s.queues.get(id);
+    if (q && q[0] === item) q.shift();
+    s.inflight.delete(id);
+    note('送り直し', 'もう届いていた');
+    saveOutbox();
+    emit('saved');
+    pump(id);
+    return;
+  }
+  if (!item.first) item.first = base;
+  let keep = false;
   try {
     /* 通信が切れたときは1回だけやり直す。1回目が実は届いていたら、やり直しは「ほかの端末で変わっている」と返る（下で扱う） */
-    const r = await call('mutate', { id, op: item.op, args: item.args, updatedAt: base ? base.updatedAt : '' }, { keepalive, retry: 1 });
+    const r = await call('mutate', { id, op: item.op, args: item.args, updatedAt: base ? base.updatedAt : '' }, { keepalive, retry: 1, expect: 'company' });
     adoptCompany(r.company, r.events);
     if (r.warning) {
       /* 保存はできたが、カレンダーの一部が直せなかった。失敗とは分けて知らせる */
       const w = new Error(r.warning);
       w.warning = true;
       report(w, item.op);
+    } else if (item.tries) {
+      const w = new Error('保存できました。');
+      w.warning = true;
+      w.good = true;
+      report(w, item.op);
     }
   } catch (e) {
-    if (e.conflict && e.company && e.retried && landed(base, item, e.company)) {
+    /* 前の送信で実は届いていたら、やり直しは「ほかの端末で変わっている」と返る */
+    if (e.conflict && e.company && (e.retried || item.tries) && landed(item.first || base, item, e.company)) {
       /* やり直しでぶつかり、しかもサーバーの最新がこの操作をかけたあとの形になっている。1回目が届いて保存できていた。
          最新を出して、失敗とは言わない。形が違うなら、たまたまほかで変わっただけなので、下のふつうの「ぶつかった」として扱う */
       adoptCompany(e.company);
@@ -296,11 +321,25 @@ async function send(id, item, keepalive) {
       /* 古い画面を見て押した続きの操作も、送らずに捨てる */
       const q = s.queues.get(id);
       if (q) q.length = 1;
+    } else if (e.transient) {
+      /* 通信や GAS の一時的な失敗。捨てて画面を戻すと「保存できない」になるので、列に残して少し置いてから送り直す。
+         アプリを閉じても消えないよう、端末にも控える */
+      keep = true;
+      item.sent = false;
+      item.tries = (item.tries || 0) + 1;
+      item.sendAt = Date.now() + RESEND_MS[Math.min(item.tries - 1, RESEND_MS.length - 1)];
+      if (!item.durable) { item.durable = true; item.base = item.first ? String(item.first.updatedAt) : ''; }
+      if (item.tries === 1) {
+        const w = new Error('つながりにくいので、保存はあとで自動で送り直します。');
+        w.warning = true;
+        report(w, item.op);
+      }
+      return;
     }
     report(e, item.op);
   } finally {
     const q = s.queues.get(id);
-    if (q && q[0] === item) q.shift();
+    if (!keep && q && q[0] === item) q.shift();
     s.inflight.delete(id);
     /* 届いた（または失敗を知らせた）ので、控えから外す。応答を受け取れずにページが閉じたら控えは残り、次に開いたときに確かめる */
     saveOutbox();

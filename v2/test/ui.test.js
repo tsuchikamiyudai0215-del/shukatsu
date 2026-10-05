@@ -106,7 +106,8 @@ async function boot(opts = {}) {
 
   const calls = [];
   /* drop：届く前に切れる（true を返した回だけ）。lose：GAS では処理されたのに、応答が届く前に切れる */
-  const net = { fail: opts.fail || null, delay: opts.delay || null, down: false, drop: null, lose: null, hang: opts.hang || null };
+  const net = { fail: opts.fail || null, delay: opts.delay || null, down: false, drop: null, lose: null, hang: opts.hang || null,
+    http: null, after404: null, hollow: null };
   /* EP は開発用、EP2 は本番に見立てた別のウェブアプリ（中身は別の模擬環境） */
   const T2 = opts.other || null;
   w.fetch = async (url, o) => {
@@ -120,15 +121,24 @@ async function boot(opts = {}) {
     }
     if (net.down) throw new TypeError('offline');
     if (net.drop && net.drop(body)) throw new TypeError('offline');
+    /* http：GAS の手前で 404 などが返る（書き込まれない） */
+    const st = net.http && net.http(body);
+    if (st) return { ok: false, status: st, text: async () => '<html>404</html>' };
     const msg = net.fail && net.fail(body);
     const backend = String(url) === EP2 && T2 ? T2 : T;
     const text = msg ? JSON.stringify({ ok: false, error: msg }) : backend.ctx.route_(body);
     if (net.lose && net.lose(body)) throw new TypeError('offline');
+    /* after404：GAS では書き込まれたのに、返事の転送で 404 になる */
+    if (net.after404 && net.after404(body)) return { ok: false, status: 404, text: async () => '<html>404</html>' };
+    /* hollow：「ok」だけで中身の無い返事 */
+    if (net.hollow && net.hollow(body)) return { ok: true, status: 200, text: async () => '{"ok":true}' };
     return { ok: true, status: 200, text: async () => text };
   };
 
   if (!main) main = await import(pathToFileURL(path.join(__dirname, '../js/main.js')).href);
   main.setSlowWait(opts.slow || 6000);
+  /* 送り直すまでの間も、テストでは縮める */
+  (await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href)).setResendWait([100, 200, 300]);
   /* iPhone のキーボードやアドレスバーで変わる、見えている範囲の大きさ（jsdom には無いので、試すときだけ渡す） */
   if (opts.vv) w.visualViewport = opts.vv(w);
   /* 「取り消す」の待ち時間。ふだんのテストではすぐ送る */
@@ -307,6 +317,58 @@ test('通信：保存は1回だけやり直す。1回目が実は届いていた
   assert.equal(R.mutates().length, 2);
   assert.equal(R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).status, 'waiting');
   assert.match(R.$('#sheet .card-head').textContent, /結果待ち/);  // 元に戻さない
+  R.stop();
+});
+
+test('通信：404 などが続いても、保存は捨てずに少し置いて送り直す。その間も画面は戻さない', async () => {
+  const R = await boot();
+  const server = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
+  let n = 0;
+  R.net.http = (b) => (b.action === 'mutate' && n++ < 3 ? 404 : null);     // 最初の送信（やり直し込みで2回）と、送り直しの1回目が 404
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  await until(() => /あとで自動で送り直します/.test(R.toast()), 4000);
+  assert.match(R.$('#sheet .card-head').textContent, /結果待ち/);          // 画面は戻さない
+  assert.equal(server().status, 'todo');
+  assert.ok(R.w.localStorage.getItem('sk2_outbox'));                       // 閉じても消えないよう控えてある
+  await until(() => server().status === 'waiting', 8000);
+  await until(() => /保存できました/.test(R.toast()), 2000);
+  assert.equal(R.w.localStorage.getItem('sk2_outbox'), null);
+  R.stop();
+});
+
+test('通信：書き込まれたのに返事だけ 404 だった保存は、送り直しで二重にかけない', async () => {
+  const R = await boot();
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  const server = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.w);
+  const before = server().stage;
+  let lost = true;
+  R.net.after404 = (b) => b.action === 'mutate' && lost;
+  R.click(`.row[data-id="${R.ids.w}"]`);
+  R.click('#sheet [data-act="pass"]');
+  await until(() => /あとで自動で送り直します/.test(R.toast()), 4000);
+  const after = server().stage;
+  assert.notEqual(after, before);                                          // GAS では1回目で通過が保存されている
+  lost = false;
+  await store.refresh();                                                   // 送り直す前に、保存後の一覧が届いた
+  await sleep(1500);
+  assert.equal(server().stage, after);                                     // もう1段階は進めない
+  assert.ok(JSON.parse(R.w.localStorage.getItem('sk2_netlog')).some((x) => x.result === 'もう届いていた'));
+  R.stop();
+});
+
+test('通信：「ok」だけで中身の無い返事は、届いたとはみなさない', async () => {
+  const R = await boot();
+  const server = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
+  let n = 0;
+  R.net.hollow = (b) => b.action === 'mutate' && n++ < 2;
+  R.T.api('mutate', { id: R.ids.b, op: 'setIndustry', args: { industry: '金融' }, updatedAt: server().updatedAt });
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  await store.refresh();
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  await until(() => /あとで自動で送り直します/.test(R.toast()), 4000);
+  await until(() => server().status === 'waiting', 8000);
   R.stop();
 });
 

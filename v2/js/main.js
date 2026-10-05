@@ -323,7 +323,8 @@ function onKey(e) {
 
 /* 保存の失敗は、理由をそのまま出す。何が起きたか分からないと直しようがないので */
 function onStoreError(e) {
-  if (e.conflict || e.warning) toast(e.message);
+  if (e.good) toast(e.message, true);
+  else if (e.conflict || e.warning) toast(e.message);
   else toast('保存できませんでした：' + e.message);
 }
 
