@@ -2,10 +2,12 @@
  * 日付欄と時刻のプルダウン。
  * datetime-local の時刻はホイールやタッチパッドで飛びやすいので使わない。
  * 分は 00 / 30 / 59 に絞る（締切でよく使う 59 だけ残す）。ホイールの1カチで次の候補に移れるように。
+ * それ以外の分は、いちばん下の「自分で入力…」から数字で入れる。
  */
 import { html } from '../html.js';
 
 const MINUTES = ['00', '30', '59'];
+const OWN = '__own';
 const p2 = (n) => ('0' + n).slice(-2);
 
 /* def は未入力のときに選んでおく時刻。締切は 23:59、予定は 10:00 が現実的 */
@@ -19,15 +21,31 @@ export function dtField(id, iso, def, noTime) {
   const mins = MINUTES.slice();
   if (mm && !mins.includes(mm)) { mins.push(mm); mins.sort(); }
   const hours = Array.from({ length: 24 }, (_, i) => p2(i));
-  return html`<div class="dtf${noTime ? ' no-time' : ''}" id="${id}Wrap"><input class="f dtf-d" type="date" id="${id}D" value="${d}"><select class="f dtf-t" id="${id}H">${hours.map((v) => html`<option value="${v}"${v === hh ? html` selected` : ''}>${v}</option>`)}</select><span class="dtf-c">:</span><select class="f dtf-t" id="${id}M">${mins.map((v) => html`<option value="${v}"${v === mm ? html` selected` : ''}>${v}</option>`)}</select></div>`;
+  return html`<div class="dtf${noTime ? ' no-time' : ''}" id="${id}Wrap"><input class="f dtf-d" type="date" id="${id}D" value="${d}"><select class="f dtf-t" id="${id}H">${hours.map((v) => html`<option value="${v}"${v === hh ? html` selected` : ''}>${v}</option>`)}</select><span class="dtf-c">:</span><select class="f dtf-t" id="${id}M" data-change="minute-pick">${mins.map((v) => html`<option value="${v}"${v === mm ? html` selected` : ''}>${v}</option>`)}<option value="${OWN}">自分で入力…</option></select><input class="f dtf-t dtf-own" id="${id}O" type="number" inputmode="numeric" min="0" max="59" placeholder="分" style="display:none"></div>`;
 }
 
-/* 入力を 2026-09-23T23:59 の形で取り出す。日付が空なら空文字 */
+/* 分のプルダウンで「自分で入力…」を選んだら、プルダウンの場所を数字の欄に替える */
+export function pickMinute(sel, focus = true) {
+  if (sel.value !== OWN) return;
+  const own = sel.parentNode && sel.parentNode.querySelector('.dtf-own');
+  if (!own) return;
+  sel.style.display = 'none';
+  own.style.display = '';
+  if (focus) own.focus();
+}
+
+/* 入力を 2026-09-23T23:59 の形で取り出す。日付が空なら空文字。自分で入れた分が 0〜59 でなければ、理由を投げる */
 export function dtValue(id, root = document) {
   const d = root.querySelector('#' + id + 'D');
   if (!d || !d.value) return '';
   const h = root.querySelector('#' + id + 'H'), m = root.querySelector('#' + id + 'M');
-  return d.value + 'T' + (h ? h.value : '00') + ':' + (m ? m.value : '00');
+  let mm = m ? m.value : '00';
+  if (mm === OWN) {
+    const v = String((root.querySelector('#' + id + 'O') || {}).value || '').trim();
+    if (!/^\d{1,2}$/.test(v) || Number(v) > 59) throw new Error('分は 0〜59 の数字で入れてください。');
+    mm = p2(Number(v));
+  }
+  return d.value + 'T' + (h ? h.value : '00') + ':' + mm;
 }
 
 /* 描き直しの前後で、入力中の値・カーソル位置を保つ。
@@ -55,6 +73,8 @@ export function restoreFields(root, m) {
     if (!el) return;
     if (el.type === 'checkbox') el.checked = m.vals[id]; else el.value = m.vals[id];
   });
+  /* 「自分で入力…」を選んだままの分は、描き直しても数字の欄を出したままにする */
+  root.querySelectorAll('select.dtf-t').forEach((s) => pickMinute(s, false));
   if (m.focus) {
     const f = byId(m.focus);
     if (f) {

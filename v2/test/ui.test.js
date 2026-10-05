@@ -844,7 +844,7 @@ test('タブ：概要／予定（件数つき）／選考ルート', async () =>
 test('概要：締切を保存・未定にする（時刻は時・分のプルダウン）', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);
-  assert.deepEqual(R.$$('#sheet #coDueM option').map((o) => o.value), ['00', '30', '59']);
+  assert.deepEqual(R.$$('#sheet #coDueM option').map((o) => o.value), ['00', '30', '59', '__own']);
   R.$('#sheet #coDueD').value = '2030-04-01';
   R.$('#sheet #coDueH').value = '09';
   R.$('#sheet #coDueM').value = '30';
@@ -1180,6 +1180,33 @@ test('予定タブ：残り日数つきの一覧、追加（終日・連日・�
   R.click('#sheet [data-act="delete-event"]');
   await until(() => R.$$('#sheet [data-act="delete-event"]').length === 0);
   R.stop();
+});
+
+test('締切の分は「自分で入力…」で 0〜59 の好きな分にできる', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  const set = (id, v) => { R.$('#sheet #' + id).value = v; };
+  set('coDueD', '2030-09-01'); set('coDueH', '18');
+  const m = R.$('#sheet #coDueM');
+  m.value = '__own';
+  m.dispatchEvent(new R.w.Event('change', { bubbles: true }));
+  assert.equal(m.style.display, 'none');                                // プルダウンの場所が数字の欄に替わる
+  assert.equal(R.$('#sheet #coDueO').style.display, '');
+  set('coDueO', '75');
+  R.click('#sheet [data-act="set-due"]');
+  assert.match(R.toast(), /0〜59/);                                     // 範囲の外は保存しない
+  set('coDueO', '15');
+  R.click('#sheet [data-act="set-due"]');
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b).dueAt === '2030-09-01T18:15');
+  /* 描き直しても、自分で入れた分は数字の欄に残したまま */
+  assert.equal(R.$('#sheet #coDueO').value, '15');
+  assert.equal(R.$('#sheet #coDueO').style.display, '');
+  R.stop();
+  /* 開き直すと、候補に無い 15 もプルダウンで選ばれている */
+  const R2 = await boot({ T: R.T, ids: R.ids });
+  R2.click(`.row[data-id="${R.ids.b}"]`);
+  assert.equal(R2.$('#sheet #coDueM').value, '15');
+  R2.stop();
 });
 
 test('予定タブ：種別は「自分で入力…」で好きな名前にでき、次から候補に出る', async () => {

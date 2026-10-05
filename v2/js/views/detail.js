@@ -13,7 +13,7 @@ import { logo, keepLogos, manualValue, setManualUrl, refetch, fromFile, forgetLo
 import { toast, toastUndo, busy, copyText } from '../ui/notice.js';
 import { showSheet, closeSheet, isSheetOpen } from '../ui/sheet.js';
 import { bindReorder } from '../ui/reorder.js';
-import { dtField, dtValue, snapFields, restoreFields } from './fields.js';
+import { dtField, dtValue, snapFields, restoreFields, pickMinute } from './fields.js';
 import { rem, since, fdate, ftime, evActive, evOngoing, evWhen, evDays, spanText, byStart, gcalUrl } from '../format.js';
 
 const LABEL = { todo: '対応中', waiting: '結果待ち', offer: '内定', joined: '参加決定', failed: '選考終了', skipped: '見送り' };
@@ -630,6 +630,8 @@ export const detailChanges = {
     renderDetail();
   },
   allday: (el) => toggleAllDay(el.checked),
+  /* 分の「自分で入力…」。締切・予定・追加の画面のどれでも同じ */
+  'minute-pick': (el) => pickMinute(el),
   'evkind-pick': (el) => {
     const box = field('evKindOwnWrap');
     if (!box) return;

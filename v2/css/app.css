@@ -569,7 +569,10 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .dtf .dtf-d{flex:1 1 auto;min-width:0;margin:0}
 .dtf .dtf-t{flex:0 0 auto;width:auto;margin:0;padding:13px 8px;text-align:center}
 .dtf .dtf-c{color:var(--muted);font-family:var(--mono);font-size:13px}
-.dtf.no-time .dtf-t,.dtf.no-time .dtf-c{display:none}
+.dtf.no-time .dtf-t,.dtf.no-time .dtf-c{display:none !important}
+/* 分を自分で入れる欄。プルダウンと同じくらいの幅にする */
+.dtf .dtf-own{width:68px;padding:13px 8px;text-align:center;-moz-appearance:textfield}
+.dtf .dtf-own::-webkit-inner-spin-button,.dtf .dtf-own::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 /* ---------- 詳細のまとまり（iPhone の「探す」「設定」と同じ並べ方） ----------
    頭に色の丸いアイコンと太字の見出し、その下に行を並べ、行の間は左右を空けた細い線で区切る */
