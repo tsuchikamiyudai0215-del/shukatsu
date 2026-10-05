@@ -45,6 +45,18 @@ export function stagePalette() {
   return list;
 }
 
+/* 予定の種別の候補。自分で入れた名前は端末に覚えておき、次から候補に出す */
+export function eventKindPalette() {
+  const list = Domain.EVENT_KINDS.slice();
+  storage.getJson('ev_kinds', []).forEach((s) => { if (s && !list.includes(s)) list.push(s); });
+  return list;
+}
+
+export function rememberEventKind(name) {
+  const a = storage.getJson('ev_kinds', []);
+  if (name && !Domain.EVENT_KINDS.includes(name) && !a.includes(name)) { a.push(name); storage.setJson('ev_kinds', a); }
+}
+
 export function rememberStage(name) {
   const a = storage.getJson('stages', []);
   if (name && !a.includes(name)) { a.push(name); storage.setJson('stages', a); }

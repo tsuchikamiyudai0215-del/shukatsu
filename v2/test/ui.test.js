@@ -1182,6 +1182,26 @@ test('予定タブ：残り日数つきの一覧、追加（終日・連日・�
   R.stop();
 });
 
+test('予定タブ：種別は「自分で入力…」で好きな名前にでき、次から候補に出る', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="tab"][data-v="events"]');
+  const set = (id, v) => { R.$('#sheet #' + id).value = v; };
+  const sel = R.$('#sheet #evKind');
+  sel.value = '__own';
+  sel.dispatchEvent(new R.w.Event('change', { bubbles: true }));
+  assert.equal(R.$('#sheet #evKindOwnWrap').style.display, 'block');
+  set('evAtD', '2030-08-01'); set('evAtH', '10'); set('evAtM', '00');
+  R.click('#sheet [data-act="add-event"]');
+  assert.match(R.toast(), /種別の名前を入れてください/);             // 名前が空なら追加しない
+  set('evKindOwn', 'リクルーター面談');
+  R.click('#sheet [data-act="add-event"]');
+  await until(() => R.$$('#sheet [data-act="delete-event"]').length === 1);
+  assert.equal(R.T.api('getData', {}).events.find((e) => e.companyId === R.ids.b).kind, 'リクルーター面談');
+  assert.ok(R.$$('#sheet #evKind option').some((o) => o.textContent === 'リクルーター面談'));
+  R.stop();
+});
+
 test('ルートタブ：現在地・並べ替え・削除・候補から追加・名前を付けて追加', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);

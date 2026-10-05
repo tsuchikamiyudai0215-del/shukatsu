@@ -6,7 +6,7 @@
  * 会社の追加・削除や予定の追加など、先に画面を変えないものは store.run で待つ。
  */
 import { html, join, setHtml, safeUrl } from '../html.js';
-import { ui, isWide, setSetOpen, setOpenInChrome, stagePalette, rememberStage } from '../state.js';
+import { ui, isWide, setSetOpen, setOpenInChrome, stagePalette, rememberStage, eventKindPalette, rememberEventKind } from '../state.js';
 import * as store from '../store.js';
 import { call } from '../api.js';
 import { logo, keepLogos, manualValue, setManualUrl, refetch, fromFile, forgetLogo } from '../logo.js';
@@ -183,13 +183,16 @@ ${isCo && html`<div class="setsec"><div class="lab" style="margin:0 0 8px">業�
 </details>`;
 }
 
+/* 予定の種別は候補から選び、無ければ「自分で入力…」で名前を付ける（入れた名前は次から候補に出る） */
+const KIND_OWN = '__own';
+
 function eventsTab(c, now) {
   const evs = eventsOf(c.id);
   return html`<div style="margin-top:18px">${!evs.length && html`<div style="font-size:12px;color:var(--dim);line-height:1.9">面接や説明会、インターンの日時を入れると、予定レーンに並びます。カレンダーにも登録されます。</div>`}${evs.map((ev) => {
     const r = rem(ev.startAt, now), live = evOngoing(ev, now);
     const span = spanText(ev);
     return html`<div style="border-bottom:1px solid var(--line-soft);padding:12px 0;display:flex;align-items:center;gap:10px"><span style="font-family:var(--disp);font-size:${r ? '26px' : '13px'};font-weight:600;min-width:34px;color:${r ? (r.d <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? r.d : (live ? '開催中' : '—')}</span><div style="flex:1"><div style="font-size:14px">${ev.kind}${span && html`<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:8px">${span}</span>`}</div><div class="sub" style="margin-top:3px">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}</div></div><button class="gh" style="color:var(--hot);padding:6px 10px" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
-  })}<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05);overflow:hidden"><div class="lab" style="margin:0 0 8px">予定を追加</div><select class="f" id="evKind">${Domain.EVENT_KINDS.map((k) => html`<option>${k}</option>`)}</select><label style="display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;font-size:13px"><input type="checkbox" id="evAll" data-change="allday" style="width:20px;height:20px;accent-color:var(--blue)">終日（時刻を使わない）</label><div class="lab" style="margin:14px 0 6px" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="lab" style="margin:12px 0 6px" id="evEndLab">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px" id="evDailyWrap"><input type="checkbox" id="evDaily" style="width:20px;height:20px;accent-color:var(--blue)">毎日この時間帯（連日）</label><div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7" id="evHint">同じ日の中で終了時刻を入れると、その時間帯の予定になります。<br>別の日まで指定したときは、「連日」に印を付けると毎日その時間帯で登録します。付けないと、夜通し続く1件の予定になります。</div><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin-top:12px"><button class="big" style="background:#fff;color:#000" data-act="add-event">追加</button></div></div>`;
+  })}<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05);overflow:hidden"><div class="lab" style="margin:0 0 8px">予定を追加</div><select class="f" id="evKind" data-change="evkind-pick">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div><label style="display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;font-size:13px"><input type="checkbox" id="evAll" data-change="allday" style="width:20px;height:20px;accent-color:var(--blue)">終日（時刻を使わない）</label><div class="lab" style="margin:14px 0 6px" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="lab" style="margin:12px 0 6px" id="evEndLab">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px" id="evDailyWrap"><input type="checkbox" id="evDaily" style="width:20px;height:20px;accent-color:var(--blue)">毎日この時間帯（連日）</label><div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7" id="evHint">同じ日の中で終了時刻を入れると、その時間帯の予定になります。<br>別の日まで指定したときは、「連日」に印を付けると毎日その時間帯で登録します。付けないと、夜通し続く1件の予定になります。</div><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin-top:12px"><button class="big" style="background:#fff;color:#000" data-act="add-event">追加</button></div></div>`;
 }
 
 function routeTab(c) {
@@ -261,6 +264,9 @@ function paintInto(card, c) {
     if (np) { np.style.animation = 'none'; np.scrollTop = y; }
   }
   restoreFields(card, snap);
+  /* 描き直しても「自分で入力…」を選んだままなら、名前の欄も開いたままにする */
+  const kindSel = card.querySelector('#evKind'), kindBox = card.querySelector('#evKindOwnWrap');
+  if (kindSel && kindBox && kindSel.value === KIND_OWN) kindBox.style.display = 'block';
 }
 
 export function renderDetail() {
@@ -390,20 +396,24 @@ async function addEvent() {
   let end = dtValue('evEnd', r);
   if (all) { at = at && at.slice(0, 10) + 'T00:00'; end = end && end.slice(0, 10) + 'T00:00'; }
   if (!at) { toast(all ? '開始日を入れてください。' : '開始日時を入れてください。'); return; }
+  const own = val('evKind') === KIND_OWN;
+  const kind = own ? val('evKindOwn') : val('evKind');
+  if (!kind) { toast('種別の名前を入れてください。'); return; }
   const endMs = end ? Domain.parseWall(end) : null, startMs = Domain.parseWall(at);
   if (end && endMs != null && (all ? endMs < startMs : endMs <= startMs)) {
     toast(all ? '終了日は開始日より後にしてください。' : '終了は開始より後にしてください。');
     return;
   }
   const fields = {
-    companyId: ui.openId, kind: val('evKind'), startAt: at, endAt: all && end === at ? '' : end,
+    companyId: ui.openId, kind, startAt: at, endAt: all && end === at ? '' : end,
     allDay: all, daily: !all && !!(r.querySelector('#evDaily') || {}).checked, place: val('evPlace')
   };
   try { Domain.createEvent('check', ui.openId, fields); } catch (e) { toast(e.message); return; }
   const res = await runBusy('addEvent', fields, fields.daily && fields.endAt ? '連日の予定を追加しました。' : '予定を追加しました。');
   if (!res) return;
+  if (own) rememberEventKind(kind);
   /* 描き直しは書きかけを残すので、追加できた分は先に空にしておく */
-  ['evAtD', 'evEndD', 'evPlace'].forEach((id) => { const el = r.querySelector('#' + id); if (el) el.value = ''; });
+  ['evAtD', 'evEndD', 'evPlace', 'evKindOwn'].forEach((id) => { const el = r.querySelector('#' + id); if (el) el.value = ''; });
   ['evAll', 'evDaily'].forEach((id) => { const el = r.querySelector('#' + id); if (el) el.checked = false; });
   renderDetail();
 }
@@ -620,6 +630,12 @@ export const detailChanges = {
     renderDetail();
   },
   allday: (el) => toggleAllDay(el.checked),
+  'evkind-pick': (el) => {
+    const box = field('evKindOwnWrap');
+    if (!box) return;
+    box.style.display = el.value === KIND_OWN ? 'block' : 'none';
+    if (el.value === KIND_OWN) { const input = field('evKindOwn'); if (input) input.focus(); }
+  },
   'industry-pick': (el) => {
     if (el.value === IND_OWN) {
       const box = document.getElementById('indOwn');
