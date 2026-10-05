@@ -567,11 +567,16 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 /* 日付＋時刻。時刻はスクロールで合わせず、一覧から選ぶ */
 .dtf{display:flex;gap:8px;align-items:center;margin-top:8px}
 .dtf .dtf-d{flex:1 1 auto;min-width:0;margin:0}
-.dtf .dtf-t{flex:0 0 auto;width:auto;margin:0;padding:13px 8px;text-align:center}
-.dtf .dtf-c{color:var(--muted);font-family:var(--mono);font-size:13px}
-.dtf.no-time .dtf-t,.dtf.no-time .dtf-c{display:none !important}
-/* 分を自分で入れる欄。プルダウンと同じくらいの幅にする */
-.dtf .dtf-own{width:68px;padding:13px 8px;text-align:center;-moz-appearance:textfield}
+/* 時と分の箱。中のプルダウンは枠も矢印も消して、数字だけを並べる（押せば一覧が開く） */
+.dtf .dtf-tm{flex:0 0 auto;width:auto;margin:0;padding:0 14px;display:flex;align-items:center;gap:2px}
+.dtf .dtf-tm:focus-within{border-color:var(--blue)}
+.dtf .dtf-t{-webkit-appearance:none;appearance:none;background:none;border:none;outline:none;color:var(--text);
+  width:2.3em;margin:0;padding:13px 0;font-family:var(--mono);font-size:15px;text-align:center;text-align-last:center;cursor:pointer}
+.dtf .dtf-t option{background:#2C2C2E;color:#fff}
+.dtf .dtf-c{color:var(--muted);font-family:var(--mono);font-size:15px}
+.dtf.no-time .dtf-tm{display:none !important}
+/* 分を自分で入れる欄。プルダウンと同じ幅 */
+.dtf .dtf-own{cursor:text;-moz-appearance:textfield}
 .dtf .dtf-own::-webkit-inner-spin-button,.dtf .dtf-own::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 /* ---------- 詳細のまとまり（iPhone の「探す」「設定」と同じ並べ方） ----------
@@ -581,7 +586,28 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .ig-ic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .ig-ic svg{width:18px;height:18px}
 .ig-title{font-size:17px;font-weight:700;letter-spacing:-.01em}
-.ig > .ig-body,.ig > .irow,.ig > .kv{margin:0 18px;border-top:1px solid var(--ios-sep)}
+.ig > .ig-body,.ig > .irow,.ig > .kv,.ig > .ig-row{margin:0 18px;border-top:1px solid var(--ios-sep)}
+/* 押すボタンではない行（予定の1件、スイッチの行） */
+.ig > .ig-row{display:flex;align-items:center;gap:12px;padding:12px 0;font-size:16px}
+.ig > .ig-row.ichk{justify-content:space-between;cursor:pointer;padding:10px 0}
+.irow.strong{font-weight:600}
+/* まとまりの中の小さな見出しと、説明の文 */
+.ilab{font-size:13px;color:var(--ios-label2);margin:0 0 8px}
+.inote{font-size:12px;color:var(--ios-label2);line-height:1.7}
+.ig-body > .inote:only-child{padding:2px 0}
+/* 予定の1件 */
+.evd{font-family:var(--disp);font-weight:600;min-width:34px;text-align:left}
+.evb{flex:1;min-width:0}
+.evk{font-size:16px}
+.evk span{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:8px}
+.evx{background:none;border:none;color:var(--hot);font-size:20px;line-height:1;padding:6px 4px 6px 10px;cursor:pointer}
+/* 切り替えスイッチ（iPhone の設定と同じ形）。中身はふつうのチェックボックスなので、押したときの動きは変わらない */
+.sw{-webkit-appearance:none;appearance:none;flex:0 0 auto;width:51px;height:31px;border-radius:999px;margin:0;
+  background:rgba(120,120,128,.32);position:relative;cursor:pointer;transition:background .2s var(--ease)}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);transition:transform .25s var(--spring)}
+.sw:checked{background:var(--go)}
+.sw:checked::after{transform:translateX(20px)}
 .ig > .ig-body{padding:14px 0}
 .ig > .ig-body .dtf{margin-top:0}
 .irow{display:block;width:calc(100% - 36px);background:none;border:none;text-align:left;cursor:pointer;

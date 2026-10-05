@@ -21,7 +21,8 @@ export function dtField(id, iso, def, noTime) {
   const mins = MINUTES.slice();
   if (mm && !mins.includes(mm)) { mins.push(mm); mins.sort(); }
   const hours = Array.from({ length: 24 }, (_, i) => p2(i));
-  return html`<div class="dtf${noTime ? ' no-time' : ''}" id="${id}Wrap"><input class="f dtf-d" type="date" id="${id}D" value="${d}"><select class="f dtf-t" id="${id}H">${hours.map((v) => html`<option value="${v}"${v === hh ? html` selected` : ''}>${v}</option>`)}</select><span class="dtf-c">:</span><select class="f dtf-t" id="${id}M" data-change="minute-pick">${mins.map((v) => html`<option value="${v}"${v === mm ? html` selected` : ''}>${v}</option>`)}<option value="${OWN}">自分で入力…</option></select><input class="f dtf-t dtf-own" id="${id}O" type="number" inputmode="numeric" min="0" max="59" placeholder="分" style="display:none"></div>`;
+  /* 時と分は1つの箱にまとめて「23 : 59」と見せる。別々の箱だと、分の箱が選択肢の「自分で入力…」の幅まで広がって間延びする */
+  return html`<div class="dtf${noTime ? ' no-time' : ''}" id="${id}Wrap"><input class="f dtf-d" type="date" id="${id}D" value="${d}"><div class="f dtf-tm"><select class="dtf-t" id="${id}H" aria-label="時">${hours.map((v) => html`<option value="${v}"${v === hh ? html` selected` : ''}>${v}</option>`)}</select><span class="dtf-c">:</span><select class="dtf-t" id="${id}M" data-change="minute-pick" aria-label="分">${mins.map((v) => html`<option value="${v}"${v === mm ? html` selected` : ''}>${v}</option>`)}<option value="${OWN}">自分で入力…</option></select><input class="dtf-t dtf-own" id="${id}O" type="number" inputmode="numeric" min="0" max="59" placeholder="分" aria-label="分" style="display:none"></div></div>`;
 }
 
 /* 分のプルダウンで「自分で入力…」を選んだら、プルダウンの場所を数字の欄に替える */

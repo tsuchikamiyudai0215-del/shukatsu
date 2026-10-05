@@ -92,7 +92,10 @@ const ICONS = {
   wait: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10M7 20h10M8 4c0 5 8 5 8 8s-8 3-8 8M16 4c0 5-8 5-8 8"/></svg>`,
   day: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="6" width="15" height="13.5" rx="2.5"/><path d="M4.5 10.5h15M9 4v3.5M15 4v3.5"/></svg>`,
   key: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="12" r="3.5"/><path d="M12 12h8M17 12v3M20 12v2"/></svg>`,
-  more: html`<svg viewBox="0 0 24 24" fill="#fff"><circle cx="6.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="17.5" cy="12" r="1.9"/></svg>`
+  more: html`<svg viewBox="0 0 24 24" fill="#fff"><circle cx="6.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="17.5" cy="12" r="1.9"/></svg>`,
+  plus: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>`,
+  list: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 7h10M9 12h10M9 17h10"/><circle cx="5" cy="7" r=".6"/><circle cx="5" cy="12" r=".6"/><circle cx="5" cy="17" r=".6"/></svg>`,
+  flag: html`<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V4.5M6 5h11l-2.5 4L17 13H6"/></svg>`
 };
 /* 見出しつきのまとまり。中身は行（.irow）を並べ、行どうしは細い線で区切る */
 const section = (icon, color, title, body) => html`<section class="ig"><div class="ig-head"><span class="ig-ic" style="background:${color}">${ICONS[icon]}</span><span class="ig-title">${title}</span></div>${body}</section>`;
@@ -188,11 +191,15 @@ const KIND_OWN = '__own';
 
 function eventsTab(c, now) {
   const evs = eventsOf(c.id);
-  return html`<div style="margin-top:18px">${!evs.length && html`<div style="font-size:12px;color:var(--dim);line-height:1.9">面接や説明会、インターンの日時を入れると、予定レーンに並びます。カレンダーにも登録されます。</div>`}${evs.map((ev) => {
+  /* 登録済みの予定。1件を1行にし、左に残り日数、右に削除 */
+  const list = evs.length ? evs.map((ev) => {
     const r = rem(ev.startAt, now), live = evOngoing(ev, now);
     const span = spanText(ev);
-    return html`<div style="border-bottom:1px solid var(--line-soft);padding:12px 0;display:flex;align-items:center;gap:10px"><span style="font-family:var(--disp);font-size:${r ? '26px' : '13px'};font-weight:600;min-width:34px;color:${r ? (r.d <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? r.d : (live ? '開催中' : '—')}</span><div style="flex:1"><div style="font-size:14px">${ev.kind}${span && html`<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:8px">${span}</span>`}</div><div class="sub" style="margin-top:3px">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}</div></div><button class="gh" style="color:var(--hot);padding:6px 10px" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
-  })}<div style="margin-top:20px;padding:14px;border:1px solid var(--line);border-radius:var(--r-field);background:rgba(255,255,255,.05);overflow:hidden"><div class="lab" style="margin:0 0 8px">予定を追加</div><select class="f" id="evKind" data-change="evkind-pick">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div><label style="display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;font-size:13px"><input type="checkbox" id="evAll" data-change="allday" style="width:20px;height:20px;accent-color:var(--blue)">終日（時刻を使わない）</label><div class="lab" style="margin:14px 0 6px" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="lab" style="margin:12px 0 6px" id="evEndLab">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}<label style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-size:13px" id="evDailyWrap"><input type="checkbox" id="evDaily" style="width:20px;height:20px;accent-color:var(--blue)">毎日この時間帯（連日）</label><div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.7" id="evHint">同じ日の中で終了時刻を入れると、その時間帯の予定になります。<br>別の日まで指定したときは、「連日」に印を付けると毎日その時間帯で登録します。付けないと、夜通し続く1件の予定になります。</div><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin-top:12px"><button class="big" style="background:#fff;color:#000" data-act="add-event">追加</button></div></div>`;
+    return html`<div class="ig-row"><span class="evd" style="font-size:${r ? '26px' : '13px'};color:${r ? (r.d <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? r.d : (live ? '開催中' : '—')}</span><div class="evb"><div class="evk">${ev.kind}${span && html`<span>${span}</span>`}</div><div class="sub">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}</div></div><button class="evx" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
+  }) : html`<div class="ig-body inote">面接や説明会、インターンの日時を入れると、予定レーンに並びます。カレンダーにも登録されます。</div>`;
+  /* 追加の欄。終日・連日は手本（iPhone の設定）と同じ切り替えスイッチにする */
+  const add = html`<div class="ig-body"><select class="f" id="evKind" data-change="evkind-pick" style="margin:0">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div></div><label class="ig-row ichk"><span>終日（時刻を使わない）</span><input type="checkbox" class="sw" id="evAll" data-change="allday"></label><div class="ig-body"><div class="ilab" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="ilab" id="evEndLab" style="margin-top:14px">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}</div><label class="ig-row ichk" id="evDailyWrap"><span>毎日この時間帯（連日）</span><input type="checkbox" class="sw" id="evDaily"></label><div class="ig-body"><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin:0"><div class="inote" id="evHint" style="margin-top:10px">同じ日の中で終了時刻を入れると、その時間帯の予定になります。<br>別の日まで指定したときは、「連日」に印を付けると毎日その時間帯で登録します。付けないと、夜通し続く1件の予定になります。</div></div>${rowBtn('add-event', '予定を追加する', 'blue strong')}`;
+  return html`${section('day', 'var(--go)', '予定', list)}${section('plus', 'var(--blue)', '予定を追加', add)}`;
 }
 
 function routeTab(c) {
@@ -215,7 +222,9 @@ function routeTab(c) {
       : html`<div class="rgate">${body}</div>`;
     return html`${box}${gi < all.length - 1 && joint(start - 1)}`;
   });
-  return html`<div style="margin-top:18px">${railHtml(c)}<div class="rlist">${gates}</div><div class="lab" style="margin:16px 0 8px">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="lab" style="margin:16px 0 8px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div><div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.8">段階名を押すと現在地になります。最後の段階（インターンは「インターン」も）を現在地にすると、参加決定（本選考は内定）になります。<br>≡をつかんで上下に動かすと並べ替え、⊖か左右のスワイプで削除します。今の段階を消すと、次の段階が現在地になります。<br>段階の間の「つなぐ」を押すと、枠に入った段階は結果が1回で出る扱いになります。出したら「提出して次へ」で、結果待ちを通らずに次の段階へ進めます。「切る」で元に戻ります。<br>自分で足した名前は、次から上の一覧にも出ます。</div></div>`;
+  const help = html`<div class="ig-body inote">段階名を押すと現在地になります。最後の段階（インターンは「インターン」も）を現在地にすると、参加決定（本選考は内定）になります。<br>≡をつかんで上下に動かすと並べ替え、⊖か左右のスワイプで削除します。今の段階を消すと、次の段階が現在地になります。<br>段階の間の「つなぐ」を押すと、枠に入った段階は結果が1回で出る扱いになります。出したら「提出して次へ」で、結果待ちを通らずに次の段階へ進めます。「切る」で元に戻ります。</div>`;
+  const add = html`<div class="ig-body"><div class="ilab">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="ilab" style="margin-top:14px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div><div class="inote" style="margin-top:10px">自分で足した名前は、次から上の一覧にも出ます。</div></div>`;
+  return html`${section('flag', 'var(--go)', '進み具合', html`<div class="ig-body">${railHtml(c)}</div>`)}${section('list', 'var(--blue)', '選考ルート', html`<div class="ig-body"><div class="rlist">${gates}</div></div>${help}`)}${section('plus', '#636366', '段階を追加', add)}`;
 }
 
 function tabContent(c) {
@@ -424,7 +433,8 @@ export const detailActions = {
     ui.tab = el.dataset.v;
     const r = root();
     if (!r) return;
-    r.querySelectorAll('.tabs button').forEach((b) => { b.className = b.dataset.v === ui.tab ? 'on' : ''; });
+    /* タブのボタンだけを付け直す（同じ列の「本選考へ ›」の見た目は変えない） */
+    r.querySelectorAll('.tabs [data-act="tab"]').forEach((b) => { b.className = b.dataset.v === ui.tab ? 'on' : ''; });
     const pane = r.querySelector('.tab-pane');
     const c = current();
     if (pane && c) {

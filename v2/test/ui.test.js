@@ -994,6 +994,7 @@ test('本選考に引き継ぐ：タブの右端の小さなボタンから。�
   R.click(`.row[data-id="${R.ids.a}"]`);
   assert.equal(R.$('#sheet .tab-pane [data-act="carry"]'), null);
   R.click('#sheet [data-act="tab"][data-v="route"]');
+  assert.ok(R.$('#sheet .tabs [data-act="carry"]').classList.contains('carry'));   // タブを切り替えても見た目を保つ
   R.click('#sheet .tabs [data-act="carry"]');                    // どのタブを開いていても押せる
   await until(() => R.$('#sg1.on'));
   await until(() => /エー/.test((R.$('#sheet .card-head') || { textContent: '' }).textContent));
