@@ -76,13 +76,7 @@ html{background:var(--ink);-webkit-text-size-adjust:100%;scroll-padding-bottom:1
   /* clip は hidden と違ってスクロール枠を作らない。
      hidden にすると iOS で縦スクロールごと止まる */
   overflow-x:clip;overscroll-behavior-x:none}
-body::before{
-  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(130% 92% at 0% -8%,   rgba(52,104,180,0.16) 0%, rgba(52,104,180,0.04) 44%, transparent 74%),
-    radial-gradient(120% 84% at 100% 16%, rgba(48,120,170,0.1) 0%, rgba(48,120,170,0.03) 46%, transparent 76%),
-    radial-gradient(165% 105% at 50% 110%, rgba(40,70,130,0.14) 0%, rgba(40,70,130,0.035) 50%, transparent 80%);
-}
+/* 背景は無地。ぼかした青い光を敷いていたが、暗い色の中で境目がまだらに見えた（iPhone では重さのためにも外していた） */
 body{
   /* 斜めのスワイプで画面ごと横に動かないようにする。
      縦だけを指に追わせ、横スクロールが要る場所（チップ列）だけ後で戻す */
@@ -162,8 +156,6 @@ button,select,input{font-family:var(--body)}
 .ios .row{content-visibility:visible}
 .row.is-muted{--base-op:0.42}
 /* iPhone だけ、見た目をほとんど変えずに重い塗り方を外す（Android と PC では軽いので今のまま） */
-/* 画面に固定した背景の光。この上を半透明のタイルが流れると、スクロールのたびに重ねて塗り直す */
-.ios body::before{display:none}
 /* タイルは、背景と先に混ぜた同じ色の不透明の面にする。60枚分の半透明の重ね塗りと影をなくす */
 /* 参加決定・内定・締切間近の色つきのタイルは数が少ないので、そのままにする */
 .ios .row:not(.is-fixed):not(.is-offer):not(.is-hot),.ios .stripitem{background:linear-gradient(180deg,#2A2F3D 0%,#191D2A 100%);box-shadow:none}
