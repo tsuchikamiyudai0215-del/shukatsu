@@ -105,7 +105,8 @@ button,select,input{font-family:var(--body)}
 
 /* ---------- type ---------- */
 .lab{margin:24px 0 8px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.2em}
-.hero{padding-bottom:20px;border-bottom:1px solid var(--line-soft);margin-bottom:2px;cursor:pointer;
+/* 見出しの下に区切り線は引かない（iPhone の大きな見出しと同じく、余白だけで区切る） */
+.hero{padding-bottom:20px;margin-bottom:2px;cursor:pointer;
   transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .hero:active{transform:scale(.978);opacity:.86;transition:transform .1s var(--press)}
 .hero h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.028em;line-height:1.15}
