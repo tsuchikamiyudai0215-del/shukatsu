@@ -506,11 +506,17 @@ var Domain = (function () {
     return inherit(src, blank(id, src.name, term));
   }
 
-  /* 同じマイページで別の選考（別コース）を足す。ルートも写す */
+  /* 同じマイページで別の選考（別コース）を足す。
+     元の会社のルートが前の初期のルートのままなら、今の初期のルート（簡単なほう）で作る。前から登録してある会社は
+     前の初期のルートを書き込んで固定してあるので、写すと新しい選考まで長いルートになるため。
+     自分で並べ替えたり足したりしたルートは、その会社のために作ったものなので、印ごと写す */
   function split(src, id, newName) {
     var c = inherit(src, blank(id, newName, src.term));
-    c.route = routeOf(src);
-    c.routeLinks = linksOf(src);
+    var r = routeOf(src);
+    if (r.join('\n') !== LEGACY_ROUTE.join('\n')) {
+      c.route = r;
+      c.routeLinks = linksOf(src);
+    }
     c.stage = c.route[0];
     return c;
   }

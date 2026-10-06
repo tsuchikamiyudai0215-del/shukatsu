@@ -409,6 +409,16 @@ test('別の選考を足す：同じ区分・同じマイページ・同じル�
   assert.equal(n.folderUrl, 'https://drive/a');
 });
 
+test('別の選考を足す：元の会社が前の初期のルートのままなら、今の初期のルート（簡単なほう）で作る', () => {
+  const old = co({ term: '本選考', route: D.LEGACY_ROUTE.slice(), stage: '面接', routeLinks: ['ES'] });
+  const n = D.split(old, 'c_6', 'B社（別コース）');
+  assert.deepEqual(n.route, D.defaultRoute('本選考'));
+  assert.equal(n.stage, 'ES');
+  assert.deepEqual(n.routeLinks, []);
+  const intern = co({ term: 'インターン', route: D.LEGACY_ROUTE.slice() });
+  assert.deepEqual(D.split(intern, 'c_8', 'C社（別コース）').route, D.defaultRoute('インターン'));
+});
+
 // ============================================================
 // カレンダー
 // ============================================================
