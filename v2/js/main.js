@@ -131,6 +131,8 @@ function setPage(p) {
 
 /* アプリに戻ってから最新を取りに行くまでの間 */
 const RESUME_WAIT_MS = 800;
+/* アプリに戻ったときに取り直すのは、前に取ってからこれだけたっているときだけ */
+const RESUME_FETCH_MS = 180000;
 
 /* 取りに行っている最中なら、もう1本は出さずに同じ結果を待つ（戻るたびに重ねて出すと、混んでいる GAS をさらに詰まらせる） */
 let refreshing = null;
@@ -453,8 +455,9 @@ export function start() {
     abortStale();
     if (!isEditing() && hasConfig() && document.getElementById('view')) {
       renderAll();
-      /* 戻った直後は、スマホの通信がまだつながっていないことが多い。少し置いてから取りに行く */
-      if (Date.now() - lastFetch > 60000) setTimeout(() => { if (!document.hidden) refresh(true); }, RESUME_WAIT_MS);
+      /* 戻った直後は、スマホの通信がまだつながっていないことが多い。少し置いてから取りに行く。
+         使うのは本人だけで、ほかの端末で変えることは少ないので、前に取ってから3分たっていなければ取り直さない（通信を減らす） */
+      if (Date.now() - lastFetch > RESUME_FETCH_MS) setTimeout(() => { if (!document.hidden) refresh(true); }, RESUME_WAIT_MS);
     }
   });
   listen(window, 'pagehide', () => store.flush(true));

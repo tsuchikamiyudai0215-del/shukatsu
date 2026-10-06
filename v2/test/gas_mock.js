@@ -229,6 +229,7 @@ function mk(props) {
     PropertiesService: {
       getScriptProperties: () => ({
         getProperty: (k) => (k in scriptProps ? scriptProps[k] : null),
+        getProperties: () => Object.assign({}, scriptProps),
         setProperty: (k, v) => { scriptProps[k] = v; }
       }),
       getUserProperties() { throw new Error('ユーザーのプロパティは使わない'); }

@@ -15,8 +15,10 @@
 /* 本番シートの ID の頭。開発中にこれを指していたら止める */
 var PRODUCTION_SHEET_PREFIX = '1v-nnIz3';
 
+/* プロパティは1回の実行の中で一度だけまとめて読む。1つずつ読むと、そのたびに Google に問い合わせて遅くなる */
 function prop_(name, required) {
-  var v = PropertiesService.getScriptProperties().getProperty(name);
+  if (!cache_.props) cache_.props = PropertiesService.getScriptProperties().getProperties() || {};
+  var v = cache_.props[name];
   v = v == null ? '' : String(v).trim();
   if (required && !v) throw new Error('スクリプトのプロパティ ' + name + ' が入っていません。');
   return v;
@@ -50,7 +52,8 @@ function calendar_() {
   var cal = CalendarApp.getCalendarById(id);
   if (!cal) throw new Error('CALENDAR_ID のカレンダーが見つかりません。');
   /* 既定のカレンダー（本番）は、切り替えのときまで触らない */
-  if (cal.isMyPrimaryCalendar() && !allowProduction_()) {
+  /* 本番では確かめない（保存のたびに Google に問い合わせることになるため）。開発中だけ、既定のカレンダーでないかを見る */
+  if (!allowProduction_() && cal.isMyPrimaryCalendar()) {
     throw new Error('CALENDAR_ID が既定のカレンダーを指しています。開発中は開発用カレンダーの ID を入れてください。');
   }
   cache_.calId = id;

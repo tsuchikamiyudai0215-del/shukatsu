@@ -244,7 +244,7 @@ test('通信：アプリに戻ったときの裏の取り直しは、失敗し�
   new R.w.MutationObserver(() => seen.push(R.$('#stale').textContent))
     .observe(R.$('#stale'), { childList: true, characterData: true, subtree: true });
   const real = Date.now;
-  Date.now = () => real() + 120000;                             // 前に取ってから2分たった
+  Date.now = () => real() + 240000;                             // 前に取ってから4分たった
   try {
     R.d.dispatchEvent(new R.w.Event('visibilitychange'));
     await until(() => R.calls.filter((c) => c.action === 'getData').length >= 2, 3000);
@@ -261,8 +261,8 @@ test('通信：裏に回って止まったままの取得は、アプリに戻�
   let hang = true;
   R.net.hang = (b) => b.action === 'getData' && hang;
   const real = Date.now;
-  let skew = 120000;
-  Date.now = () => real() + skew;                               // 前に取ってから2分たって戻ってきた
+  let skew = 240000;
+  Date.now = () => real() + skew;                               // 前に取ってから4分たって戻ってきた
   try {
     R.d.dispatchEvent(new R.w.Event('visibilitychange'));
     await until(() => gets() === 2, 3000);                       // 取りに行ったが、返事が来ないまま止まった

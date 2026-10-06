@@ -32,7 +32,15 @@ function doPost(e) {
   var payload;
   try { payload = JSON.parse(e.postData.contents); }
   catch (err) { return out_(JSON.stringify({ ok: false, error: 'bad payload' })); }
-  return out_(route_(payload));
+  var t0 = Date.now();
+  return out_(withTime_(route_(payload), t0));
+}
+
+/* 返事に、GAS の中でかかった時間（ミリ秒）を付ける。画面の「通信の記録」に出し、
+   遅いのが GAS のコードなのか、Google の途中（転送など）なのかを見分けるため */
+function withTime_(json, t0) {
+  if (typeof json !== 'string' || json.charAt(0) !== '{') return json;
+  return '{"gasMs":' + (Date.now() - t0) + (json.length > 2 ? ',' : '') + json.slice(1);
 }
 
 function doGet() {

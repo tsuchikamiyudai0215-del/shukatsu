@@ -130,7 +130,9 @@ export async function call(action, args, opts = {}) {
     const t0 = Date.now();
     try {
       const j = await once(action, args, opts);
-      note(action, Array.isArray(j.companies) ? 'ok ' + j.companies.length + '社' : 'ok', Date.now() - t0);
+      /* GAS の中でかかった時間も残す。合計よりずっと短ければ、遅いのは GAS のコードではなく Google の途中 */
+      const gas = typeof j.gasMs === 'number' ? '・GAS ' + (j.gasMs / 1000).toFixed(1) + '秒' : '';
+      note(action, (Array.isArray(j.companies) ? 'ok ' + j.companies.length + '社' : 'ok') + gas, Date.now() - t0);
       return j;
     } catch (e) {
       note(action, e.message, Date.now() - t0);

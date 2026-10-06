@@ -110,6 +110,27 @@ test('doPost と doGet', () => {
   assert.equal(JSON.parse(T.ctx.doGet({ parameter: { key: 'secret-key', action: 'getData' } }).s).companies, undefined);
 });
 
+test('返事に GAS の中でかかった時間（gasMs）を付ける。中身はそのまま読める', () => {
+  const T = mk();
+  addCo(T);
+  const r = JSON.parse(T.ctx.doPost({ postData: { contents: JSON.stringify({ key: 'secret-key', action: 'getData' }) } }).s);
+  assert.equal(typeof r.gasMs, 'number');
+  assert.equal(r.ok, true);
+  assert.equal(r.companies.length, 1);
+  assert.equal(JSON.parse(T.ctx.withTime_('{}', Date.now())).gasMs >= 0, true);
+});
+
+test('スクリプトのプロパティは、1回の実行の中で一度だけまとめて読む', () => {
+  const T = mk();
+  let n = 0;
+  const orig = T.ctx.PropertiesService.getScriptProperties;
+  T.ctx.PropertiesService.getScriptProperties = () => { n++; return orig(); };
+  addCo(T);
+  n = 0;
+  T.api('getData', {});
+  assert.equal(n, 1);
+});
+
 test('エラーでもロックを外す', () => {
   const T = mk();
   const r = T.api('mutate', { id: 'nope', op: 'pass', updatedAt: '' });
