@@ -222,6 +222,26 @@ test('通信：一覧の取得は、一瞬切れても少し置いてやり直�
   R.stop();
 });
 
+test('通信：一覧の取得の返事が遅いときは、もう1本並べて出し、先に返ったほうを使う', async () => {
+  const R = await boot();
+  const api = await import(pathToFileURL(path.join(__dirname, '../js/api.js')).href);
+  const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
+  api.setHedgeWait(150);
+  try {
+    let first = true;
+    R.net.hang = (b) => { if (b.action !== 'getData' || !first) return false; first = false; return true; };   // 1本目だけ止まる
+    const before = R.calls.filter((c) => c.action === 'getData').length;
+    const t0 = Date.now();
+    await store.refresh();
+    assert.ok(Date.now() - t0 < 2000);                                  // 40秒待たずに、2本目で取れた
+    assert.equal(R.calls.filter((c) => c.action === 'getData').length - before, 2);
+    const log = JSON.parse(R.w.localStorage.getItem('sk2_netlog'));
+    assert.ok(log.some((x) => /もう1本出した/.test(x.result)));
+    assert.equal(log.filter((x) => x.what === 'getData' && /取り下げ|通信できません/.test(x.result)).length, 0);   // 取り下げた1本目は記録しない
+  } finally { api.setHedgeWait(8000); }
+  R.stop();
+});
+
 test('通信：手元に会社があるのに0社で返ってきたら、一覧も端末の控えも空で上書きしない', async () => {
   const R = await boot();
   const store = await import(pathToFileURL(path.join(__dirname, '../js/store.js')).href);
@@ -372,7 +392,7 @@ test('通信：「ok」だけで中身の無い返事は、届いたとはみな
   R.stop();
 });
 
-test('通信：1回目が届いていないのに、やり直しの前にほかの端末で変わっていたら、届いたとはみなさずに知らせる', async () => {
+test('通信：1回目が届いていないのに、やり直しの前にほかの端末で変わっていたら、届いたとはみなさず、最新にかけ直す', async () => {
   const R = await boot();
   let n = 0;
   R.net.drop = (b) => {
@@ -384,11 +404,11 @@ test('通信：1回目が届いていないのに、やり直しの前にほか�
   };
   R.click(`.row[data-id="${R.ids.b}"]`);
   R.click('#sheet [data-act="done"]');
-  await until(() => /ほかの端末/.test(R.toast()), 3000);
+  const server = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
+  await until(() => server().status === 'waiting', 4000);      // 最新（業種が変わった形）に、完了をかけ直して保存した
+  assert.equal(server().industry, '金融');                     // ほかの端末の変更は上書きしない
   assert.doesNotMatch(R.toast(), /最新を読み直しました/);
-  const server = R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
-  assert.equal(server.status, 'todo');                         // 完了にした操作は保存されていない
-  assert.equal(server.industry, '金融');
+  assert.ok(JSON.parse(R.w.localStorage.getItem('sk2_netlog')).some((x) => x.what === 'かけ直し'));
   R.stop();
 });
 
@@ -517,17 +537,26 @@ test('保存に失敗したら元に戻し、理由を出す', async () => {
   R.stop();
 });
 
-test('ほかの端末で先に書き換えられていたら、上書きせずに最新を出す', async () => {
+test('ほかの端末で先に書き換えられていたら、上書きせずに最新を読み込み、かけられる操作だけかけ直す', async () => {
   const R = await boot();
-  /* ほかの端末で業種を変えた */
-  const cur = R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
-  R.T.api('mutate', { id: R.ids.b, op: 'setIndustry', args: { industry: '金融' }, updatedAt: cur.updatedAt });
+  const server = () => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
+  /* ほかの端末で業種を変えた。完了は最新にもかけられるので、かけ直して保存する */
+  R.T.api('mutate', { id: R.ids.b, op: 'setIndustry', args: { industry: '金融' }, updatedAt: server().updatedAt });
   R.click(`.row[data-id="${R.ids.b}"]`);
   R.click('#sheet [data-act="done"]');
+  await until(() => server().status === 'waiting');
+  assert.equal(server().industry, '金融');
+  /* ほかの端末で対応中に戻したあと、古い画面のまま「通過」を押した。最新は対応中なので通過は… */
+  R.T.api('mutate', { id: R.ids.b, op: 'reopen', updatedAt: server().updatedAt });
+  R.click('#sheet [data-act="pass"]');
+  /* …対応中でも通過はかけられるので、かけ直す。かけられない操作だけ、捨てて知らせる */
+  await until(() => server().stage !== 'ES');
+  const stage = server().stage;
+  R.T.api('mutate', { id: R.ids.b, op: 'skip', updatedAt: server().updatedAt });   // ほかの端末で見送りにした
+  R.click('#sheet [data-act="skip"]');                                            // 古い画面で見送り（もう見送りなのでかけられない）
   await until(() => /ほかの端末/.test(R.toast()));
-  const server = R.T.api('getData', {}).companies.find((c) => c.id === R.ids.b);
-  assert.equal(server.status, 'todo');
-  await until(() => R.chip('todo') === 2);
+  assert.equal(server().status, 'skipped');
+  assert.equal(server().stage, stage);
   R.stop();
 });
 

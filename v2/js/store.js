@@ -137,7 +137,7 @@ export function loadCache() {
 
 export async function refresh() {
   /* 読むだけなので、通信が一瞬切れたくらいなら2回までやり直す */
-  const r = await call('getData', {}, { retry: 2, expect: 'companies' });
+  const r = await call('getData', {}, { retry: 2, expect: 'companies', hedge: true });
   /* 手元に会社があるのに0社で返ってきたら、取り込まない。全部消した覚えは無いはずなので、
      GAS 側の一時的な読み違いとみなし、画面と端末の控えを空で上書きしない */
   const had = s.order.length;
@@ -318,6 +318,24 @@ async function send(id, item, keepalive) {
     }
     if (e.conflict && e.company) {
       adoptCompany(e.company);
+      /* 古い一覧を見て押した操作でも、最新の中身にそのままかけられるなら、かけ直して1回だけ送り直す。
+         起動直後に一覧の取得が失敗して、端末の控え（少し古い）の上で保存したときに、「保存できない」にしないため。
+         かけられない操作（もう結果待ちなのに「完了」など）は、今までどおり捨てて知らせる */
+      const latest = s.confirmed.get(id);
+      let fits = false;
+      if (!item.rebased && latest) {
+        try { Domain.apply(latest, Object.assign({}, item.args, { type: item.op }), item.at); fits = true; } catch (x) { fits = false; }
+      }
+      if (fits) {
+        keep = true;
+        item.rebased = true;
+        item.sent = false;
+        item.sendAt = Date.now();
+        item.first = undefined;
+        if (item.durable) item.base = String(latest.updatedAt);
+        note('かけ直し', item.op);
+        return;
+      }
       /* 古い画面を見て押した続きの操作も、送らずに捨てる */
       const q = s.queues.get(id);
       if (q) q.length = 1;

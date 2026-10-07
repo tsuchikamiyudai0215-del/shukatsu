@@ -71,11 +71,13 @@ function transient(msg) {
 }
 
 /* 1回だけ送る。失敗は、やり直してよいもの（transient）と、そうでないものに分けて投げる */
-async function once(action, args, opts) {
+async function once(action, args, opts, cancel) {
   const { ep, key } = config();
   if (!ep || !key) throw new Error('接続設定がありません。');
   const ctl = !opts.keepalive && typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : 0;
+  /* 並べて出したもう1本が先に返ってきたら、こちらは取り下げる */
+  if (ctl && cancel) cancel.addEventListener('abort', () => ctl.abort());
   const mine = ctl ? { ctl, t0: Date.now() } : null;
   if (mine) active.add(mine);
   let res, text;
@@ -91,6 +93,7 @@ async function once(action, args, opts) {
     if (!res.ok) throw transient('通信に失敗しました（' + res.status + '）。');
     text = await res.text();
   } catch (e) {
+    if (cancel && cancel.aborted) { const c = transient('取り下げ'); c.cancelled = true; throw c; }
     if (e.transient) throw e;
     throw transient('通信できませんでした。');
   } finally {
@@ -116,6 +119,58 @@ async function once(action, args, opts) {
   return j;
 }
 
+/* 1本送って、結果を記録に残す。もう1本が先に返って取り下げた分は残さない */
+async function attempt(action, args, opts, cancel) {
+  const t0 = Date.now();
+  try {
+    const j = await once(action, args, opts, cancel);
+    /* GAS の中でかかった時間も残す。合計よりずっと短ければ、遅いのは GAS のコードではなく Google の途中 */
+    const gas = typeof j.gasMs === 'number' ? '・GAS ' + (j.gasMs / 1000).toFixed(1) + '秒' : '';
+    note(action, (Array.isArray(j.companies) ? 'ok ' + j.companies.length + '社' : 'ok') + gas, Date.now() - t0);
+    return j;
+  } catch (e) {
+    if (!e.cancelled) note(action, e.message, Date.now() - t0);
+    throw e;
+  }
+}
+
+/* 返事が来ないまま HEDGE_MS たったら、待っている1本はそのままに、もう1本を並べて出す。先に返ったほうを使う。
+   本番の GAS は時々30〜40秒止まるが、すぐ出し直すと数秒で返ることが多いため。読むだけの通信にだけ使う */
+let HEDGE_MS = 8000;
+/* テストで縮めるため */
+export function setHedgeWait(ms) { HEDGE_MS = ms; }
+
+function hedged(action, args, opts) {
+  if (!opts.hedge || opts.keepalive || typeof AbortController !== 'function') return attempt(action, args, opts);
+  return new Promise((resolve, reject) => {
+    const ctls = [];
+    let settled = false, live = 0, fired = false;
+    const finish = (fn, v) => { settled = true; clearTimeout(timer); fn(v); };
+    const go = () => {
+      const c = new AbortController();
+      ctls.push(c);
+      live++;
+      attempt(action, args, opts, c.signal).then((j) => {
+        if (settled) return;
+        ctls.forEach((x) => { if (x !== c) x.abort(); });
+        finish(resolve, j);
+      }, (e) => {
+        live--;
+        if (settled || e.cancelled) return;
+        /* 並べて出す前に失敗したら、そのまま返す（やり直しは call が受け持つ）。出したあとは両方とも失敗したときだけ */
+        if (live === 0 || !fired) { ctls.forEach((x) => x.abort()); finish(reject, e); }
+      });
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      fired = true;
+      note(action, '返事が遅いので、もう1本出した', null);
+      go();
+    }, HEDGE_MS);
+    go();
+  });
+}
+
 /**
  * 呼び出す。失敗したら、画面にそのまま出せる文言の Error を投げる。
  * ・鍵が違うときは err.unauthorized、ほかの端末とぶつかったときは err.conflict と err.company を付ける
@@ -123,19 +178,14 @@ async function once(action, args, opts) {
  *   やり直したあとの失敗には err.retried を付ける（1回目が実は届いていたかもしれないので）
  * ・keepalive は、画面を閉じる間際に送り切るときに使う。やり直さない
  * ・expect に名前を渡すと、応答にその中身が無いときは一時的な失敗として扱う
+ * ・hedge を付けると、返事が遅いときにもう1本並べて出す（読むだけの通信に）
  */
 export async function call(action, args, opts = {}) {
   const times = opts.keepalive ? 0 : Math.max(0, opts.retry || 0);
   for (let n = 0; ; n++) {
-    const t0 = Date.now();
     try {
-      const j = await once(action, args, opts);
-      /* GAS の中でかかった時間も残す。合計よりずっと短ければ、遅いのは GAS のコードではなく Google の途中 */
-      const gas = typeof j.gasMs === 'number' ? '・GAS ' + (j.gasMs / 1000).toFixed(1) + '秒' : '';
-      note(action, (Array.isArray(j.companies) ? 'ok ' + j.companies.length + '社' : 'ok') + gas, Date.now() - t0);
-      return j;
+      return await hedged(action, args, opts);
     } catch (e) {
-      note(action, e.message, Date.now() - t0);
       if (n > 0) e.retried = true;
       if (!e.transient || n >= times) throw e;
       await sleep(RETRY_WAIT_MS[Math.min(n, RETRY_WAIT_MS.length - 1)]);

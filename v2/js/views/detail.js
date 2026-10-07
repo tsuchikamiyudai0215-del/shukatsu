@@ -477,7 +477,7 @@ export const detailActions = {
   /* 押したときに1社分だけ取りに行き、そのまま控え帳へ。変数にも画面にも残さない */
   'copy-pw': () => {
     const id = ui.openId;
-    copyText(call('getPassword', { id }, { retry: 1 }).then((r) => {
+    copyText(call('getPassword', { id }, { retry: 1, hedge: true }).then((r) => {
       if (!r.pw) throw new Error('パスワードが登録されていません。');
       return r.pw;
     }), 'パスワード');
