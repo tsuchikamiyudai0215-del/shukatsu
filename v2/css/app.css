@@ -358,8 +358,8 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .tabbar button:not(.ico){width:var(--pw)}
 .tabbar button.on{color:#000}
 .tabbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex-shrink:0}
-.tabbar .ico{padding:10px 15px;font-size:18px;font-weight:400;color:var(--text);line-height:1;
-  white-space:nowrap;flex-shrink:0}
+.tabbar .ico{padding:8.5px 14px;color:var(--text);line-height:0;white-space:nowrap;flex-shrink:0}
+.tabbar .ico svg{width:22px;height:22px;display:block}
 
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:0 auto 16px;max-width:320px;
   background:linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.04) 100%), rgba(18,18,28,0.55);

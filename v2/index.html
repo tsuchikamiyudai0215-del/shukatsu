@@ -38,8 +38,9 @@
   <button id="tb-list" class="on" data-act="page" data-v="list">選考</button>
   <button id="tb-pass" data-act="page" data-v="pass">記録</button>
   <span class="sep"></span>
-  <button class="ico" data-act="search" aria-label="検索">⌕</button>
-  <button class="ico" data-act="add" aria-label="追加">+</button>
+  <!-- アイコンは文字でなく線で描く。文字だと字体ごとに大きさと上下の位置がずれる -->
+  <button class="ico" data-act="search" aria-label="検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l4.5 4.5"/></svg></button>
+  <button class="ico" data-act="add" aria-label="追加"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
 </nav>
 
 <div id="side"></div>
