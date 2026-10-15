@@ -1212,6 +1212,18 @@ test('予定タブ：残り日数つきの一覧、追加（終日・連日・�
   R.stop();
 });
 
+test('一覧の日数は日本時間のカレンダーで数える。24時間以内でも明日なら TODAY にしない', async () => {
+  const R = await boot();
+  const f = await import(pathToFileURL(path.join(__dirname, '../js/format.js')).href);
+  const now = f.instant('2026-10-15T20:00');                        // 夜8時に見た
+  assert.equal(f.rem('2026-10-16T10:00', now).days, 1);             // 14時間後だが明日の朝 → 1
+  assert.equal(f.rem('2026-10-16T10:00', now).d, 0);                // カウントダウン（残り時間）は 0日
+  assert.equal(f.rem('2026-10-15T23:59', now).days, 0);             // 今日の夜 → TODAY
+  assert.equal(f.rem('2026-10-17T00:30', f.instant('2026-10-15T00:10')).days, 2);
+  assert.equal(f.rem('2026-10-15T23:59', f.instant('2026-10-15T00:00')).days, 0);
+  R.stop();
+});
+
 test('締切の分は「自分で入力…」で 0〜59 の好きな分にできる', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);

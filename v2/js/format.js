@@ -34,14 +34,25 @@ export function ftime(s) {
   return d && String(s).length >= 16 ? p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) : '';
 }
 
-/* 残り時間。過ぎていれば null */
+/* 日本時間の今日の0時（瞬間の数） */
+function todayStart(now) {
+  return Math.floor((now + JST_MS) / 86400000) * 86400000 - JST_MS;
+}
+
+/**
+ * 残り時間。過ぎていれば null。
+ * d・h・m・s は残りの時間をそのまま割ったもの（カウントダウン用）。
+ * days は日本時間のカレンダーで何日先か（今日なら 0、明日なら 1）。一覧の「TODAY」と日数はこちらで出す。
+ * 24時間で割ると、夜に翌朝の締切を見たときも 0 になって「TODAY」と出てしまうため
+ */
 export function rem(s, now = Date.now()) {
   const t = instant(s);
   if (t == null) return null;
   const ms = t - now;
   if (ms <= 0) return null;
   const x = Math.floor(ms / 1000);
-  return { ms, d: Math.floor(x / 86400), h: Math.floor((x % 86400) / 3600), m: Math.floor((x % 3600) / 60), s: x % 60 };
+  const days = Math.round((dayStart(s) - todayStart(now)) / 86400000);
+  return { ms, d: Math.floor(x / 86400), h: Math.floor((x % 86400) / 3600), m: Math.floor((x % 3600) / 60), s: x % 60, days };
 }
 
 export function since(date, now = Date.now()) {

@@ -58,7 +58,7 @@ export function rowHtml(c, evs, now) {
     const ev = nextEvent(c.id, evs, now);
     const rr = ev ? rem(ev.startAt, now) : null;
     /* 日数の欄は狭いので、2行に折れない短い語にする */
-    left = rr ? dayCell(rr.d === 0 ? 'TODAY' : rr.d, 'var(--go)') : tag(ev ? '開催中' : '参加', 'var(--go)');
+    left = rr ? dayCell(rr.days === 0 ? 'TODAY' : rr.days, 'var(--go)') : tag(ev ? '開催中' : '参加', 'var(--go)');
     right = ev ? evShort(ev) : c.resultAt ? fdate(c.resultAt) + ' 確定' : '';
   } else if (st === 'offer') {
     left = tag('内定', 'var(--go)');
@@ -69,7 +69,8 @@ export function rowHtml(c, evs, now) {
   } else if (st === 'skipped') {
     left = tag('見送り', 'var(--dim)');
   } else if (r) {
-    left = dayCell(r.d === 0 ? 'TODAY' : r.d, r.d <= 2 ? 'var(--hot)' : 'var(--text)');
+    /* 日数は日本時間のカレンダーで数える（今日なら TODAY）。2日以内は赤く */
+    left = dayCell(r.days === 0 ? 'TODAY' : r.days, r.days <= 2 ? 'var(--hot)' : 'var(--text)');
     right = fdate(c.dueAt);
     if (c.dueHasTime) sub = html`<div class="sub">締切 ${ftime(c.dueAt)}</div>`;
   } else {
@@ -79,7 +80,7 @@ export function rowHtml(c, evs, now) {
   const cls = ['row'];
   if (st === 'joined') cls.push('is-fixed');
   if (st === 'offer') cls.push('is-offer');
-  if (st === 'todo' && r && r.d <= 2) cls.push('is-hot');
+  if (st === 'todo' && r && r.days <= 2) cls.push('is-hot');
   if (st === 'failed' || st === 'skipped') cls.push('is-muted');
   /* タイルの中にはボタンを置かない。指には小さく、高さもそろわなくなる。操作は詳細にまとめる */
   return html`<div class="${cls.join(' ')}" data-act="open" data-id="${c.id}"><div class="main">${logo(c, 44)}<div class="body1"><div class="name" title="${c.name}">${Domain.shortName(c.name)}</div><div class="meta"><span class="stage">${Domain.position(c)}</span>${c.kind === 'mgmt' && html`<span class="stage mgmt">管理用</span>`}<i>${right}</i></div>${sub}</div><div class="day">${left}</div></div></div>`;
@@ -87,7 +88,7 @@ export function rowHtml(c, evs, now) {
 
 function eventRowHtml(ev, c, now) {
   const r = rem(ev.startAt, now);
-  const left = r ? dayCell(r.d === 0 ? 'TODAY' : r.d, r.d <= 2 ? 'var(--hot)' : 'var(--text)')
+  const left = r ? dayCell(r.days === 0 ? 'TODAY' : r.days, r.days <= 2 ? 'var(--hot)' : 'var(--text)')
     : evActive(ev, now) ? tag('開催中', 'var(--go)') : tag('終了', 'var(--dim)');
   return html`<div class="row" data-act="open" data-id="${c.id}"><div class="main">${logo(c, 44)}<div class="body1"><div class="name" title="${c.name}">${Domain.shortName(c.name)}</div><div class="meta"><span class="stage" style="color:var(--text)">${ev.kind}</span><i>${evTile(ev)}</i></div>${ev.place && html`<div class="sub" style="font-family:var(--body)">${ev.place}</div>`}</div><div class="day">${left}</div></div></div>`;
 }
@@ -96,8 +97,8 @@ function stripHtml(mgmt, now) {
   if (!mgmt.length) return '';
   return html`<div class="strip">${mgmt.map((c) => {
     const r = c.dueAt ? rem(c.dueAt, now) : null;
-    const lab = r ? (r.d === 0 ? '今日' : r.d + '日後') : c.dueAt ? '期限切れ' : '日程未定';
-    return html`<button class="stripitem" data-act="open" data-id="${c.id}"><span class="k">受験予定</span><span class="n">${c.name}</span><span class="d" style="color:${r && r.d <= 2 ? 'var(--hot)' : 'var(--text)'}">${lab}</span>${c.dueAt && html`<span class="w">${fdate(c.dueAt)}${c.dueHasTime ? ' ' + ftime(c.dueAt) : ''}</span>`}</button>`;
+    const lab = r ? (r.days === 0 ? '今日' : r.days + '日後') : c.dueAt ? '期限切れ' : '日程未定';
+    return html`<button class="stripitem" data-act="open" data-id="${c.id}"><span class="k">受験予定</span><span class="n">${c.name}</span><span class="d" style="color:${r && r.days <= 2 ? 'var(--hot)' : 'var(--text)'}">${lab}</span>${c.dueAt && html`<span class="w">${fdate(c.dueAt)}${c.dueHasTime ? ' ' + ftime(c.dueAt) : ''}</span>`}</button>`;
   })}</div>`;
 }
 
@@ -171,6 +172,9 @@ export function renderList(onEmptyReset) {
   const soon = [];
   all.forEach((c) => { if (c.dueAt && Domain.viewStatus(c, new Date(now)) === 'todo') soon.push(instant(c.dueAt)); });
   evs.forEach((ev) => soon.push(instant(ev.startAt), evEndAt(ev)));
+  /* 日数は日本時間のカレンダーで数えるので、0時をまたいだら組み直す（明日の「1」を「TODAY」にする） */
+  const JST = 9 * 3600000;
+  soon.push(Math.floor((now + JST) / 86400000) * 86400000 - JST + 86400000);
   const next = Math.min(...soon.filter((t) => t != null && t > now));
   view.dataset.next = Number.isFinite(next) ? String(next) : '';
   tickHero(onEmptyReset);
