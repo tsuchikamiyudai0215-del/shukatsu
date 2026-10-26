@@ -1237,6 +1237,12 @@ test('結果の履歴：通過すると選考ルートのタブの「結果の�
   await sleep(500);
   R.click('#tb-pass');
   assert.match(R.$('#view').textContent, /結果が出るまでの日数/);
+  /* 会社ごとの一覧に出て、押すとその会社の詳細が開く */
+  const row = R.$(`#view .spdco .coRow[data-id="${R.ids.w}"]`);
+  assert.ok(row);
+  assert.match(row.textContent, /1件/);
+  R.click(`#view .spdco .coRow[data-id="${R.ids.w}"]`);
+  await until(() => R.$('#sheet .tab-pane'));
   R.stop();
 });
 

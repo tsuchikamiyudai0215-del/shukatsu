@@ -32,8 +32,12 @@ export function renderPassport() {
   /* 提出（無ければ締切）から結果までの日数。結果の履歴から数える */
   const sp = Domain.resultSpeed(termCompanies());
   const dayRow = (name, x) => html`<div class="brkRow"><span>${name}<span class="cnt" style="margin-left:6px">${x.n}件</span></span><span style="font-family:var(--disp);font-size:19px;font-weight:600">${x.median}<span style="font-size:11px;color:var(--muted);margin-left:2px">日</span></span></div>`;
+  /* 会社ごとは数が多いので、ふだんは閉じておく。裏の取り直しで描き直しても開いたままにする */
+  const coWas = view.querySelector('.spdco');
+  const coRow = (x) => html`<div class="brkRow coRow" data-act="open" data-id="${x.id}"><span class="coName">${Domain.shortName(x.name)}<span class="cnt" style="margin-left:6px">${x.n}件</span><span class="coItems">${x.items.map((it, i) => html`${i ? ' · ' : ''}<b class="${it.outcome === 'fail' ? 'fail' : ''}">${it.stage} ${it.days}日</b>`)}</span></span><span style="font-family:var(--disp);font-size:19px;font-weight:600">${x.median}<span style="font-size:11px;color:var(--muted);margin-left:2px">日</span></span></div>`;
+  const coHtml = sp.companies.length ? html`<details class="spdco"${coWas && coWas.open ? html` open` : ''}><summary>会社ごと（早い順・${sp.companies.length}社）</summary><div style="margin-top:6px">${sp.companies.map(coRow)}</div></details>` : '';
   B.push(html`<div class="pcard po4 flat"><div class="ttl">結果が出るまでの日数</div>${sp.all.n
-    ? html`<div class="pgrid" style="margin-top:12px"><div><b>${sp.all.median}</b><span>日（真ん中の値）</span></div><div><b>${sp.all.avg}</b><span>日（平均）</span></div></div><div style="margin-top:12px">${sp.stages.map((x) => dayRow(x.stage, x))}</div>${sp.pass.n && sp.fail.n ? html`<div class="pfoot">通過は${sp.pass.median}日、落選は${sp.fail.median}日（真ん中の値）。</div>` : ''}${sp.industries.length > 1 ? html`<div class="ttl" style="margin-top:16px">業界ごと</div><div style="margin-top:6px">${sp.industries.map((x) => dayRow(x.name, x))}</div>` : ''}`
+    ? html`<div class="pgrid" style="margin-top:12px"><div><b>${sp.all.median}</b><span>日（真ん中の値）</span></div><div><b>${sp.all.avg}</b><span>日（平均）</span></div></div><div style="margin-top:12px">${sp.stages.map((x) => dayRow(x.stage, x))}</div>${sp.pass.n && sp.fail.n ? html`<div class="pfoot">通過は${sp.pass.median}日、落選は${sp.fail.median}日（真ん中の値）。</div>` : ''}${sp.industries.length > 1 ? html`<div class="ttl" style="margin-top:16px">業界ごと</div><div style="margin-top:6px">${sp.industries.map((x) => dayRow(x.name, x))}</div>` : ''}${coHtml}`
     : html`<div class="pfoot">まだ記録がありません。結果が出るたびにたまります。</div>`}</div>`);
 
   if (t.industries.length) {

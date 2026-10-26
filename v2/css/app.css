@@ -468,6 +468,15 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .xCell i{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);font-style:normal;margin-top:2px}
 .brkRow:last-child{border-bottom:none;padding-bottom:0}
 
+/* 結果までの日数の会社ごと。押すとその会社の詳細が開く */
+.spdco{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}
+.spdco summary{cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;padding:4px 0}
+.coRow{cursor:pointer;gap:10px}
+.coName{min-width:0}
+.coItems{display:block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:var(--dim);line-height:1.5}
+.coItems b{font-weight:500;color:var(--muted);white-space:nowrap}
+.coItems b.fail{color:var(--hot)}
+
 /* ---------- chips ---------- */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
   margin:16px -16px 10px;padding:10px 16px 14px}

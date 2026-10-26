@@ -262,6 +262,9 @@ test('結果までの日数の集計：段階ごと・通過と落選・業界�
   assert.deepEqual(sp.fail, { n: 1, avg: 10, median: 10 });
   assert.deepEqual(sp.stages.map((x) => [x.stage, x.n, x.median]), [['ES', 3, 5], ['テスト', 1, 10]]);
   assert.deepEqual(sp.industries.map((x) => [x.name, x.n]), [['金融', 3], ['商社', 1]]);
+  /* 会社ごとは早い順。日数の出ない結果は items に入れない */
+  assert.deepEqual(sp.companies.map((x) => [x.id, x.n, x.median]), [['b', 1, 3], ['c', 1, 5], ['a', 2, 8.5]]);
+  assert.deepEqual(sp.companies[2].items, [{ stage: 'ES', days: 7, outcome: 'pass' }, { stage: 'テスト', days: 10, outcome: 'fail' }]);
   assert.deepEqual(D.expectedDays(list, 'ES'), { days: 5, n: 3, scope: 'stage' });
   assert.deepEqual(D.expectedDays(list, 'テスト'), { days: 6, n: 4, scope: 'all' });   // テストは1件しかないので全体の値
   assert.equal(D.expectedDays(list.slice(1, 2), '面接'), null);

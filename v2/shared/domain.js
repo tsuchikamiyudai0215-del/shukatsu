@@ -988,15 +988,18 @@ var Domain = (function () {
   /**
    * 提出（無ければ締切）から結果までの日数の集計。companies は表示中の区分の分だけを渡す。
    * 履歴の1件ごとに数える。提出日も締切も無い結果（ルートで現在地を付け替えたなど）は数えない。
-   * 戻り値：{ all, pass, fail, stages: [{ stage, ... }], industries: [{ name, ... }] }（どれも summarize の形）
+   * 戻り値：{ all, pass, fail, stages: [{ stage, ... }], industries: [{ name, ... }], companies: [{ id, name, items, ... }] }（どれも summarize の形）
+   * companies は返事の早い順。items はその会社の1件ずつ（{ stage, days, outcome }、古い順）
    */
   function resultSpeed(companies) {
-    var all = [], pass = [], failed = [], byStage = {}, byInd = {}, names = [];
+    var all = [], pass = [], failed = [], byStage = {}, byInd = {}, names = [], cos = [];
     (companies || []).forEach(function (c) {
       if (!c || c.kind === 'mgmt') return;
+      var items = [];
       historyOf(c).forEach(function (e) {
         var d = resultDays(e);
         if (d == null) return;
+        items.push({ stage: str(e.stage), days: d, outcome: e.outcome });
         all.push(d);
         (e.outcome === 'fail' ? failed : pass).push(d);
         if (!byStage[e.stage]) { byStage[e.stage] = []; names.push(e.stage); }
@@ -1004,7 +1007,13 @@ var Domain = (function () {
         var k = industryFor(c);
         (byInd[k] || (byInd[k] = [])).push(d);
       });
+      if (items.length) {
+        cos.push(Object.assign({ id: c.id, name: str(c.name), items: items },
+          summarize(items.map(function (x) { return x.days; }))));
+      }
     });
+    /* 同じ早さなら件数の多い方（当てになる方）を先に */
+    cos.sort(function (a, b) { return a.median - b.median || b.n - a.n; });
     var indMap = {};
     Object.keys(byInd).forEach(function (k) { indMap[k] = { n: byInd[k].length }; });
     return {
@@ -1012,7 +1021,8 @@ var Domain = (function () {
       pass: summarize(pass),
       fail: summarize(failed),
       stages: stageOrder(names).map(function (s) { return Object.assign({ stage: s }, summarize(byStage[s])); }),
-      industries: sortByCount(indMap).map(function (k) { return Object.assign({ name: k }, summarize(byInd[k])); })
+      industries: sortByCount(indMap).map(function (k) { return Object.assign({ name: k }, summarize(byInd[k])); }),
+      companies: cos
     };
   }
 
