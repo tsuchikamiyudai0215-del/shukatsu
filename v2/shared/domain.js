@@ -204,6 +204,45 @@ var Domain = (function () {
     return str(c.submittedAt) || str(c.dueAt).slice(0, 10);
   }
 
+  // ------------------------------------------------------------
+  // 結果の履歴
+  // ------------------------------------------------------------
+  /* 段階ごとの結果を history に積む。1件は { stage, dueAt, submittedAt, resultAt, outcome }。
+     outcome は pass（次の段階へ）・fail・offer・joined。
+     次の段階へ進むと提出日と結果日は上書きされるので、結果が出た時点の値をここに残す。
+     履歴を残し始める前の会社は、今の値から最後の結果だけを1件として起こす（シートを書き換えずに済むように） */
+  function historyOf(c) {
+    if (c && Array.isArray(c.history) && c.history.length) return c.history.map(function (e) { return copy(e); });
+    var s = c && c.status;
+    if ((s === 'failed' || s === 'offer' || s === 'joined') && str(c.resultAt)) {
+      return [{ stage: position(c), dueAt: '', submittedAt: str(c.submittedAt), resultAt: str(c.resultAt), outcome: s === 'failed' ? 'fail' : s }];
+    }
+    return [];
+  }
+
+  /* 結果が出たときに1件足す。before は操作をかける前の会社（締切と提出日が残っている） */
+  function record(c, before, outcome, now) {
+    c.history = historyOf(before).concat([{
+      stage: position(before), dueAt: str(before.dueAt), submittedAt: str(before.submittedAt),
+      resultAt: today(now), outcome: outcome
+    }]);
+  }
+
+  /* 結果を取り消したとき（対応中に戻すなど）に、最後の1件が outcomes のどれかなら外す */
+  function unrecord(c, outcomes) {
+    var h = historyOf(c);
+    if (h.length && outcomes.indexOf(h[h.length - 1].outcome) >= 0) h.pop();
+    c.history = h;
+  }
+
+  /* 提出（無ければ締切）から結果までの日数。どちらかが無い・前後が逆なら null */
+  function resultDays(e) {
+    var from = parseWall(str(e && (e.submittedAt || e.dueAt)).slice(0, 10));
+    var to = parseWall(str(e && e.resultAt).slice(0, 10));
+    if (from == null || to == null || to < from) return null;
+    return Math.round((to - from) / DAY_MS);
+  }
+
   // ============================================================
   // 操作
   // ============================================================
@@ -216,6 +255,7 @@ var Domain = (function () {
     if (Array.isArray(o.route)) o.route = o.route.slice();
     if (Array.isArray(o.routeLinks)) o.routeLinks = o.routeLinks.slice();
     if (o.cal && typeof o.cal === 'object') o.cal = JSON.parse(JSON.stringify(o.cal));
+    if (Array.isArray(o.history)) o.history = JSON.parse(JSON.stringify(o.history));
     return o;
   }
 
@@ -257,6 +297,7 @@ var Domain = (function () {
       need(c, ['todo', 'waiting'], 'いまの状態では通過にできません。');
       var r = routeOf(c), i = r.indexOf(str(c.stage));
       if (i < 0) fail('選考ルートに今の段階がありません。');
+      record(c, copy(c), i >= r.length - 2 ? goalOf(c.term) : 'pass', now);
       clearDue(c);
       c.submittedAt = '';
       c.lostStage = '';
@@ -273,6 +314,7 @@ var Domain = (function () {
 
     fail: function (c, op, now) {
       need(c, ['todo', 'waiting'], 'いまの状態では落選にできません。');
+      record(c, copy(c), 'fail', now);
       c.status = 'failed';
       c.lostStage = str(c.stage);
       c.resultAt = today(now);
@@ -303,6 +345,9 @@ var Domain = (function () {
     /* 対応中に戻す。落ちた段階や結果日が残ると、記録タブの数字がずれる */
     reopen: function (c) {
       need(c, ['waiting', 'offer', 'joined', 'failed', 'skipped'], 'もう対応中です。');
+      /* 落選・内定・参加決定を取り消すので、履歴からもその結果を外す */
+      if (c.status === 'failed') unrecord(c, ['fail']);
+      else if (c.status === 'offer' || c.status === 'joined') unrecord(c, ['offer', 'joined']);
       c.status = 'todo';
       c.lostStage = '';
       c.resultAt = '';
@@ -318,6 +363,7 @@ var Domain = (function () {
     /* 結果待ちから、段階はそのままで参加決定にする */
     join: function (c, op, now) {
       need(c, ['todo', 'waiting'], 'いまの状態では参加決定にできません。');
+      record(c, copy(c), 'joined', now);
       c.status = 'joined';
       c.lostStage = '';
       c.resultAt = today(now);
@@ -328,6 +374,11 @@ var Domain = (function () {
     prev: function (c) {
       var r = routeOf(c), i = r.indexOf(position(c));
       if (i <= 0) fail('これ以上前の段階はありません。');
+      /* 戻る先の段階の「通過」を取り消す。今の段階の結果（落選など）が最後にあれば、先にそれも外す */
+      unrecord(c, ['fail', 'offer', 'joined']);
+      var h = historyOf(c);
+      if (h.length && h[h.length - 1].stage === r[i - 1] && h[h.length - 1].outcome === 'pass') h.pop();
+      c.history = h;
       c.stage = r[i - 1];
       c.status = 'todo';
       c.lostStage = '';
@@ -355,11 +406,18 @@ var Domain = (function () {
            そこから前の段階へ戻したら、対応中に戻す。落選・見送りは、現在地を動かしても状態は変えない */
         var goal = isGoalStage(c.term, next, stage);
         if (goal && (c.status === 'todo' || c.status === 'waiting')) {
+          /* 現在地を付け替えて行き着いたので、提出日は無い。日数の集計には入らないが、結果としては残す */
+          var before = copy(c);
+          before.stage = stage;
+          before.dueAt = '';
+          before.submittedAt = '';
+          record(c, before, goalOf(c.term), now);
           c.status = goalOf(c.term);
           c.resultAt = today(now);
           c.submittedAt = '';
           clearDue(c);
         } else if (!goal && (c.status === 'offer' || c.status === 'joined')) {
+          unrecord(c, ['offer', 'joined']);
           c.status = 'todo';
           c.resultAt = '';
         }
@@ -460,7 +518,7 @@ var Domain = (function () {
       status: 'todo', stage: route[0], route: route, routeLinks: [], lostStage: '',
       dueAt: '', dueHasTime: false, submittedAt: '', resultAt: '',
       url: '', loginId: '', domain: '', industry: '',
-      logo: '', logoManual: false, folderUrl: '', cal: {}, updatedAt: ''
+      logo: '', logoManual: false, folderUrl: '', cal: {}, updatedAt: '', history: []
     };
   }
 
@@ -542,6 +600,7 @@ var Domain = (function () {
     if (s === 'failed' && !c.lostStage) c.lostStage = str(c.stage);
     if (!str(c.dueAt)) c.dueHasTime = false;
     c.routeLinks = linksOf(c);
+    if (!Array.isArray(c.history)) c.history = [];
     return c;
   }
 
@@ -916,6 +975,56 @@ var Domain = (function () {
     };
   }
 
+  /* 日数の並びの、件数・平均（小数1桁）・真ん中の値 */
+  function summarize(days) {
+    if (!days.length) return { n: 0, avg: null, median: null };
+    var s = days.slice().sort(function (a, b) { return a - b; });
+    var mid = Math.floor(s.length / 2);
+    var median = s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    var avg = s.reduce(function (a, d) { return a + d; }, 0) / s.length;
+    return { n: s.length, avg: Math.round(avg * 10) / 10, median: Math.round(median * 10) / 10 };
+  }
+
+  /**
+   * 提出（無ければ締切）から結果までの日数の集計。companies は表示中の区分の分だけを渡す。
+   * 履歴の1件ごとに数える。提出日も締切も無い結果（ルートで現在地を付け替えたなど）は数えない。
+   * 戻り値：{ all, pass, fail, stages: [{ stage, ... }], industries: [{ name, ... }] }（どれも summarize の形）
+   */
+  function resultSpeed(companies) {
+    var all = [], pass = [], failed = [], byStage = {}, byInd = {}, names = [];
+    (companies || []).forEach(function (c) {
+      if (!c || c.kind === 'mgmt') return;
+      historyOf(c).forEach(function (e) {
+        var d = resultDays(e);
+        if (d == null) return;
+        all.push(d);
+        (e.outcome === 'fail' ? failed : pass).push(d);
+        if (!byStage[e.stage]) { byStage[e.stage] = []; names.push(e.stage); }
+        byStage[e.stage].push(d);
+        var k = industryFor(c);
+        (byInd[k] || (byInd[k] = [])).push(d);
+      });
+    });
+    var indMap = {};
+    Object.keys(byInd).forEach(function (k) { indMap[k] = { n: byInd[k].length }; });
+    return {
+      all: summarize(all),
+      pass: summarize(pass),
+      fail: summarize(failed),
+      stages: stageOrder(names).map(function (s) { return Object.assign({ stage: s }, summarize(byStage[s])); }),
+      industries: sortByCount(indMap).map(function (k) { return Object.assign({ name: k }, summarize(byInd[k])); })
+    };
+  }
+
+  /* 結果待ちの目安の日数。その段階の結果が2件以上あればその真ん中の値、無ければ全体（3件以上）の真ん中の値 */
+  function expectedDays(companies, stage) {
+    var sp = resultSpeed(companies);
+    var st = sp.stages.filter(function (x) { return x.stage === str(stage); })[0];
+    if (st && st.n >= 2) return { days: st.median, n: st.n, scope: 'stage' };
+    if (sp.all.n >= 3) return { days: sp.all.median, n: sp.all.n, scope: 'all' };
+    return null;
+  }
+
   return {
     DEFAULT_ROUTES: DEFAULT_ROUTES,
     LEGACY_ROUTE: LEGACY_ROUTE,
@@ -928,6 +1037,10 @@ var Domain = (function () {
 
     apply: apply,
     create: create,
+    historyOf: historyOf,
+    resultDays: resultDays,
+    resultSpeed: resultSpeed,
+    expectedDays: expectedDays,
     carryOver: carryOver,
     split: split,
     duplicateOf: duplicateOf,

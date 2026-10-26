@@ -195,6 +195,78 @@ test('締切の判定は日本時間で行い、端末の時計の地域に左�
   assert.equal(D.today(new Date('2026-09-24T15:00:00Z')), '2026-09-25');
 });
 
+test('結果の履歴：通過・落選・参加決定で、その段階の締切・提出日・結果日を1件ずつ積む', () => {
+  let c = D.create('c_h', { name: 'H社', term: '本選考' });              // ES → テスト → 面接 → 内定
+  c = D.apply(c, { type: 'setDue', dueAt: '2026-09-10T23:59', hasTime: true }, NOW);
+  c = D.apply(c, { type: 'done' }, jst('2026-09-10T20:00'));
+  c = D.apply(c, { type: 'pass' }, jst('2026-09-18T12:00'));
+  assert.deepEqual(c.history, [{ stage: 'ES', dueAt: '2026-09-10T23:59', submittedAt: '2026-09-10', resultAt: '2026-09-18', outcome: 'pass' }]);
+  assert.equal(D.resultDays(c.history[0]), 8);
+  /* 提出日が無い（締切経過で自動送り）なら締切日から数える */
+  c = D.apply(c, { type: 'setDue', dueAt: '2026-09-20T23:59', hasTime: true }, NOW);
+  c = D.apply(c, { type: 'pass' }, jst('2026-09-25T12:00'));
+  assert.equal(D.resultDays(c.history[1]), 5);
+  /* 最後の手前で通過すると、内定として残す */
+  c = D.apply(c, { type: 'pass' }, jst('2026-10-01T12:00'));
+  assert.equal(c.status, 'offer');
+  assert.equal(c.history[2].outcome, 'offer');
+  assert.equal(c.history[2].stage, '面接');
+  /* 内定を取り消すと、その結果も外す */
+  c = D.apply(c, { type: 'reopen' }, NOW);
+  assert.deepEqual(c.history.map((e) => e.outcome), ['pass', 'pass']);
+  c = D.apply(c, { type: 'fail' }, jst('2026-10-03T12:00'));
+  assert.equal(c.history[2].outcome, 'fail');
+  c = D.apply(c, { type: 'reopen' }, NOW);
+  assert.equal(c.history.length, 2);
+  /* 1段階戻すと、戻る先の段階の通過も外す（内定を取り消した行は「内定」の段階にいるので、面接 → テストの順に戻る） */
+  assert.equal(c.stage, '内定');
+  c = D.apply(c, { type: 'prev' }, NOW);
+  assert.deepEqual(c.history.map((e) => e.stage), ['ES', 'テスト']);   // 面接には通過の記録が無い
+  c = D.apply(c, { type: 'prev' }, NOW);
+  assert.deepEqual(c.history.map((e) => e.stage), ['ES']);
+});
+
+test('結果の履歴：履歴が無い前からの会社は、今の結果を1件として起こす。新しい行は空', () => {
+  const old = co({ status: 'failed', stage: '面接', lostStage: '面接', submittedAt: '2026-09-01', resultAt: '2026-09-09' });
+  assert.deepEqual(D.historyOf(old), [{ stage: '面接', dueAt: '', submittedAt: '2026-09-01', resultAt: '2026-09-09', outcome: 'fail' }]);
+  assert.deepEqual(D.historyOf(co()), []);
+  assert.deepEqual(D.create('c_n', { name: 'N社' }).history, []);
+  /* 起こした1件の上に積んでいく */
+  const back = D.apply(old, { type: 'reopen' }, NOW);
+  assert.deepEqual(back.history, []);
+});
+
+test('結果の履歴：ルートで行き着いた段階を現在地にしたときも結果として残し、戻したら外す', () => {
+  let c = D.create('c_r', { name: 'R社', term: 'インターン' });
+  const route = D.routeOf(c);
+  c = D.apply(c, { type: 'setRoute', route, stage: 'インターン' }, NOW);
+  assert.equal(c.status, 'joined');
+  assert.equal(c.history[0].outcome, 'joined');
+  assert.equal(D.resultDays(c.history[0]), null);                     // 提出日が無いので日数には入らない
+  c = D.apply(c, { type: 'setRoute', route, stage: 'ES' }, NOW);
+  assert.deepEqual(c.history, []);
+});
+
+test('結果までの日数の集計：段階ごと・通過と落選・業界ごと。結果待ちの目安', () => {
+  const mk = (id, industry, hist) => Object.assign(D.create(id, { name: id + '社', term: '本選考' }), { industry, history: hist });
+  const e = (stage, sub, res, outcome) => ({ stage, dueAt: '', submittedAt: sub, resultAt: res, outcome });
+  const list = [
+    mk('a', '金融', [e('ES', '2026-09-01', '2026-09-08', 'pass'), e('テスト', '2026-09-10', '2026-09-20', 'fail')]),
+    mk('b', '金融', [e('ES', '2026-09-01', '2026-09-04', 'pass')]),
+    mk('c', '商社', [e('ES', '2026-09-01', '2026-09-06', 'pass'), e('テスト', '', '', 'fail')]),
+    Object.assign(mk('m', '', [e('ES', '2026-09-01', '2026-10-01', 'pass')]), { kind: 'mgmt' })   // 管理用の行は数えない
+  ];
+  const sp = D.resultSpeed(list);
+  assert.deepEqual(sp.all, { n: 4, avg: 6.3, median: 6 });              // 7・10・3・5 日
+  assert.deepEqual(sp.pass, { n: 3, avg: 5, median: 5 });
+  assert.deepEqual(sp.fail, { n: 1, avg: 10, median: 10 });
+  assert.deepEqual(sp.stages.map((x) => [x.stage, x.n, x.median]), [['ES', 3, 5], ['テスト', 1, 10]]);
+  assert.deepEqual(sp.industries.map((x) => [x.name, x.n]), [['金融', 3], ['商社', 1]]);
+  assert.deepEqual(D.expectedDays(list, 'ES'), { days: 5, n: 3, scope: 'stage' });
+  assert.deepEqual(D.expectedDays(list, 'テスト'), { days: 6, n: 4, scope: 'all' });   // テストは1件しかないので全体の値
+  assert.equal(D.expectedDays(list.slice(1, 2), '面接'), null);
+});
+
 test('結果待ちの経過日数は、提出日が無ければ締切日から数える', () => {
   assert.equal(D.waitingSince(co({ submittedAt: '2026-09-20', dueAt: '2026-09-01T23:59' })), '2026-09-20');
   assert.equal(D.waitingSince(co({ dueAt: '2026-09-01T23:59' })), '2026-09-01');

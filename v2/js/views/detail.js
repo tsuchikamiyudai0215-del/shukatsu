@@ -87,6 +87,26 @@ function railHtml(c) {
 const btn = (style, act, text, extra) => html`<button class="big" style="${style}" data-act="${act}"${extra || ''}>${text}</button>`;
 
 
+/* 結果待ちの目安。今までの結果から、この段階はふだん何日で結果が来たか（区分を問わず全社の履歴から） */
+function expectHtml(c) {
+  const ex = Domain.expectedDays(store.companies(), c.stage);
+  if (!ex) return '';
+  return html`<div class="sub" style="margin-top:4px">${ex.scope === 'stage' ? 'この段階は' : 'これまで'}ふだん${ex.days}日で結果（${ex.n}件から）</div>`;
+}
+
+const OUTCOME = { pass: '通過', fail: '落選', offer: '内定', joined: '参加決定' };
+
+/* 結果の履歴。新しいものを上に、1件1行で「段階　提出 → 結果　通過（8日）」と並べる */
+function historyHtml(c) {
+  const h = Domain.historyOf(c).slice().reverse();
+  const rows = h.length ? h.map((e) => {
+    const d = Domain.resultDays(e);
+    const from = e.submittedAt || (e.dueAt || '').slice(0, 10);
+    return html`<div class="ig-row hist"><span class="hs">${e.stage}</span><span class="hd">${from ? fdate(from) + ' → ' : ''}${fdate(e.resultAt)}</span><span class="ho ${e.outcome}">${OUTCOME[e.outcome] || e.outcome}${d != null ? '（' + d + '日）' : ''}</span></div>`;
+  }) : html`<div class="ig-body inote">まだありません。</div>`;
+  return section('due', '#8E8E93', '結果の履歴', rows);
+}
+
 function infoTab(c, now) {
   const st = Domain.viewStatus(c, new Date(now));
   const parts = [];
@@ -100,7 +120,7 @@ function infoTab(c, now) {
   if (st === 'waiting') {
     const d = since(Domain.waitingSince(c), now);
     const goal = Domain.goalOf(c.term) === 'joined' ? '参加決定' : '内定';
-    parts.push(section('wait', 'var(--wait)', '結果待ち', html`<div class="ig-body"><div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">${d == null ? '—' : d}</b><s>日経過</s></div>${Domain.isAutoSent(c, new Date(now)) && html`<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>`}<div style="display:flex;gap:10px;margin-top:16px"><button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass">${Domain.isFinalStep(c) ? goal : '通過'}</button><button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail">落選</button></div></div>`));
+    parts.push(section('wait', 'var(--wait)', '結果待ち', html`<div class="ig-body"><div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">${d == null ? '—' : d}</b><s>日経過</s></div>${Domain.isAutoSent(c, new Date(now)) && html`<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>`}${expectHtml(c)}<div style="display:flex;gap:10px;margin-top:16px"><button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass">${Domain.isFinalStep(c) ? goal : '通過'}</button><button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail">落選</button></div></div>`));
   }
   if (st === 'joined') {
     const ev = eventsOf(c.id).filter((e) => evActive(e, now))[0];
@@ -203,7 +223,7 @@ function routeTab(c) {
     return html`${box}${gi < all.length - 1 && joint(start - 1)}`;
   });
   const add = html`<div class="ig-body"><div class="ilab">よくある段階から選ぶ</div><div style="display:flex;gap:8px"><select class="f" style="flex:1 1 0;min-width:0;margin:0" id="addStage">${stagePalette().map((p) => html`<option>${p}</option>`)}</select><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-add">追加</button></div><div class="ilab" style="margin-top:14px">自分で名前を付けて追加</div><div style="display:flex;gap:8px"><input class="f" style="flex:1 1 0;min-width:0;margin:0" id="newStage" placeholder="例：リクルーター面談" data-enter="route-custom"><button class="gh" style="padding:0 18px;color:var(--text)" data-act="route-custom">追加</button></div></div>`;
-  return html`${section('flag', 'var(--go)', '進み具合', html`<div class="ig-body">${railHtml(c)}</div>`)}${section('list', 'var(--blue)', '選考ルート', html`<div class="ig-body"><div class="rlist">${gates}</div></div>`)}${section('plus', '#636366', '段階を追加', add)}`;
+  return html`${section('flag', 'var(--go)', '進み具合', html`<div class="ig-body">${railHtml(c)}</div>`)}${section('list', 'var(--blue)', '選考ルート', html`<div class="ig-body"><div class="rlist">${gates}</div></div>`)}${historyHtml(c)}${section('plus', '#636366', '段階を追加', add)}`;
 }
 
 function tabContent(c) {

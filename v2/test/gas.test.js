@@ -131,6 +131,17 @@ test('スクリプトのプロパティは、1回の実行の中で一度だけ�
   assert.equal(n, 1);
 });
 
+test('結果の履歴はシートの history 列に残り、読み直しても消えない', () => {
+  const T = mk();
+  const c = addCo(T);
+  assert.ok(T.sheet('companies').d[0].includes('history'));
+  const r = mutate(T, c, 'pass');
+  assert.equal(r.ok, true);
+  const again = T.api('getData', {}).companies.find((x) => x.id === c.id);
+  assert.equal(again.history.length, 1);
+  assert.equal(again.history[0].outcome, 'pass');
+});
+
 test('エラーでもロックを外す', () => {
   const T = mk();
   const r = T.api('mutate', { id: 'nope', op: 'pass', updatedAt: '' });

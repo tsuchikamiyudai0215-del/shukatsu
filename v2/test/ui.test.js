@@ -1224,6 +1224,22 @@ test('一覧の日数は日本時間のカレンダーで数える。24時間以
   R.stop();
 });
 
+test('結果の履歴：通過すると選考ルートのタブの「結果の履歴」に1件出て、記録タブに日数が出る', async () => {
+  const R = await boot();
+  R.click(`.row[data-id="${R.ids.w}"]`);                              // 結果待ちの会社
+  R.click('#sheet [data-act="pass"]');
+  await until(() => R.T.api('getData', {}).companies.find((c) => c.id === R.ids.w).history.length === 1);
+  R.click('#sheet [data-act="tab"][data-v="route"]');
+  assert.match(R.$('#sheet .tab-pane').textContent, /結果の履歴/);
+  assert.equal(R.$$('#sheet .hist').length, 1);
+  assert.match(R.$('#sheet .hist .ho').textContent, /通過（\d+日）/);
+  R.click('#sheet [data-act="close-detail"]');
+  await sleep(500);
+  R.click('#tb-pass');
+  assert.match(R.$('#view').textContent, /結果が出るまでの日数/);
+  R.stop();
+});
+
 test('締切の分は「自分で入力…」で 0〜59 の好きな分にできる', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);

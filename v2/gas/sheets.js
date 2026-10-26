@@ -12,11 +12,11 @@
 /* 足した列は後ろに並べる。見出しが無いシートでは、開いたときに右端へ見出しを足す */
 var COMPANY_COLS = ['id', 'kind', 'name', 'term', 'status', 'stage', 'route', 'lostStage',
   'dueAt', 'dueHasTime', 'submittedAt', 'resultAt', 'url', 'loginId', 'pw', 'domain', 'industry',
-  'logo', 'logoManual', 'folderUrl', 'cal', 'updatedAt', 'routeLinks'];
+  'logo', 'logoManual', 'folderUrl', 'cal', 'updatedAt', 'routeLinks', 'history'];
 var EVENT_COLS = ['id', 'companyId', 'kind', 'startAt', 'endAt', 'allDay', 'daily', 'place'];
 
 var BOOL_COLS = { dueHasTime: 1, logoManual: 1, allDay: 1, daily: 1 };
-var JSON_COLS = { route: '[]', routeLinks: '[]', cal: '{}' };
+var JSON_COLS = { route: '[]', routeLinks: '[]', cal: '{}', history: '[]' };
 var DATE_ONLY_COLS = { submittedAt: 1, resultAt: 1 };
 
 function Table_(name, cols) {
