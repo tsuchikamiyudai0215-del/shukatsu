@@ -71,8 +71,9 @@ export function renderPassport() {
   view.querySelectorAll('.pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
 }
 
-/* 2列のときは、カードを左右交互の順に、そのとき低いほうの列へ入れ直す。
-   どのカードが出るか・どれだけ伸びるかは記録しだいなので、決め打ちで振り分けると片方だけ長くなる。
+/* 2列のときは、カードを左右交互の順に並べたうえで、左右どちらに置くかを全部試し、
+   高いほうの列がいちばん低くなる分け方を選ぶ。1枚ずつ低いほうへ入れるやり方だと、
+   最後に大きなカードが来たときに片方だけ長くなる。カードは10枚もないので全部試せる。
    1列（スマホ）のときは列が見えないので触らない */
 function balance(view) {
   const cols = view.querySelectorAll('.pwrap > .pcol');
@@ -84,11 +85,17 @@ function balance(view) {
     if (a[i]) order.push(a[i]);
     if (b[i]) order.push(b[i]);
   }
-  const h = [0, 0];
+  const n = order.length;
+  if (n < 2 || n > 16) return;
   const gap = parseFloat(win.getComputedStyle(cols[0]).rowGap) || 0;
-  order.forEach((el) => {
-    const k = h[1] < h[0] ? 1 : 0;
-    cols[k].appendChild(el);
-    h[k] += el.offsetHeight + gap;
-  });
+  const hs = order.map((el) => el.offsetHeight + gap);
+  /* 先頭（パスポート）は左に固定する。ビット1が右の列 */
+  let best = 0, bestMax = Infinity, bestDiff = Infinity;
+  for (let m = 0; m < 1 << n; m += 2) {
+    let l = 0, r = 0;
+    for (let i = 0; i < n; i++) if (m >> i & 1) r += hs[i]; else l += hs[i];
+    const mx = Math.max(l, r), df = Math.abs(l - r);
+    if (mx < bestMax - 0.5 || (Math.abs(mx - bestMax) <= 0.5 && df < bestDiff)) { best = m; bestMax = mx; bestDiff = df; }
+  }
+  order.forEach((el, i) => cols[best >> i & 1].appendChild(el));
 }
