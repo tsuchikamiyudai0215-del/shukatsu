@@ -50,7 +50,6 @@ export function renderPassport() {
   }
 
   if (t.industryStages.length) {
-    /* 右の列だけが伸びて左が空くので、大きいこのカードは左へ回す */
     A.push(html`<div class="pcard po7 flat"><div class="ttl">業界 × 段階の通過率</div><div style="margin-top:12px">${t.industryStages.map((x) => html`<div class="xBlk"><div class="xHd">${x.name}<span class="cnt">${x.count}社</span></div><div class="xGrid">${x.stages.map((s) => html`<div class="xCell"><span>${s.stage}</span><b style="color:${s.rate >= 67 ? 'var(--go)' : s.rate >= 34 ? 'var(--wait)' : 'var(--hot)'}">${s.rate}%</b><i>${s.pass}/${s.pass + s.fail}</i></div>`)}</div></div>`)}</div><div style="font-size:10.5px;color:var(--dim);margin-top:10px;line-height:1.6">通った回数 ÷ 結果が出た回数です。結果待ちは分母に入りません。詳細の業種欄を「NTT系」のようなグループ名で埋めると、その単位でも見られます。</div></div>`);
   }
 
@@ -68,5 +67,28 @@ export function renderPassport() {
   /* 接続先を変えるのは、本番へ切り替える日くらいなので、目立たない下の方に置く */
   /* 一覧から切り替えるとき、一覧のロゴの画像を取っておく（戻ったときに使い回して白飛びさせない） */
   keepLogos(view, () => setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="setup-open">接続先を変える</button></div>${logHtml}`));
+  balance(view);
   view.querySelectorAll('.pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
+}
+
+/* 2列のときは、カードを左右交互の順に、そのとき低いほうの列へ入れ直す。
+   どのカードが出るか・どれだけ伸びるかは記録しだいなので、決め打ちで振り分けると片方だけ長くなる。
+   1列（スマホ）のときは列が見えないので触らない */
+function balance(view) {
+  const cols = view.querySelectorAll('.pwrap > .pcol');
+  const win = view.ownerDocument.defaultView;
+  if (cols.length !== 2 || !win || win.getComputedStyle(cols[0]).display === 'contents') return;
+  const [a, b] = [...cols].map((c) => [...c.children]);
+  const order = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i]) order.push(a[i]);
+    if (b[i]) order.push(b[i]);
+  }
+  const h = [0, 0];
+  const gap = parseFloat(win.getComputedStyle(cols[0]).rowGap) || 0;
+  order.forEach((el) => {
+    const k = h[1] < h[0] ? 1 : 0;
+    cols[k].appendChild(el);
+    h[k] += el.offsetHeight + gap;
+  });
 }

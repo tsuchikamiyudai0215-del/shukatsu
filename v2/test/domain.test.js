@@ -673,6 +673,20 @@ test('業種の推定：細かい方を先に当てる。手で入れた業種�
   assert.equal(D.industryOf('三菱UFJ銀行'), '金融');
   assert.equal(D.industryOf('日本航空（JAL）'), '航空・運輸');
   assert.equal(D.industryOf('謎の会社'), 'その他');
+  /* 銀行の「システム」コースは金融、銀行系でも IT 子会社は IT、研究所はコンサル */
+  assert.equal(D.industryOf('三菱UFJ(システムデジタル)'), '金融');
+  assert.equal(D.industryOf('みずほFG（Experience ITシステム）'), '金融');
+  assert.equal(D.industryOf('MUIT'), 'IT・SIer');
+  assert.equal(D.industryOf('NTTDATA研究'), 'コンサル');
+  assert.equal(D.industryOf('NTT DATA'), 'IT・SIer');
+  assert.equal(D.industryOf('NTTファイナンス'), '金融');
+  assert.equal(D.industryOf('日本アイ・ビー・エム'), 'IT・SIer');
+  assert.equal(D.industryOf('伊藤忠テクノソリューションズ'), 'IT・SIer');
+  /* 前は「その他」や別の業界に入っていたもの */
+  for (const n of ['ジェーシービー', '第一生命', 'りそな', 'JAL CARD']) assert.equal(D.industryOf(n), '金融', n);
+  for (const n of ['JTB', 'HIS', '令和トラベル']) assert.equal(D.industryOf(n), '旅行・観光', n);
+  for (const n of ['ニコン', 'JFE', '旭化成']) assert.equal(D.industryOf(n), 'メーカー', n);
+  assert.equal(D.INDUSTRY_NAMES.filter((x) => x === 'IT・SIer').length, 1);   // 候補の一覧に同じ業界を2回出さない
   assert.equal(D.industryFor({ name: '三菱UFJ銀行', industry: 'メガバンク' }), 'メガバンク');
   assert.equal(D.industryFor({ name: '三菱UFJ銀行', industry: ' ' }), '金融');
 });
