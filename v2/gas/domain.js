@@ -989,7 +989,9 @@ var Domain = (function () {
    * 提出（無ければ締切）から結果までの日数の集計。companies は表示中の区分の分だけを渡す。
    * 履歴の1件ごとに数える。提出日も締切も無い結果（ルートで現在地を付け替えたなど）は数えない。
    * 戻り値：{ all, pass, fail, stages: [{ stage, ... }], industries: [{ name, ... }], companies: [{ id, name, items, ... }] }（どれも summarize の形）
-   * companies は返事の早い順。items はその会社の1件ずつ（{ stage, days, outcome }、古い順）
+   * companies は返事の早い順。items はその会社の結果の1件ずつ（{ stage, resultAt, days, outcome }、結果日の古い順）。
+   * 夏と冬で同じ段階が2回出ることがあるので、結果日を付けて見分けられるようにする。
+   * 日数の出ない結果も items には入れる（件数が履歴と合わないと変に見えるため）。日数の集計には入れない
    */
   function resultSpeed(companies) {
     var all = [], pass = [], failed = [], byStage = {}, byInd = {}, names = [], cos = [];
@@ -998,8 +1000,8 @@ var Domain = (function () {
       var items = [];
       historyOf(c).forEach(function (e) {
         var d = resultDays(e);
+        items.push({ stage: str(e.stage), resultAt: str(e.resultAt).slice(0, 10), days: d, outcome: e.outcome });
         if (d == null) return;
-        items.push({ stage: str(e.stage), days: d, outcome: e.outcome });
         all.push(d);
         (e.outcome === 'fail' ? failed : pass).push(d);
         if (!byStage[e.stage]) { byStage[e.stage] = []; names.push(e.stage); }
@@ -1007,9 +1009,12 @@ var Domain = (function () {
         var k = industryFor(c);
         (byInd[k] || (byInd[k] = [])).push(d);
       });
-      if (items.length) {
-        cos.push(Object.assign({ id: c.id, name: str(c.name), items: items },
-          summarize(items.map(function (x) { return x.days; }))));
+      var ds = items.filter(function (x) { return x.days != null; }).map(function (x) { return x.days; });
+      if (ds.length) {
+        /* 結果日の無いものは最後に回す */
+        var key = function (x) { return x.resultAt || '9999'; };
+        items.sort(function (a, b) { return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0; });
+        cos.push(Object.assign({ id: c.id, name: str(c.name), items: items }, summarize(ds)));
       }
     });
     /* 同じ早さなら件数の多い方（当てになる方）を先に */

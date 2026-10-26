@@ -471,11 +471,17 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 /* 結果までの日数の会社ごと。押すとその会社の詳細が開く */
 .spdco{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}
 .spdco summary{cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;padding:4px 0}
-.coRow{cursor:pointer;gap:10px}
+.coNote{font-size:10.5px;color:var(--dim);margin-top:4px}
+.coRow{cursor:pointer;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.coRow:last-child{border-bottom:none;padding-bottom:0}
+.coHd{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;margin-bottom:4px}
 .coName{min-width:0}
-.coItems{display:block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:var(--dim);line-height:1.5}
-.coItems b{font-weight:500;color:var(--muted);white-space:nowrap}
-.coItems b.fail{color:var(--hot)}
+.coIt{display:grid;grid-template-columns:3.2em minmax(0,1fr) auto 3.4em;gap:8px;align-items:baseline;
+  font-family:var(--mono);font-size:11px;color:var(--muted);padding:1px 0}
+.coIt .cs{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.coIt .co{color:var(--go)}
+.coIt .co.fail{color:var(--hot)}
+.coIt .cn{text-align:right}
 
 /* ---------- chips ---------- */
 .chips{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
