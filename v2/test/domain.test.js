@@ -272,9 +272,25 @@ test('結果までの日数の集計：段階ごと・通過と落選・業界�
   /* 夏と冬で同じ段階があっても、結果日の順に並ぶ */
   const two = D.resultSpeed([mk('n', '', [e('ES', '2026-10-12', '2026-10-22', 'pass'), e('ES', '2026-06-30', '2026-07-03', 'pass')])]);
   assert.deepEqual(two.companies[0].items.map((x) => x.resultAt), ['2026-07-03', '2026-10-22']);
-  assert.deepEqual(D.expectedDays(list, 'ES'), { days: 5, n: 3, scope: 'stage' });
-  assert.deepEqual(D.expectedDays(list, 'テスト'), { days: 6, n: 4, scope: 'all' });   // テストは1件しかないので全体の値
-  assert.equal(D.expectedDays(list.slice(1, 2), '面接'), null);
+  /* 目安：その会社の結果があればその平均、無ければ全体の平均 */
+  assert.deepEqual(D.expectedDays(list, list[0]), { days: 8.5, n: 2, cut: 0, scope: 'company' });      // a社は 7・10 日
+  assert.deepEqual(D.expectedDays(list, mk('z', '', [])), { days: 6.3, n: 4, cut: 0, scope: 'all' });   // 7・10・3・5 日
+  assert.equal(D.expectedDays(list.slice(1, 2), mk('z', '', [])), null);                            // 全体で3件未満
+  /* 同じ会社の別の選考の行も合わせて数える（ドメインか、かっこを除いた名前が同じ） */
+  const ufj = Object.assign(mk('u1', '', [e('ES', '2026-09-01', '2026-09-11', 'pass')]), { name: '三菱UFJ銀行', domain: 'bk.mufg.jp' });
+  const ufj2 = Object.assign(mk('u2', '', []), { name: '三菱UFJ銀行（GM）', domain: 'bk.mufg.jp' });
+  const hit = Object.assign(mk('h1', '', [e('ES', '2026-09-01', '2026-09-05', 'pass')]), { name: '日立製作所' });
+  const hit2 = Object.assign(mk('h2', '', []), { name: '日立製作所（3days）' });
+  assert.equal(D.expectedDays(list.concat([ufj]), ufj2).days, 10);
+  assert.equal(D.expectedDays(list.concat([hit]), hit2).days, 4);
+  assert.equal(D.sameCompany(ufj, hit), false);
+});
+
+test('飛び抜けて長い日数は平均から抜く（真ん中の値の2倍より上）', () => {
+  assert.deepEqual(D.trimmedAvg([10, 12, 13, 14, 15, 45]), { days: 12.8, n: 5, cut: 1 });   // 真ん中 13.5 → 27 より上を抜く
+  assert.deepEqual(D.trimmedAvg([10, 12, 13, 25]), { days: 15, n: 4, cut: 0 });           // 真ん中 12.5 → ちょうど2倍の 25 は残す
+  assert.deepEqual(D.trimmedAvg([10, 12, 13, 26]), { days: 11.7, n: 3, cut: 1 });
+  assert.deepEqual(D.trimmedAvg([5, 40, 45]), { days: 30, n: 3, cut: 0 });   // 4件未満は抜かない
 });
 
 test('結果待ちの経過日数は、提出日が無ければ締切日から数える', () => {

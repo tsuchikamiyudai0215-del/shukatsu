@@ -87,11 +87,13 @@ function railHtml(c) {
 const btn = (style, act, text, extra) => html`<button class="big" style="${style}" data-act="${act}"${extra || ''}>${text}</button>`;
 
 
-/* 結果待ちの目安。今までの結果から、この段階はふだん何日で結果が来たか（区分を問わず全社の履歴から） */
+/* 結果待ちの目安。この会社の今までの結果から。無ければ全社の平均（飛び抜けて長いものは抜く） */
 function expectHtml(c) {
-  const ex = Domain.expectedDays(store.companies(), c.stage);
+  const ex = Domain.expectedDays(store.companies(), c);
   if (!ex) return '';
-  return html`<div class="sub" style="margin-top:4px">${ex.scope === 'stage' ? 'この段階は' : 'これまで'}ふだん${ex.days}日で結果（${ex.n}件から）</div>`;
+  return html`<div class="sub" style="margin-top:4px">${ex.scope === 'company'
+    ? 'この会社はふだん' + ex.days + '日で結果（' + ex.n + '件から）'
+    : 'これまでの平均は' + ex.days + '日（' + ex.n + '件から' + (ex.cut ? '。長すぎる' + ex.cut + '件は除く' : '') + '）'}</div>`;
 }
 
 const OUTCOME = { pass: '通過', fail: '落選', offer: '内定', joined: '参加決定' };

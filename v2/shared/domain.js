@@ -1038,13 +1038,51 @@ var Domain = (function () {
     };
   }
 
-  /* 結果待ちの目安の日数。その段階の結果が2件以上あればその真ん中の値、無ければ全体（3件以上）の真ん中の値 */
-  function expectedDays(companies, stage) {
-    var sp = resultSpeed(companies);
-    var st = sp.stages.filter(function (x) { return x.stage === str(stage); })[0];
-    if (st && st.n >= 2) return { days: st.median, n: st.n, scope: 'stage' };
-    if (sp.all.n >= 3) return { days: sp.all.median, n: sp.all.n, scope: 'all' };
-    return null;
+  /* 同じ会社とみなす行。選考ごとに行が分かれているので、ドメインか表示名が同じなら同じ会社として数える */
+  function sameCompany(a, b) {
+    if (!a || !b) return false;
+    if (a.id === b.id) return true;
+    var da = str(a.domain).trim(), db = str(b.domain).trim();
+    if (da && db && !/^https?:/i.test(da)) return da === db;
+    return shortName(a.name).replace(/[（(].*$/, '').trim() === shortName(b.name).replace(/[（(].*$/, '').trim();
+  }
+
+  /* 飛び抜けて長いものを抜いた平均。真ん中の値の2倍より長いものを外す（4件未満は抜かない）。
+     忘れられていたような長い待ちが混ざると、平均がふだんより長く出るため */
+  function trimmedAvg(days) {
+    var keep = days.slice();
+    if (keep.length >= 4) {
+      var top = summarize(keep).median * 2;
+      keep = keep.filter(function (d) { return d <= top; });
+    }
+    var avg = keep.reduce(function (x, d) { return x + d; }, 0) / keep.length;
+    return { days: Math.round(avg * 10) / 10, n: keep.length, cut: days.length - keep.length };
+  }
+
+  /**
+   * 結果待ちの目安の日数。
+   * その会社（同じ会社の別の選考も含む）の結果が1件でもあれば、その平均（scope: 'company'）。
+   * 無ければ全体の平均（3件以上のとき）。ただし飛び抜けて長いものは抜く（scope: 'all'、cut は抜いた件数）
+   */
+  function expectedDays(companies, c) {
+    var own = [], all = [];
+    (companies || []).forEach(function (x) {
+      if (!x || x.kind === 'mgmt') return;
+      var mine = sameCompany(x, c);
+      historyOf(x).forEach(function (e) {
+        var d = resultDays(e);
+        if (d == null) return;
+        all.push(d);
+        if (mine) own.push(d);
+      });
+    });
+    if (own.length) {
+      var avg = own.reduce(function (x, d) { return x + d; }, 0) / own.length;
+      return { days: Math.round(avg * 10) / 10, n: own.length, cut: 0, scope: 'company' };
+    }
+    if (all.length < 3) return null;
+    var t = trimmedAvg(all);
+    return { days: t.days, n: t.n, cut: t.cut, scope: 'all' };
   }
 
   return {
@@ -1063,6 +1101,8 @@ var Domain = (function () {
     resultDays: resultDays,
     resultSpeed: resultSpeed,
     expectedDays: expectedDays,
+    sameCompany: sameCompany,
+    trimmedAvg: trimmedAvg,
     carryOver: carryOver,
     split: split,
     duplicateOf: duplicateOf,
