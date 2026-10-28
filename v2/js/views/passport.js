@@ -37,7 +37,7 @@ export function renderPassport() {
   /* 1件1行で「結果日　段階　結果　日数」。日付が無いと、夏と冬の同じ段階が見分けられない */
   const md = (d) => (d ? Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) : '');
   const OUT = { pass: '通過', fail: '落選', offer: '内定', joined: '参加決定' };
-  const coItem = (it) => html`<div class="coIt"><span class="cd">${md(it.resultAt)}</span><span class="cs">${it.stage}</span><span class="co ${it.outcome}">${OUT[it.outcome] || it.outcome}</span><span class="cn">${it.days == null ? '—' : it.days + '日'}</span></div>`;
+  const coItem = (it) => html`<div class="coIt"><span class="cdt">${md(it.resultAt)}</span><span class="cs">${it.stage}</span><span class="co ${it.outcome}">${OUT[it.outcome] || it.outcome}</span><span class="cn">${it.days == null ? '—' : it.days + '日'}</span></div>`;
   const coRow = (x) => html`<div class="coRow" data-act="open" data-id="${x.id}"><div class="coHd"><span class="coName">${Domain.shortName(x.name)}<span class="cnt" style="margin-left:6px">${x.items.length}件</span></span><span style="font-family:var(--disp);font-size:19px;font-weight:600">${x.median}<span style="font-size:11px;color:var(--muted);margin-left:2px">日</span></span></div>${x.items.map(coItem)}</div>`;
   const coHtml = sp.companies.length ? html`<details class="spdco"${coWas && coWas.open ? html` open` : ''}><summary>会社ごと（早い順・${sp.companies.length}社）</summary><div class="coNote">右の数字は、その会社の日数の真ん中の値です。</div><div style="margin-top:6px">${sp.companies.map(coRow)}</div></details>` : '';
   B.push(html`<div class="pcard po4 flat"><div class="ttl">結果が出るまでの日数</div>${sp.all.n
