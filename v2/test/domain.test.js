@@ -265,9 +265,19 @@ test('結果までの日数の集計：段階ごと・通過と落選・業界�
   /* 会社ごとは早い順。日数の出ない結果も items には入る（日数の集計には入らない） */
   assert.deepEqual(sp.companies.map((x) => [x.id, x.n, x.median, x.items.length]), [['b', 1, 3, 1], ['c', 1, 5, 2], ['a', 2, 8.5, 2]]);
   assert.deepEqual(sp.companies[2].items, [
-    { stage: 'ES', resultAt: '2026-09-08', days: 7, outcome: 'pass' },
-    { stage: 'テスト', resultAt: '2026-09-20', days: 10, outcome: 'fail' }
+    { stage: 'ES', resultAt: '2026-09-08', days: 7, outcome: 'pass', course: '' },
+    { stage: 'テスト', resultAt: '2026-09-20', days: 10, outcome: 'fail', course: '' }
   ]);
+  /* 同じ会社の別コースは1社にまとめ、件ごとにコースを付ける。日数の無い行も同じ会社に入る */
+  const grp = D.resultSpeed([
+    Object.assign(mk('gm', '', [e('ES', '2026-09-01', '2026-09-05', 'pass')]), { name: '三菱UFJ銀行（GM）' }),
+    Object.assign(mk('cs', '', [e('ES', '2026-08-01', '2026-08-11', 'fail')]), { name: '株式会社三菱UFJ銀行(CS)' }),
+    Object.assign(mk('it', '', [e('ES', '', '', 'fail')]), { name: '三菱UFJ銀行（IT）' }),
+    Object.assign(mk('o', '', [e('ES', '2026-09-01', '2026-09-03', 'pass')]), { name: '三井住友銀行（GM）' })
+  ]);
+  assert.deepEqual(grp.companies.map((x) => [x.name, x.n, x.items.length]), [['三井住友銀行（GM）', 1, 1], ['三菱UFJ銀行', 2, 3]]);
+  assert.deepEqual(grp.companies[1].items.map((x) => x.course + '・' + x.resultAt), ['CS・2026-08-11', 'GM・2026-09-05', 'IT・']);
+  assert.equal(grp.companies[0].items[0].course, '');
   assert.equal(sp.companies[1].items[1].days, null);
   /* 夏と冬で同じ段階があっても、結果日の順に並ぶ */
   const two = D.resultSpeed([mk('n', '', [e('ES', '2026-10-12', '2026-10-22', 'pass'), e('ES', '2026-06-30', '2026-07-03', 'pass')])]);

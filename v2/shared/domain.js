@@ -996,7 +996,8 @@ var Domain = (function () {
    * 提出（無ければ締切）から結果までの日数の集計。companies は表示中の区分の分だけを渡す。
    * 履歴の1件ごとに数える。提出日も締切も無い結果（ルートで現在地を付け替えたなど）は数えない。
    * 戻り値：{ all, pass, fail, stages: [{ stage, ... }], industries: [{ name, ... }], companies: [{ id, name, items, ... }] }（どれも summarize の形）
-   * companies は返事の早い順。items はその会社の結果の1件ずつ（{ stage, resultAt, days, outcome }、結果日の古い順）。
+   * companies は返事の早い順。同じ会社の別の選考（sameCompany）は1社にまとめる。
+   * items はその会社の結果の1件ずつ（{ course, stage, resultAt, days, outcome }、結果日の古い順）。course はまとめたときだけ入る。
    * 夏と冬で同じ段階が2回出ることがあるので、結果日を付けて見分けられるようにする。
    * 日数の出ない結果も items には入れる（件数が履歴と合わないと変に見えるため）。日数の集計には入れない
    */
@@ -1016,14 +1017,26 @@ var Domain = (function () {
         var k = industryFor(c);
         (byInd[k] || (byInd[k] = [])).push(d);
       });
-      var ds = items.filter(function (x) { return x.days != null; }).map(function (x) { return x.days; });
-      if (ds.length) {
-        /* 結果日の無いものは最後に回す */
-        var key = function (x) { return x.resultAt || '9999'; };
-        items.sort(function (a, b) { return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0; });
-        cos.push(Object.assign({ id: c.id, name: str(c.name), items: items }, summarize(ds)));
-      }
+      if (!items.length) return;
+      /* 選考ごとに行が分かれているので、同じ会社の行はひとまとめにする */
+      var g = cos.filter(function (x) { return x.rows.some(function (r) { return sameCompany(r, c); }); })[0];
+      if (!g) cos.push(g = { rows: [], items: [] });
+      g.rows.push(c);
+      var m = shortName(c.name).match(/[（(]([^（()）]*)[)）]\s*$/);
+      items.forEach(function (x) { x.course = m ? m[1].trim() : ''; g.items.push(x); });
     });
+    cos = cos.map(function (g) {
+      var ds = g.items.filter(function (x) { return x.days != null; }).map(function (x) { return x.days; });
+      if (!ds.length) return null;
+      /* 結果日の無いものは最後に回す */
+      var key = function (x) { return x.resultAt || '9999'; };
+      g.items.sort(function (a, b) { return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0; });
+      /* 1行だけならコース名も含めた名前のままでいい。まとめたときだけコースを件ごとに出す */
+      var one = g.rows.length === 1;
+      if (one) g.items.forEach(function (x) { x.course = ''; });
+      var name = one ? str(g.rows[0].name) : shortName(g.rows[0].name).replace(/[（(].*$/, '').trim();
+      return Object.assign({ id: g.rows[0].id, name: name, items: g.items }, summarize(ds));
+    }).filter(Boolean);
     /* 同じ早さなら件数の多い方（当てになる方）を先に */
     cos.sort(function (a, b) { return a.median - b.median || b.n - a.n; });
     var indMap = {};
