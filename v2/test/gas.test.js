@@ -248,6 +248,20 @@ test('追加：同じ名前のフォルダがあれば、それを使う', () =>
   assert.equal(a.folderUrl, b.folderUrl);
 });
 
+test('追加：同じ会社の別コースは、その会社のフォルダを使う。無ければカッコを外した名前で作る', () => {
+  const T = mk();
+  const a = addCo(T, { name: 'A銀行（GM）', term: 'インターン' });
+  const b = addCo(T, { name: 'A銀行(CS)', term: 'インターン' });
+  const c = addCo(T, { name: 'A銀行', term: '本選考' });
+  assert.equal(b.folderUrl, a.folderUrl);
+  assert.equal(c.folderUrl, a.folderUrl);
+  /* 1つ目のフォルダの名前は、コース名の無い会社名 */
+  const d = addCo(T, { name: 'B社', term: 'インターン' });
+  assert.notEqual(d.folderUrl, a.folderUrl);
+  const e = addCo(T, { name: 'B社（冬）', term: 'インターン' });
+  assert.equal(e.folderUrl, d.folderUrl);
+});
+
 test('追加：入力がおかしければ保存しない', () => {
   const T = mk();
   assert.match(T.api('addCompany', { name: '' }).error, /空/);

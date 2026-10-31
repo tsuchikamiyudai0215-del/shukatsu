@@ -206,7 +206,8 @@ function addCompany_(f) {
   f = f || {};
   var c = Domain.create(newId_('c'), f);
   checkDuplicate_(c.name, c.term, null);
-  c.folderUrl = folderFor_(c.name);
+  var fo = Domain.folderFor(companies_().all(), c);
+  c.folderUrl = fo.url || folderFor_(fo.name);
   c.pw = str_(f.pw);
   c.updatedAt = nowIso_();
   return saveWithCalendar_(c, new Date());

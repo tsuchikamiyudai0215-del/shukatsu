@@ -1060,6 +1060,20 @@ var Domain = (function () {
     return shortName(a.name).replace(/[（(].*$/, '').trim() === shortName(b.name).replace(/[（(].*$/, '').trim();
   }
 
+  /**
+   * 新しく足した行の書類フォルダ。書類は会社ごとに1か所にまとめたいので、
+   * 同じ会社の行がもうフォルダを持っていればそれを使う（{ url }）。
+   * 無ければ、コース名などの後ろのカッコを外した会社名で探すか作る（{ name }）
+   */
+  function folderFor(companies, c) {
+    var sib = (companies || []).filter(function (x) {
+      return x && x.kind !== 'mgmt' && x.id !== c.id && str(x.folderUrl) && sameCompany(x, c);
+    })[0];
+    if (sib) return { url: sib.folderUrl };
+    var raw = str(c.name).trim();
+    return { name: raw.replace(/\s*[（(][^（()）]*[)）]\s*$/, '').trim() || raw };
+  }
+
   /* 飛び抜けて長いものを抜いた平均。真ん中の値の2倍より長いものを外す（4件未満は抜かない）。
      忘れられていたような長い待ちが混ざると、平均がふだんより長く出るため */
   function trimmedAvg(days) {
@@ -1115,6 +1129,7 @@ var Domain = (function () {
     resultSpeed: resultSpeed,
     expectedDays: expectedDays,
     sameCompany: sameCompany,
+    folderFor: folderFor,
     trimmedAvg: trimmedAvg,
     carryOver: carryOver,
     split: split,

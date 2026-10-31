@@ -268,6 +268,11 @@ test('結果までの日数の集計：段階ごと・通過と落選・業界�
     { stage: 'ES', resultAt: '2026-09-08', days: 7, outcome: 'pass', course: '' },
     { stage: 'テスト', resultAt: '2026-09-20', days: 10, outcome: 'fail', course: '' }
   ]);
+  /* 書類フォルダ：同じ会社の行のフォルダを使い、無ければカッコを外した名前 */
+  const fl = [Object.assign(mk('x', '', []), { name: '三菱UFJ銀行（GM）', folderUrl: 'https://drive/u' })];
+  assert.deepEqual(D.folderFor(fl, { id: 'y', name: '三菱UFJ銀行(CS)' }), { url: 'https://drive/u' });
+  assert.deepEqual(D.folderFor(fl, { id: 'z', name: '日立製作所（冬季インターン）' }), { name: '日立製作所' });
+  assert.deepEqual(D.folderFor([], { id: 'z', name: '本田技研工業株式会社' }), { name: '本田技研工業株式会社' });
   /* 同じ会社の別コースは1社にまとめ、件ごとにコースを付ける。日数の無い行も同じ会社に入る */
   const grp = D.resultSpeed([
     Object.assign(mk('gm', '', [e('ES', '2026-09-01', '2026-09-05', 'pass')]), { name: '三菱UFJ銀行（GM）' }),
