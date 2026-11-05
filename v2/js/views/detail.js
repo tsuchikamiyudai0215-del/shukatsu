@@ -87,24 +87,26 @@ function railHtml(c) {
 const btn = (style, act, text, extra) => html`<button class="big" style="${style}" data-act="${act}"${extra || ''}>${text}</button>`;
 
 
-/* 結果待ちの目安。この会社の今までの結果から。無ければ全社の平均（飛び抜けて長いものは抜く） */
+/* 結果待ちの目安。この会社の今までの結果から。無ければ全社の平均（飛び抜けて長いものは抜く）。
+   日数は締切から数えるので、来そうな日も締切に足した日を出す */
 function expectHtml(c) {
   const ex = Domain.expectedDays(store.companies(), c);
   if (!ex) return '';
-  return html`<div class="sub" style="margin-top:4px">${ex.scope === 'company'
-    ? 'この会社はふだん' + ex.days + '日で結果（' + ex.n + '件から）'
-    : 'これまでの平均は' + ex.days + '日（' + ex.n + '件から' + (ex.cut ? '。長すぎる' + ex.cut + '件は除く' : '') + '）'}</div>`;
+  return html`<div class="sub" style="margin-top:4px">${(ex.at ? fdate(ex.at) + 'ごろ。' : '') + (ex.scope === 'company'
+    ? 'この会社は締切からふだん' + ex.days + '日（' + ex.n + '件から）'
+    : 'これまでの平均は締切から' + ex.days + '日（' + ex.n + '件から' + (ex.cut ? '。長すぎる' + ex.cut + '件は除く' : '') + '）')}</div>`;
 }
 
 const OUTCOME = { pass: '通過', fail: '落選', offer: '内定', joined: '参加決定' };
 
-/* 結果の履歴。新しいものを上に、1件1行で「段階　提出 → 結果　通過（8日）」と並べる */
+/* 結果の履歴。新しいものを上に、1件1行で「段階　締切 → 結果　通過（8日）」と並べる。
+   日数と同じ日から数えたことが分かるよう、締切から数えたときは「締切」と付ける */
 function historyHtml(c) {
   const h = Domain.historyOf(c).slice().reverse();
   const rows = h.length ? h.map((e) => {
     const d = Domain.resultDays(e);
-    const from = e.submittedAt || (e.dueAt || '').slice(0, 10);
-    return html`<div class="ig-row hist"><span class="hs">${e.stage}</span><span class="hd">${from ? fdate(from) + ' → ' : ''}${fdate(e.resultAt)}</span><span class="ho ${e.outcome}">${OUTCOME[e.outcome] || e.outcome}${d != null ? '（' + d + '日）' : ''}</span></div>`;
+    const f = Domain.resultFrom(e);
+    return html`<div class="ig-row hist"><span class="hs">${e.stage}</span><span class="hd">${f ? (f.by === 'due' ? '締切' : '') + fdate(f.date) + ' → ' : ''}${fdate(e.resultAt)}</span><span class="ho ${e.outcome}">${OUTCOME[e.outcome] || e.outcome}${d != null ? '（' + d + '日）' : ''}</span></div>`;
   }) : html`<div class="ig-body inote">まだありません。</div>`;
   return section('due', '#8E8E93', '結果の履歴', rows);
 }

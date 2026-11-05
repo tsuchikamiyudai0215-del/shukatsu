@@ -235,9 +235,21 @@ var Domain = (function () {
     c.history = h;
   }
 
-  /* 提出（無ければ締切）から結果までの日数。どちらかが無い・前後が逆なら null */
+  /* 結果までの日数を数え始める日。会社は締切が過ぎてからまとめて見るので、早めに出しても結果は早くならない。
+     提出日から数えると早めに出した分だけ長く出てしまうため、締切があれば締切から数える。
+     締切が無いか、締切より前に結果が来た（随時選考など）ときは提出日から */
+  function resultFrom(e) {
+    var due = str(e && e.dueAt).slice(0, 10);
+    var res = str(e && e.resultAt).slice(0, 10);
+    if (due && (!res || due <= res)) return { date: due, by: 'due' };
+    var sub = str(e && e.submittedAt).slice(0, 10);
+    return sub ? { date: sub, by: 'submit' } : null;
+  }
+
+  /* 締切（無ければ提出）から結果までの日数。どちらも無い・前後が逆なら null */
   function resultDays(e) {
-    var from = parseWall(str(e && (e.submittedAt || e.dueAt)).slice(0, 10));
+    var f = resultFrom(e);
+    var from = f && parseWall(f.date);
     var to = parseWall(str(e && e.resultAt).slice(0, 10));
     if (from == null || to == null || to < from) return null;
     return Math.round((to - from) / DAY_MS);
@@ -1103,13 +1115,20 @@ var Domain = (function () {
         if (mine) own.push(d);
       });
     });
+    var r;
     if (own.length) {
       var avg = own.reduce(function (x, d) { return x + d; }, 0) / own.length;
-      return { days: Math.round(avg * 10) / 10, n: own.length, cut: 0, scope: 'company' };
+      r = { days: Math.round(avg * 10) / 10, n: own.length, cut: 0, scope: 'company' };
+    } else {
+      if (all.length < 3) return null;
+      var t = trimmedAvg(all);
+      r = { days: t.days, n: t.n, cut: t.cut, scope: 'all' };
     }
-    if (all.length < 3) return null;
-    var t = trimmedAvg(all);
-    return { days: t.days, n: t.n, cut: t.cut, scope: 'all' };
+    /* 結果が来そうな日。数え方をそろえて、締切（無ければ提出日）に日数を足す。
+       早めに出したときは、締切までの日数がそのぶん上乗せされる */
+    var f = resultFrom({ dueAt: c && c.dueAt, submittedAt: c && c.submittedAt });
+    if (f && parseWall(f.date) != null) r.at = addDays(f.date, Math.round(r.days));
+    return r;
   }
 
   return {
@@ -1125,6 +1144,7 @@ var Domain = (function () {
     apply: apply,
     create: create,
     historyOf: historyOf,
+    resultFrom: resultFrom,
     resultDays: resultDays,
     resultSpeed: resultSpeed,
     expectedDays: expectedDays,

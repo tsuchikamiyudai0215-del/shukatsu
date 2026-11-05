@@ -29,7 +29,7 @@ export function renderPassport() {
     B.push(html`<div class="pcard po4" style="background:linear-gradient(155deg,rgba(52,116,190,.44) 0%,rgba(28,62,108,.5) 100%);color:#E4EFFF"><div class="ttl">結果待ち</div><div class="pgrid"><div><b>${t.waiting.count}</b><span>社</span></div><div><b>${t.waiting.avg}</b><span>平均経過日数</span></div><div><b>${t.waiting.longest.days}</b><span>最長</span></div></div><div class="pfoot">最も長いのは${t.waiting.longest.name}です。</div></div>`);
   }
 
-  /* 提出（無ければ締切）から結果までの日数。結果の履歴から数える */
+  /* 締切（無ければ提出）から結果までの日数。結果の履歴から数える */
   const sp = Domain.resultSpeed(termCompanies());
   const dayRow = (name, x) => html`<div class="brkRow"><span>${name}<span class="cnt" style="margin-left:6px">${x.n}件</span></span><span style="font-family:var(--disp);font-size:19px;font-weight:600">${x.median}<span style="font-size:11px;color:var(--muted);margin-left:2px">日</span></span></div>`;
   /* 会社ごとは数が多いので、ふだんは閉じておく。裏の取り直しで描き直しても開いたままにする */
