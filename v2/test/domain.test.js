@@ -212,6 +212,10 @@ test('結果の履歴：通過・落選・参加決定で、その段階の締�
   assert.deepEqual(D.resultFrom(ev('2026-10-15T23:59', '2026-10-01', '2026-10-27')), { date: '2026-10-15', by: 'due' });
   assert.equal(D.resultDays(ev('2026-10-30', '2026-10-01', '2026-10-20')), 19);
   assert.equal(D.resultDays(ev('', '2026-10-01', '2026-10-20')), 19);
+  /* 締切より後に出せたときは提出日から（締切から数えると、出す前の日数まで入ってしまう） */
+  assert.deepEqual(D.resultFrom(ev('2026-10-11T23:59', '2026-10-13', '2026-10-23')), { date: '2026-10-13', by: 'submit' });
+  assert.equal(D.resultDays(ev('2026-10-11T23:59', '2026-10-13', '2026-10-23')), 10);
+  assert.equal(D.resultDays(ev('2026-10-11T23:59', '2026-10-11', '2026-10-23')), 12);   // 締切当日に出したら締切から
   /* 最後の手前で通過すると、内定として残す */
   c = D.apply(c, { type: 'pass' }, jst('2026-10-01T12:00'));
   assert.equal(c.status, 'offer');
@@ -300,6 +304,7 @@ test('結果までの日数の集計：段階ごと・通過と落選・業界�
   /* 来そうな日：締切に日数を足す。早めに出していても締切から。締切が無ければ提出日から */
   assert.equal(D.expectedDays(list, Object.assign(mk('a', '', []), { dueAt: '2026-11-10T23:59', submittedAt: '2026-11-01' })).at, '2026-11-19');   // 8.5 日 → 9 日
   assert.equal(D.expectedDays(list, Object.assign(mk('a', '', []), { submittedAt: '2026-11-01' })).at, '2026-11-10');
+  assert.equal(D.expectedDays(list, Object.assign(mk('a', '', []), { dueAt: '2026-11-10T23:59', submittedAt: '2026-11-12' })).at, '2026-11-21');   // 締切より後に出したら提出日から
   /* 同じ会社の別の選考の行も合わせて数える（ドメインか、かっこを除いた名前が同じ） */
   const ufj = Object.assign(mk('u1', '', [e('ES', '2026-09-01', '2026-09-11', 'pass')]), { name: '三菱UFJ銀行', domain: 'bk.mufg.jp' });
   const ufj2 = Object.assign(mk('u2', '', []), { name: '三菱UFJ銀行（GM）', domain: 'bk.mufg.jp' });

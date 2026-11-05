@@ -237,12 +237,13 @@ var Domain = (function () {
 
   /* 結果までの日数を数え始める日。会社は締切が過ぎてからまとめて見るので、早めに出しても結果は早くならない。
      提出日から数えると早めに出した分だけ長く出てしまうため、締切があれば締切から数える。
-     締切が無いか、締切より前に結果が来た（随時選考など）ときは提出日から */
+     ただし締切より後に出せた（延長や個別の受付など）ときは、出すまで会社は見られないので提出日から。
+     締切が無いか、締切より前に結果が来た（随時選考など）ときも提出日から */
   function resultFrom(e) {
     var due = str(e && e.dueAt).slice(0, 10);
     var res = str(e && e.resultAt).slice(0, 10);
-    if (due && (!res || due <= res)) return { date: due, by: 'due' };
     var sub = str(e && e.submittedAt).slice(0, 10);
+    if (due && (!res || due <= res) && !(sub && sub > due)) return { date: due, by: 'due' };
     return sub ? { date: sub, by: 'submit' } : null;
   }
 
