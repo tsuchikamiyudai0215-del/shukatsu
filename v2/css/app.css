@@ -196,8 +196,9 @@ button,select,input{font-family:var(--body)}
   background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);
   border-radius:var(--r-chip);padding:3px 9px;flex:0 0 auto;white-space:nowrap}
 .stage.mgmt{color:var(--dim)}
+/* 行の高さは等幅フォントの値に任せると日本語には足りず、折り返した2行目が上の行に重なるので決めておく */
 .sub{font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.62);margin-top:6px;
-  letter-spacing:-.005em}
+  letter-spacing:-.005em;line-height:1.55}
 .acts{display:flex;gap:8px;padding:0 17px 14px 74px;flex:0 0 auto}
 .gh{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:var(--muted);
   border-radius:var(--r-chip);padding:6px 14px;font-size:12px;cursor:pointer;text-decoration:none;
