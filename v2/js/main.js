@@ -6,7 +6,7 @@
  * start() で始め、戻り値の関数で止める（テストで何度も起動し直すため）。
  */
 import { html, setHtml } from './html.js';
-import { ui, resetUi, saveUi, TERMS, isWide } from './state.js';
+import { ui, resetUi, saveUi, TERMS, swapTerms, isWide } from './state.js';
 import * as store from './store.js';
 import { hasConfig, clearConfig, note, abortStale } from './api.js';
 import { resetLogos, hydrate, logoLoaded, logoFailed, onLogoChange, importLegacyManual } from './logo.js';
@@ -66,6 +66,8 @@ function syncPills() {
     const b = document.getElementById('sg' + i);
     if (!b) return;
     b.className = ui.term === t ? 'on' : '';
+    /* 並びを入れ替えたときも、ボタンを作り直さずに名前だけ差し替える */
+    b.querySelector('span').textContent = t;
     b.querySelector('.sgn').textContent = all.filter((c) => Domain.termOf(c.term) === t).length;
   });
   seg.classList.toggle('i1', ui.term === TERMS[1]);
@@ -230,6 +232,7 @@ async function connect() {
 const actions = Object.assign({
   open: (el) => openDetail(el.dataset.id),
   term: (el) => setTerm(+el.dataset.v),
+  'swap-terms': () => { swapTerms(); renderAll(); toast(TERMS[0] + 'を先に並べました。', true); },
   page: (el) => setPage(el.dataset.v),
   search: () => openSearch(),
   add: () => { if (!isWide()) ui.openId = null; openAdd(); },

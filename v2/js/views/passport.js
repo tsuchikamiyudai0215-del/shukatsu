@@ -2,7 +2,7 @@
  * 記録タブ。数字はすべて Domain.tally で出し、ここでは並べるだけにする。
  */
 import { html, setHtml } from '../html.js';
-import { ui } from '../state.js';
+import { ui, TERMS } from '../state.js';
 import { termCompanies } from './list.js';
 import { keepLogos } from '../logo.js';
 import { netlog } from '../api.js';
@@ -66,7 +66,7 @@ export function renderPassport() {
 
   /* 接続先を変えるのは、本番へ切り替える日くらいなので、目立たない下の方に置く */
   /* 一覧から切り替えるとき、一覧のロゴの画像を取っておく（戻ったときに使い回して白飛びさせない） */
-  keepLogos(view, () => setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="setup-open">接続先を変える</button></div>${logHtml}`));
+  keepLogos(view, () => setHtml(view, html`<div class="ptitle">${ui.term} 記録</div><div class="pwrap"><div class="pcol">${A}</div><div class="pcol">${B}</div></div><div style="text-align:center;margin:28px 0 8px"><button class="gh" data-act="swap-terms">${TERMS[1]}を先に並べる</button><button class="gh" style="margin-left:8px" data-act="setup-open">接続先を変える</button></div>${logHtml}`));
   balance(view);
   view.querySelectorAll('.pcard').forEach((el, i) => el.style.setProperty('--ei', Math.min(i, 12)));
 }

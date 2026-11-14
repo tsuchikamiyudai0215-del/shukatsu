@@ -4,12 +4,26 @@
  */
 import * as storage from './storage.js';
 
-export const TERMS = ['インターン', '本選考'];
+/* 区分の並び。時期によって本選考を先に見たくなるので、入れ替えたかどうかを端末に覚えておく。
+   TERMS は中身を入れ替えるだけにして、読み込んだ先からいつも同じ配列が見えるようにする */
+const TERM_BASE = ['インターン', '本選考'];
+export const TERMS = TERM_BASE.slice();
 export const PAGES = ['list', 'pass'];
+
+function applyTermOrder() {
+  const order = storage.get('term_swap', '0') === '1' ? [TERM_BASE[1], TERM_BASE[0]] : TERM_BASE;
+  TERMS.splice(0, TERMS.length, ...order);
+}
+
+export function swapTerms() {
+  storage.set('term_swap', TERMS[0] === TERM_BASE[0] ? '1' : '0');
+  applyTermOrder();
+}
 
 export const ui = {};
 
 export function resetUi() {
+  applyTermOrder();
   const saved = storage.getJson('ui', {});
   ui.page = PAGES.includes(saved.page) ? saved.page : 'list';
   /* 前の名前（夏インターン）で覚えていても、今の名前に読み替えて開く */

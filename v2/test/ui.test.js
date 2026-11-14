@@ -1248,6 +1248,24 @@ test('結果の履歴：通過すると選考ルートのタブの「結果の�
   R.stop();
 });
 
+test('記録タブのボタンで、インターンと本選考の並びを入れ替えられる。見ている区分はそのまま', async () => {
+  const R = await boot();
+  const names = () => [R.$('#sg0 span').textContent, R.$('#sg1 span').textContent];
+  assert.deepEqual(names(), ['インターン', '本選考']);
+  R.click('#tb-pass');
+  const before = R.$('#view .ptitle').textContent;
+  R.click('#view [data-act="swap-terms"]');
+  assert.deepEqual(names(), ['本選考', 'インターン']);
+  assert.equal(R.$('#view .ptitle').textContent, before);
+  assert.match(R.$('#view [data-act="swap-terms"]').textContent, /インターンを先に/);
+  /* 入れ替えた方のボタンを押すと、その区分に切り替わる */
+  R.click('#sg0');
+  assert.match(R.$('#view .ptitle').textContent, /本選考/);
+  R.click('#view [data-act="swap-terms"]');
+  assert.deepEqual(names(), ['インターン', '本選考']);
+  R.stop();
+});
+
 test('締切の分は「自分で入力…」で 0〜59 の好きな分にできる', async () => {
   const R = await boot();
   R.click(`.row[data-id="${R.ids.b}"]`);
