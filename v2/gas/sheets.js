@@ -116,6 +116,16 @@ Table_.prototype.rowOf_ = function (obj, base) {
   return arr;
 };
 
+/*
+ * シートへ渡す直前の形。書式なしテキストのセルでも、= で始まる値は数式になり、' で始まる値は先頭の ' を消される
+ * （開発用シートの checkTextCells で確かめた）。パスワードがそうだと保存で壊れるので、そのときだけ先頭に ' を足す。
+ * シートはこの ' を「文字として扱う」印として消すので、読み戻すと書いたとおりの値になる。
+ * 手元に持つ値（meta.raw など）には足さない。読み戻した値と同じ形にしておくため
+ */
+function cellText_(v) {
+  return typeof v === 'string' && /^[=']/.test(v) ? "'" + v : v;
+}
+
 /* 1行を書く。同じ id の行があればそこへ、無ければ末尾に足す */
 Table_.prototype.write = function (obj) {
   if (!obj || !obj.id) throw new Error('id の無い行は書けません。');
@@ -126,7 +136,7 @@ Table_.prototype.write = function (obj) {
   this.ensureRows_(row);
   var range = this.sheet.getRange(row, 1, 1, this.width);
   range.setNumberFormat('@');
-  range.setValues([arr]);
+  range.setValues([arr.map(cellText_)]);
 
   var saved = {};
   var self = this;
@@ -146,7 +156,7 @@ Table_.prototype.appendMany = function (objs) {
   this.ensureRows_(start + objs.length - 1);
   var range = this.sheet.getRange(start, 1, objs.length, this.width);
   range.setNumberFormat('@');
-  range.setValues(objs.map(function (o) { return self.rowOf_(o, null); }));
+  range.setValues(objs.map(function (o) { return self.rowOf_(o, null).map(cellText_); }));
   this.rows = null;
 };
 

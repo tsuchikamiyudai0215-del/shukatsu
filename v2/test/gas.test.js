@@ -1182,3 +1182,31 @@ test('checkTextCells：一時的なシートに書いて読み戻し、終わっ
   assert.deepEqual(Object.keys(T.books[Object.keys(T.books).find((k) => T.books[k].sheets.companies)].sheets).filter((n) => n.startsWith('_textcheck_')), []);
   assert.equal(T.rows('companies').length, before);
 });
+
+test('= や \' で始まるパスワード・会社名も、数式にならず書いたとおりに読み戻せる', () => {
+  const T = mk();
+  for (const pw of ['=SUM(A1)', "'quote", "''two", '+81', '@x']) {
+    const c = T.api('addCompany', { name: 'P社' + pw, stage: 'ES', pw }).company;
+    assert.equal(T.api('getPassword', { id: c.id }).pw, pw);
+    assert.equal(T.api('setPassword', { id: c.id, pw: pw + '2' }).ok, true);
+    assert.equal(T.api('getPassword', { id: c.id }).pw, pw + '2');
+  }
+  const c = T.api('addCompany', { name: '=株式会社', stage: 'ES' }).company;
+  resetCacheAndRead(T);
+  assert.ok(T.api('getData', {}).companies.some((x) => x.id === c.id && x.name === '=株式会社'));
+  assert.equal(T.ctx.findFormulaCells(), 0);
+});
+
+test('findFormulaCells：もう数式になっているセルを、中身を出さずに会社名と列で知らせる', () => {
+  const T = mk();
+  const c = addCo(T, { pw: 'x' });
+  const sh = T.sheet('companies');
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const row = T.rows('companies').findIndex((r) => r.id === c.id) + 2;
+  sh.getRange(row, head.indexOf('pw') + 1).setValues([['=SECRET()']]);
+  assert.equal(T.ctx.findFormulaCells(), 1);
+  assert.ok(T.log.some((l) => /A社 の pw 列/.test(l)));
+  assert.ok(T.log.every((l) => !/SECRET/.test(l)));
+});
+
+function resetCacheAndRead(T) { for (const k of Object.keys(T.cache)) delete T.cache[k]; }

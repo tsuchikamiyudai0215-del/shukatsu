@@ -495,11 +495,11 @@ function legacyPasswords_(fix) {
 
 /*
  * 書式なしテキストにしたセルへ書いた値が、そのまま読み戻せるかを確かめる。エディタから実行する（開発用で）。
- * 行を書くときは、書式なしテキストにしてから setValues で書いている（sheets.js）。
+ * 行を書くときは、書式なしテキストにして、cellText_ を通してから setValues で書いている（sheets.js）。
  * パスワードなどが = で始まると数式として扱われたり、' で始まると先頭を消されたりしないかを、本物のシートで見るため。
  * 一時的なシートを作って書き、読み、消す。会社の行には触らない。
  */
-var TEXT_SAMPLES = ['=1+1', "'abc", '+81', '-5', '@home', '0012', '2026-01-01', 'TRUE'];
+var TEXT_SAMPLES = ['=1+1', "'abc", "''x", "'=1", '+81', '-5', '@home', '0012', '2026-01-01', 'TRUE'];
 
 function checkTextCells() {
   resetRun_();
@@ -508,7 +508,8 @@ function checkTextCells() {
   try {
     var range = sh.getRange(1, 1, 1, TEXT_SAMPLES.length);
     range.setNumberFormat('@');
-    range.setValues([TEXT_SAMPLES]);
+    /* 行を書くときと同じ形（cellText_）で渡す */
+    range.setValues([TEXT_SAMPLES.map(cellText_)]);
     SpreadsheetApp.flush();
     var vals = range.getValues()[0];
     var fx = range.getFormulas()[0];
@@ -523,4 +524,31 @@ function checkTextCells() {
   } finally {
     ss.deleteSheet(sh);
   }
+}
+
+/*
+ * もう数式になってしまったセルが無いかを探す。エディタから実行する。
+ * cellText_ を入れる前は、= で始まる値（パスワードなど）は数式として保存されていた。
+ * ログには会社名（予定は id）と列の名前だけ出す。セルの中身は出さない
+ */
+function findFormulaCells() {
+  resetRun_();
+  var hit = 0;
+  [['companies', 'name'], ['events', 'id']].forEach(function (t) {
+    var sh = spreadsheet_().getSheetByName(t[0]);
+    if (!sh || sh.getLastRow() < 2) return;
+    var n = sh.getLastColumn();
+    var head = sh.getRange(1, 1, 1, n).getValues()[0].map(function (h) { return str_(h).trim(); });
+    var label = head.indexOf(t[1]);
+    var vals = sh.getRange(2, 1, sh.getLastRow() - 1, n).getValues();
+    sh.getRange(2, 1, sh.getLastRow() - 1, n).getFormulas().forEach(function (row, i) {
+      row.forEach(function (f, j) {
+        if (!f) return;
+        hit++;
+        console.log(t[0] + '：' + str_(label >= 0 ? vals[i][label] : '') + ' の ' + head[j] + ' 列');
+      });
+    });
+  });
+  console.log('数式になっているセル：' + hit + '件');
+  return hit;
 }

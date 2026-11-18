@@ -39,7 +39,15 @@ class Range {
     if (v.length !== this.nr || v.some((row) => row.length !== this.nc)) {
       throw new Error(`setValues の大きさが違う ${v.length}x${v[0].length} / ${this.nr}x${this.nc}`);
     }
-    for (let i = 0; i < this.nr; i++) for (let j = 0; j < this.nc; j++) this.sh.put(this.r + i, this.c + j, v[i][j]);
+    /* 本物のシートと同じく、= で始まる値は数式にし、' で始まる値は先頭の ' を消して文字として持つ（checkTextCells で確かめた動き） */
+    for (let i = 0; i < this.nr; i++) for (let j = 0; j < this.nc; j++) {
+      const key = `${this.r + i},${this.c + j}`;
+      let x = v[i][j];
+      delete this.sh.f[key];
+      if (typeof x === 'string' && x.startsWith("'")) x = x.slice(1);
+      else if (typeof x === 'string' && x.startsWith('=')) { this.sh.f[key] = x; x = '#数式'; }
+      this.sh.put(this.r + i, this.c + j, x);
+    }
     this.sh.writes++;
     return this;
   }
