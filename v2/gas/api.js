@@ -51,6 +51,46 @@ function out_(s) {
   return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.JSON);
 }
 
+/*
+ * 鍵の間違いが続いたら、しばらく全部断る。
+ * ウェブアプリは誰でも呼べるので、放っておくと鍵を当てるまで何度でも試せてしまう。
+ * GAS では呼んだ相手を見分けられないので、止めるときは正しい鍵でも断る（正しい鍵だけ通すと、当てた瞬間に通ってしまう）。
+ * 自分が止められたら、エディタから unlockApi を実行すればすぐ戻る。
+ */
+var AUTH_FAIL_KEY = 'authFail';
+var AUTH_LOCK_KEY = 'authLock';
+var AUTH_FAIL_MAX = 20;
+/* 最後の間違いからこの秒数あくと、数え直す */
+var AUTH_FAIL_WINDOW_SEC = 600;
+var AUTH_LOCK_SEC = 3600;
+var AUTH_LOCKED_MSG = '鍵の間違いが続いたので、1時間止めています。';
+
+function authLocked_() {
+  try { return !!CacheService.getScriptCache().get(AUTH_LOCK_KEY); } catch (e) { return false; }
+}
+
+function noteAuthFail_() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var n = Number(cache.get(AUTH_FAIL_KEY) || 0) + 1;
+    if (n >= AUTH_FAIL_MAX) {
+      cache.put(AUTH_LOCK_KEY, String(Date.now()), AUTH_LOCK_SEC);
+      cache.remove(AUTH_FAIL_KEY);
+      console.warn('鍵の間違いが ' + n + ' 回続いたので止めました：' + nowIso_());
+    } else {
+      cache.put(AUTH_FAIL_KEY, String(n), AUTH_FAIL_WINDOW_SEC);
+    }
+  } catch (e) { /* キャッシュが使えないときは数えられないので、そのまま通す */ }
+}
+
+/* 止まったのを戻す。エディタから実行する */
+function unlockApi() {
+  var cache = CacheService.getScriptCache();
+  cache.remove(AUTH_LOCK_KEY);
+  cache.remove(AUTH_FAIL_KEY);
+  return 'ok';
+}
+
 function keyOk_(key) {
   var want = prop_('API_KEY');
   if (!want || typeof key !== 'string' || key.length !== want.length) return false;
@@ -64,7 +104,11 @@ function keyOk_(key) {
 function route_(payload) {
   resetRun_();
   try {
-    if (!payload || !keyOk_(payload.key)) return JSON.stringify({ ok: false, error: 'unauthorized' });
+    if (authLocked_()) return JSON.stringify({ ok: false, locked: true, error: AUTH_LOCKED_MSG });
+    if (!payload || !keyOk_(payload.key)) {
+      noteAuthFail_();
+      return JSON.stringify({ ok: false, error: 'unauthorized' });
+    }
     /* toString などの継承したプロパティを、関数として呼ばないようにする */
     if (!has_(ACTIONS, payload.action)) {
       return JSON.stringify({ ok: false, error: '知らない操作です：' + payload.action });

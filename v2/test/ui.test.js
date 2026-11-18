@@ -1763,3 +1763,22 @@ test('どの画面を通っても、スクリプトのエラーを出さない',
   assert.deepEqual(R.errors.filter((e) => !/Not implemented/.test(e)), []);
   R.stop();
 });
+
+test('ページに読み込みの制限（CSP）があり、ページの中に直接書いたスクリプトが無い', () => {
+  const src = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const m = src.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
+  assert.ok(m, 'CSP の meta がない');
+  const csp = m[1];
+  assert.match(csp, /script-src 'self';/);
+  assert.doesNotMatch(csp, /script-src[^;]*unsafe/);
+  assert.match(csp, /connect-src 'self' https:\/\/script\.google\.com /);
+  assert.doesNotMatch(csp, /connect-src[^;]*https: /, '送り先を広げると鍵をよそへ送れてしまう');
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /base-uri 'none'/);
+  /* meta より前のスクリプトには制限が効かないので、meta はスクリプトより前に置く */
+  assert.ok(src.indexOf('Content-Security-Policy') < src.indexOf('<script'));
+  for (const s of src.match(/<script[^>]*>[\s\S]*?<\/script>/g)) {
+    assert.match(s, /^<script[^>]*src="[^"]+"[^>]*><\/script>$/, 'スクリプトはファイルにする：' + s.slice(0, 40));
+  }
+  assert.doesNotMatch(src, / on[a-z]+="/, 'onclick などは CSP で止まる');
+});

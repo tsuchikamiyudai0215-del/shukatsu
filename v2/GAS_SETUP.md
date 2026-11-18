@@ -57,6 +57,8 @@ npm run push
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 ```
 
+鍵の間違いが続くと（20回）、正しい鍵でも1時間断るようにしてある。自分で止めてしまったときは、エディタで `unlockApi` を実行するとすぐ戻る。
+
 1. `npx clasp open-script` でエディタを開く
 2. 左の歯車「プロジェクトの設定」→ いちばん下の「スクリプト プロパティを追加」
 3. 次の4つを入れて「スクリプト プロパティを保存」

@@ -95,6 +95,30 @@ test('鍵が違えば弾く。鍵が空のプロパティでも通さない', ()
   assert.equal(T.api('getData', {}, '').error, 'unauthorized');
 });
 
+test('鍵の間違いが20回続いたら、正しい鍵でも1時間断る。unlockApi で戻る', () => {
+  const T = mk();
+  for (let i = 0; i < 19; i++) assert.equal(T.api('getData', {}, 'wrong').error, 'unauthorized');
+  /* 19回までは、正しい鍵なら通る */
+  assert.equal(T.api('getData', {}).ok, true);
+  assert.equal(T.api('getData', {}, 'wrong').error, 'unauthorized');
+  const r = T.api('getData', {});
+  assert.equal(r.ok, false);
+  assert.equal(r.locked, true);
+  assert.match(r.error, /1時間止めています/);
+  /* 止めている間はパスワードも出さない */
+  assert.equal(T.api('getPassword', { id: 'x' }).locked, true);
+  T.ctx.unlockApi();
+  assert.equal(T.api('getData', {}).ok, true);
+});
+
+test('鍵の間違いの数は、正しい鍵で通っても減らない（間に正しい呼び出しを挟んで数え直させない）', () => {
+  const T = mk();
+  for (let i = 0; i < 10; i++) T.api('getData', {}, 'wrong');
+  T.api('getData', {});
+  for (let i = 0; i < 10; i++) T.api('getData', {}, 'wrong');
+  assert.equal(T.api('getData', {}).locked, true);
+});
+
 test('知らない操作と継承したプロパティは呼ばない', () => {
   const T = mk();
   assert.match(T.api('toString', {}).error, /知らない操作/);
