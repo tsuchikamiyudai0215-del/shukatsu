@@ -62,8 +62,10 @@ var AUTH_LOCK_KEY = 'authLock';
 var AUTH_FAIL_MAX = 20;
 /* 最後の間違いからこの秒数あくと、数え直す */
 var AUTH_FAIL_WINDOW_SEC = 600;
-var AUTH_LOCK_SEC = 3600;
-var AUTH_LOCKED_MSG = '鍵の間違いが続いたので、1時間止めています。';
+/* 止める時間は短めにする。鍵は長いでたらめな文字列で当てられる見込みはまず無く、
+   長く止めるほど、URL を知った人が少し間違えるだけで本人を締め出せてしまうため */
+var AUTH_LOCK_SEC = 900;
+var AUTH_LOCKED_MSG = '鍵の間違いが続いたので、15分止めています。';
 
 function authLocked_() {
   try { return !!CacheService.getScriptCache().get(AUTH_LOCK_KEY); } catch (e) { return false; }

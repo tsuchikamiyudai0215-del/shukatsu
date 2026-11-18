@@ -1782,3 +1782,49 @@ test('ページに読み込みの制限（CSP）があり、ページの中に�
   }
   assert.doesNotMatch(src, / on[a-z]+="/, 'onclick などは CSP で止まる');
 });
+
+test('接続設定を開き直しても、保存した鍵を画面に書き戻さない。鍵を空のまま保存すれば今の鍵を使う', async () => {
+  const T = mk({ API_KEY: 'saved-key' });
+  T.api('addCompany', { name: 'A社', stage: 'ES' }, 'saved-key');
+  const R = await boot({ key: 'saved-key', T });
+  R.click('#tb-pass');
+  R.click('[data-act="setup-open"]');
+  assert.equal(R.$('#cfgKey').value, '');
+  assert.doesNotMatch(R.w.document.body.innerHTML, /saved-key/);
+  assert.match(R.$('#cfgKey').getAttribute('placeholder'), /保存済み/);
+  R.click('[data-act="setup"]');
+  assert.equal(R.w.localStorage.getItem('sk2_key'), 'saved-key');
+  await until(() => R.$('.ptitle'));
+  /* 接続先を変えるときは、鍵を入れ直してもらう */
+  R.click('[data-act="setup-open"]');
+  R.$('#cfgEp').value = EP2;
+  R.click('[data-act="setup"]');
+  assert.match(R.$('.setupErr').textContent, /鍵を入れて/);
+  assert.equal(R.w.localStorage.getItem('sk2_ep'), EP);
+  R.stop();
+});
+
+test('保存領域の接続先がよその URL に書き換えられていたら、鍵を送らない', async () => {
+  const sent = [];
+  const R = await boot({ ls: { sk2_ep: 'https://evil.example/exec' }, web: (u) => { sent.push(u); return { ok: true, status: 200, text: async () => '{}', json: async () => ({}) }; } });
+  await sleep(50);
+  assert.deepEqual(sent.filter((u) => u.startsWith('https://evil.example')), []);
+  assert.equal(R.calls.length, 0);
+  R.stop();
+});
+
+test('shift のページ：読み込みの制限があり、スクリプトはファイルだけ。画面に入れる値はエスケープし、送り先を確かめる', () => {
+  const page = fs.readFileSync(path.join(__dirname, '../../shift/index.html'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '../../shift/app.js'), 'utf8');
+  const m = page.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
+  assert.ok(m);
+  assert.match(m[1], /script-src 'self';/);
+  assert.match(m[1], /connect-src https:\/\/script\.google\.com /);
+  assert.ok(page.indexOf('Content-Security-Policy') < page.indexOf('<script'));
+  for (const sc of page.match(/<script[^>]*>[\s\S]*?<\/script>/g)) assert.match(sc, /^<script src="[^"]+"><\/script>$/);
+  assert.match(page, /<input type="password" id="sToken"/);
+  assert.ok(js.includes('if (!validUrl(url)) throw'));
+  /* サーバーから来る値（警告・日付・時刻・エラー文）は esc を通す */
+  for (const v of ['esc(w)', 'esc(x.start)', 'esc(x.date)', 'esc(e.message)', 'esc(p.start)']) assert.ok(js.includes(v), v);
+  for (const raw of ['${w}', '${e.message}', '${x.start}']) assert.ok(!js.includes(raw), raw);
+});

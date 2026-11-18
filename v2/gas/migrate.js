@@ -463,3 +463,64 @@ function scrubPassword_(id) {
     return false;
   }
 }
+
+/*
+ * 旧版が予定の説明欄に書いた「パスワード: …」の行が、カレンダーに残っていないか探す。エディタから実行する。
+ * 移行で直したのは、シートに予定の ID が残っていた分だけ。行を消した会社の予定や、ID が上書きされた古い予定は残っているかもしれない。
+ * 実行ログには日付と件名と件数だけ出す。説明欄の中身（パスワード）は出さない。
+ *   findLegacyPasswords   … 探して数えるだけ。何も変えない
+ *   removeLegacyPasswords … その行だけを説明欄から消す。予定そのものは消さない
+ */
+var LEGACY_PW_FROM = new Date(2024, 0, 1);
+var LEGACY_PW_TO = new Date(2028, 0, 1);
+
+function findLegacyPasswords() { return legacyPasswords_(false); }
+function removeLegacyPasswords() { return legacyPasswords_(true); }
+
+function legacyPasswords_(fix) {
+  resetRun_();
+  var hit = 0;
+  calendar_().getEvents(LEGACY_PW_FROM, LEGACY_PW_TO).forEach(function (ev) {
+    var desc = str_(ev.getDescription());
+    /* scrubPassword_ と同じ決まりで行を見分ける */
+    var next = desc.split('\n').filter(function (line) { return !/^\s*パスワード/.test(line); }).join('\n');
+    if (next === desc) return;
+    hit++;
+    console.log(Utilities.formatDate(ev.getStartTime(), APP_TZ, 'yyyy-MM-dd') + '　' + ev.getTitle());
+    if (fix) ev.setDescription(next);
+  });
+  console.log((fix ? 'パスワードの行を消した予定：' : 'パスワードの行が残っている予定：') + hit + '件');
+  return hit;
+}
+
+/*
+ * 書式なしテキストにしたセルへ書いた値が、そのまま読み戻せるかを確かめる。エディタから実行する（開発用で）。
+ * 行を書くときは、書式なしテキストにしてから setValues で書いている（sheets.js）。
+ * パスワードなどが = で始まると数式として扱われたり、' で始まると先頭を消されたりしないかを、本物のシートで見るため。
+ * 一時的なシートを作って書き、読み、消す。会社の行には触らない。
+ */
+var TEXT_SAMPLES = ['=1+1', "'abc", '+81', '-5', '@home', '0012', '2026-01-01', 'TRUE'];
+
+function checkTextCells() {
+  resetRun_();
+  var ss = spreadsheet_();
+  var sh = ss.insertSheet('_textcheck_' + Date.now());
+  try {
+    var range = sh.getRange(1, 1, 1, TEXT_SAMPLES.length);
+    range.setNumberFormat('@');
+    range.setValues([TEXT_SAMPLES]);
+    SpreadsheetApp.flush();
+    var vals = range.getValues()[0];
+    var fx = range.getFormulas()[0];
+    var bad = 0;
+    TEXT_SAMPLES.forEach(function (v, i) {
+      var ok = str_(vals[i]) === v && !fx[i];
+      if (!ok) bad++;
+      console.log((ok ? 'そのまま：' : '変わった：') + JSON.stringify(v) + ' → ' + JSON.stringify(vals[i]) + (fx[i] ? '（数式になった）' : ''));
+    });
+    console.log(bad ? '書いた値と違うものが ' + bad + ' 件ありました。' : '全部そのまま読み戻せました。');
+    return bad;
+  } finally {
+    ss.deleteSheet(sh);
+  }
+}

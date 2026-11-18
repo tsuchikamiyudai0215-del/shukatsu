@@ -108,6 +108,7 @@ class Book {
   getSpreadsheetTimeZone() { return this.tz; }
   getSheetByName(n) { return this.sheets[n] || null; }
   insertSheet(n) { return (this.sheets[n] = new Sheet(n, [])); }
+  deleteSheet(sh) { for (const k of Object.keys(this.sheets)) if (this.sheets[k] === sh) delete this.sheets[k]; }
 }
 
 /* 日本時間での書式。Utilities.formatDate の代わり */
@@ -137,6 +138,7 @@ function mk(props) {
       getId: () => id,
       getTitle: () => o.title,
       getDescription: () => o.desc,
+      getStartTime: () => o.start,
       getOriginalCalendarId: () => o.calId,
       isAllDayEvent: () => o.allDay,
       setTitle(t) { calCalls.update++; o.title = t; return o; },
@@ -158,8 +160,7 @@ function mk(props) {
       createEvent(t, s, e, opt) { calCalls.create++; return mkEvent(id, t, s, e, opt, false); },
       createAllDayEvent(t, s, e, opt) { calCalls.create++; return mkEvent(id, t, s, e, opt, true); },
       getEvents(s, e) {
-        return Object.values(allEvents).filter((x) => x.alive && x.calId === id && x.start < e && x.end > s)
-          .map((x) => ({ getTitle: () => x.title }));
+        return Object.values(allEvents).filter((x) => x.alive && x.calId === id && x.start < e && x.end > s);
       },
       /* ほかのカレンダーの予定も返してしまう */
       getEventById(eid) { calCalls.get++; const e = allEvents[eid]; return e && e.alive ? e : null; }
@@ -199,6 +200,7 @@ function mk(props) {
     console: { log: (...a) => log.push(a.join(' ')), warn: (...a) => log.push('WARN ' + a.join(' ')) },
     Date,
     SpreadsheetApp: {
+      flush() {},
       openById(id) {
         opened.push(id);
         if (!books[id]) throw new Error('そのシートは無い');

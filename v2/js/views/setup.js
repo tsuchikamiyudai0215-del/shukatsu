@@ -13,7 +13,7 @@ export function renderSetup(msg, canCancel) {
   const side = document.getElementById('side');
   if (side) setHtml(side, html``);
   const c = config();
-  setHtml(app, html`<div class="setup"><div class="setupBox"><div class="setupMark">就活</div><div class="setupLead">Apps Script のウェブアプリの URL と鍵を入れてください。<br>この端末にだけ保存され、ページのソースには残りません。</div>${msg && html`<div class="setupErr">${msg}</div>`}<div class="lab">ウェブアプリの URL</div><input class="f" id="cfgEp" placeholder="https://script.google.com/macros/s/.../exec" value="${c.ep}"><div class="lab">鍵</div><input class="f" id="cfgKey" type="password" autocomplete="off" placeholder="スクリプトのプロパティの API_KEY" value="${c.key}" data-enter="setup"><button class="big" style="background:#fff;color:#000" data-act="setup">接続する</button>${canCancel && hasConfig() && html`<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="setup-cancel">やめる</button>`}</div></div>`);
+  setHtml(app, html`<div class="setup"><div class="setupBox"><div class="setupMark">就活</div><div class="setupLead">Apps Script のウェブアプリの URL と鍵を入れてください。<br>この端末にだけ保存され、ページのソースには残りません。</div>${msg && html`<div class="setupErr">${msg}</div>`}<div class="lab">ウェブアプリの URL</div><input class="f" id="cfgEp" placeholder="https://script.google.com/macros/s/.../exec" value="${c.ep}"><div class="lab">鍵</div><input class="f" id="cfgKey" type="password" autocomplete="off" placeholder="${c.key ? '保存済み（変えるときだけ入力）' : 'スクリプトのプロパティの API_KEY'}" data-enter="setup"><button class="big" style="background:#fff;color:#000" data-act="setup">接続する</button>${canCancel && hasConfig() && html`<button class="big" style="background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="setup-cancel">やめる</button>`}</div></div>`);
 }
 
 export function renderConnecting() {
@@ -29,10 +29,12 @@ export function readSetup() {
   const ep = (document.getElementById('cfgEp') || { value: '' }).value.trim();
   const key = (document.getElementById('cfgKey') || { value: '' }).value.trim();
   if (!validEndpoint(ep)) return { err: 'URL は https://script.google.com/macros/s/.../exec の形です。' };
-  if (!key) return { err: '鍵を入れてください。' };
   const prev = config().ep;
+  /* 鍵は画面に書き戻していないので、空のままなら保存済みの鍵を使う。接続先を変えたときは入れ直してもらう */
+  const saved = config().key;
+  if (!key && !(saved && prev === ep)) return { err: '鍵を入れてください。' };
   const changed = !!prev && prev !== ep;
   if (changed) ['cache', 'file_logos', 'legacy_logos_done'].forEach(storage.remove);
-  saveConfig(ep, key);
+  saveConfig(ep, key || saved);
   return { err: '', changed };
 }

@@ -5,9 +5,8 @@
 <!-- 読み込みの制限。どこかに穴があっても、よそのスクリプトを動かしたり、鍵をよそへ送ったりできないようにする。
      ページの中に直接書いたスクリプトも止めるので、スクリプトは必ずファイルにする。
      style の 'unsafe-inline' は、部品が style="…" で大きさや色を決めているため。
-     画像はロゴを会社のサイトや Wikimedia から出すので https: を広く通す。送り先（connect-src）は GAS と Wikidata・Wikipedia だけ。
-     localhost は手元で試すときの GAS の代わり -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://www.wikidata.org https://ja.wikipedia.org http://localhost:* http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+     画像はロゴを会社のサイトや Wikimedia から出すので https: を広く通す。送り先（connect-src）は GAS と Wikidata・Wikipedia だけ。 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://www.wikidata.org https://ja.wikipedia.org; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <title>就活</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">

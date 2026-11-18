@@ -95,7 +95,7 @@ test('鍵が違えば弾く。鍵が空のプロパティでも通さない', ()
   assert.equal(T.api('getData', {}, '').error, 'unauthorized');
 });
 
-test('鍵の間違いが20回続いたら、正しい鍵でも1時間断る。unlockApi で戻る', () => {
+test('鍵の間違いが20回続いたら、正しい鍵でも15分断る。unlockApi で戻る', () => {
   const T = mk();
   for (let i = 0; i < 19; i++) assert.equal(T.api('getData', {}, 'wrong').error, 'unauthorized');
   /* 19回までは、正しい鍵なら通る */
@@ -104,7 +104,7 @@ test('鍵の間違いが20回続いたら、正しい鍵でも1時間断る。un
   const r = T.api('getData', {});
   assert.equal(r.ok, false);
   assert.equal(r.locked, true);
-  assert.match(r.error, /1時間止めています/);
+  assert.match(r.error, /15分止めています/);
   /* 止めている間はパスワードも出さない */
   assert.equal(T.api('getPassword', { id: 'x' }).locked, true);
   T.ctx.unlockApi();
@@ -1152,4 +1152,33 @@ test('全社の合わせ込みは時間切れの前に止まり、もう一度�
   assert.ok(res.left > 0);
   assert.ok(T.log.some((l) => l.includes('もう一度実行')));
   assert.equal(T.run('syncAllCalendars').left, 0);
+});
+
+test('カレンダーに残った旧版のパスワードの行：探すだけでは変えず、ログに中身を出さない。消すときは行だけ消す', () => {
+  const T = mk({ ALLOW_PRODUCTION: 'yes', CALENDAR_ID: PRIMARY_CAL });
+  const cal = T.calendars[PRIMARY_CAL];
+  const left = cal.createEvent('【締切】A社 (ES)', jst('2026-07-10T12:00'), jst('2026-07-10T12:30'),
+    { description: 'マイページURL: https://a.example\nID: me\nパスワード: hunter2\n現在の状況: 対応中' });
+  const clean = cal.createEvent('説明会', jst('2026-08-01T10:00'), jst('2026-08-01T11:00'), { description: 'オンライン' });
+
+  assert.equal(T.ctx.findLegacyPasswords(), 1);
+  assert.match(left.getDescription(), /hunter2/);
+  assert.ok(T.log.some((l) => /A社/.test(l)));
+  assert.ok(T.log.every((l) => !/hunter2/.test(l)), 'パスワードをログに出さない');
+
+  assert.equal(T.ctx.removeLegacyPasswords(), 1);
+  assert.equal(left.getDescription(), 'マイページURL: https://a.example\nID: me\n現在の状況: 対応中');
+  assert.equal(clean.getDescription(), 'オンライン');
+  assert.ok(left.alive, '予定そのものは消さない');
+  assert.equal(T.ctx.findLegacyPasswords(), 0);
+});
+
+test('checkTextCells：一時的なシートに書いて読み戻し、終わったら消す。会社の行には触らない', () => {
+  const T = mk();
+  addCo(T);
+  const before = T.rows('companies').length;
+  assert.equal(T.ctx.checkTextCells(), 0);
+  assert.ok(T.log.some((l) => /全部そのまま/.test(l)));
+  assert.deepEqual(Object.keys(T.books[Object.keys(T.books).find((k) => T.books[k].sheets.companies)].sheets).filter((n) => n.startsWith('_textcheck_')), []);
+  assert.equal(T.rows('companies').length, before);
 });

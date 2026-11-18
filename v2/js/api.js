@@ -74,6 +74,8 @@ function transient(msg) {
 async function once(action, args, opts, cancel) {
   const { ep, key } = config();
   if (!ep || !key) throw new Error('接続設定がありません。');
+  /* 保存領域の接続先が書き換えられていても、よその URL へ鍵を送らない */
+  if (!validEndpoint(ep)) throw new Error('接続先の URL が正しくありません。接続設定を確かめてください。');
   const ctl = !opts.keepalive && typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : 0;
   /* 並べて出したもう1本が先に返ってきたら、こちらは取り下げる */

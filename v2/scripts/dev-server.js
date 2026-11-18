@@ -3,7 +3,7 @@
  *
  *   node v2/scripts/dev-server.js   → http://localhost:8787/v2/
  *
- * ・リポジトリの一番上を配る（新版の画面は /v2/、アイコンは一番上にあるため）
+ * ・リポジトリの一番上を配る（新版の画面は /v2/、アイコンは一番上にあるため）。点で始まるものと秘密の入りうるファイルは配らない
  * ・POST /api は、GAS のコードを模擬環境（test/gas_mock.js）で動かして答える
  * ・中のデータは作り物の会社。止めると消える
  * 接続設定には URL「http://localhost:8787/api」と鍵「dev-key」を入れる。
@@ -49,6 +49,18 @@ seed();
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
+/* 配ってよいファイルか。リポジトリの外（名前が shukatsu で始まる隣のフォルダも含む）と、
+   .git や .clasp*.json のような点で始まるもの、パスワードを入れる一時ファイル（*.local.js）、
+   旧版のロゴの記録は渡さない */
+function servable(file) {
+  const rel = path.relative(ROOT, file);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false;
+  const parts = rel.split(path.sep);
+  if (parts.some((x) => x.startsWith('.') || x === 'node_modules')) return false;
+  const base = parts[parts.length - 1];
+  return !/\.local\.js$/i.test(base) && base !== 'legacy-logos.json';
+}
+
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'POST' && url.pathname === '/api') {
@@ -62,13 +74,15 @@ http.createServer((req, res) => {
     });
     return;
   }
-  let p = decodeURIComponent(url.pathname);
+  let p;
+  try { p = decodeURIComponent(url.pathname); } catch (e) { res.writeHead(400); res.end(); return; }
   if (p.endsWith('/')) p += 'index.html';
   const file = path.normalize(path.join(ROOT, p));
-  if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
+  if (!servable(file)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); res.end('not found'); return; }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(data);
   });
-}).listen(PORT, () => console.log('http://localhost:' + PORT + '/v2/'));
+  /* このパソコンからだけ受ける。ホストを書かないと、同じ Wi-Fi の人からもつながってしまう */
+}).listen(PORT, '127.0.0.1', () => console.log('http://localhost:' + PORT + '/v2/'));
