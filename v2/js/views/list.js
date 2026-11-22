@@ -44,7 +44,14 @@ function nextEvent(id, evs, now) {
   return evs.filter((e) => e.companyId === id && evActive(e, now))[0] || null;
 }
 
-export function rowHtml(c, evs, now) {
+/* 入場の動きの順番。浮き上がるのは画面に見えている最初の数枚だけ（60社分を1枚ずつ動かすと、スマホでは切り替えのたびに重い）。
+   描いたあとに全行を探して書き込むと、そのぶん見た目の計算がやり直しになるので、組み立てるときに入れておく */
+function animAttrs(idx) {
+  if (idx == null) return '';
+  return idx < MOVE_ROWS ? html` style="--ei:${idx}"` : html` data-still`;
+}
+
+export function rowHtml(c, evs, now, idx) {
   const st = Domain.viewStatus(c, new Date(now));
   const r = c.dueAt ? rem(c.dueAt, now) : null;
   let left = '', right = '', sub = '';
@@ -83,14 +90,14 @@ export function rowHtml(c, evs, now) {
   if (st === 'todo' && r && r.days <= 2) cls.push('is-hot');
   if (st === 'failed' || st === 'skipped') cls.push('is-muted');
   /* タイルの中にはボタンを置かない。指には小さく、高さもそろわなくなる。操作は詳細にまとめる */
-  return html`<div class="${cls.join(' ')}" data-act="open" data-id="${c.id}"><div class="main">${logo(c, 44)}<div class="body1"><div class="name" title="${c.name}">${Domain.shortName(c.name)}</div><div class="meta"><span class="stage">${Domain.position(c)}</span>${c.kind === 'mgmt' && html`<span class="stage mgmt">管理用</span>`}<i>${right}</i></div>${sub}</div><div class="day">${left}</div></div></div>`;
+  return html`<div class="${cls.join(' ')}" data-act="open" data-id="${c.id}"${animAttrs(idx)}><div class="main">${logo(c, 44)}<div class="body1"><div class="name" title="${c.name}">${Domain.shortName(c.name)}</div><div class="meta"><span class="stage">${Domain.position(c)}</span>${c.kind === 'mgmt' && html`<span class="stage mgmt">管理用</span>`}<i>${right}</i></div>${sub}</div><div class="day">${left}</div></div></div>`;
 }
 
-function eventRowHtml(ev, c, now) {
+function eventRowHtml(ev, c, now, idx) {
   const r = rem(ev.startAt, now);
   const left = r ? dayCell(r.days === 0 ? 'TODAY' : r.days, r.days <= 2 ? 'var(--hot)' : 'var(--text)')
     : evActive(ev, now) ? tag('開催中', 'var(--go)') : tag('終了', 'var(--dim)');
-  return html`<div class="row" data-act="open" data-id="${c.id}"><div class="main">${logo(c, 44)}<div class="body1"><div class="name" title="${c.name}">${Domain.shortName(c.name)}</div><div class="meta"><span class="stage" style="color:var(--text)">${ev.kind}</span><i>${evTile(ev)}</i></div>${ev.place && html`<div class="sub" style="font-family:var(--body)">${ev.place}</div>`}</div><div class="day">${left}</div></div></div>`;
+  return html`<div class="row" data-act="open" data-id="${c.id}"${animAttrs(idx)}><div class="main">${logo(c, 44)}<div class="body1"><div class="name" title="${c.name}">${Domain.shortName(c.name)}</div><div class="meta"><span class="stage" style="color:var(--text)">${ev.kind}</span><i>${evTile(ev)}</i></div>${ev.place && html`<div class="sub" style="font-family:var(--body)">${ev.place}</div>`}</div><div class="day">${left}</div></div></div>`;
 }
 
 function stripHtml(mgmt, now) {
@@ -143,7 +150,9 @@ export function renderList(onEmptyReset) {
   /* 保存していた絞り込みの行き先が空なら「すべて」に戻す（真っ白な一覧を出さない） */
   if (ui.filt !== 'all' && !G.some((g) => g.k === ui.filt)) { ui.filt = 'all'; saveUi(); }
 
-  const rows = (k) => join(k === 'event' ? groups.event.map((a) => eventRowHtml(a.ev, a.c, now)) : groups[k].map((c) => rowHtml(c, evs, now)));
+  /* 画面に並ぶ順に番号を振る（レーンは G の順に組み立てるので、そのまま上からの順になる） */
+  let ri = 0;
+  const rows = (k) => join(k === 'event' ? groups.event.map((a) => eventRowHtml(a.ev, a.c, now, ri++)) : groups[k].map((c) => rowHtml(c, evs, now, ri++)));
   const total = groups.event.length + groups.todo.length + groups.offer.length + groups.fixed.length + groups.wait.length;
   const hidden = (k) => ui.filt !== 'all' && ui.filt !== k;
 
@@ -163,11 +172,6 @@ export function renderList(onEmptyReset) {
   });
 
   keepLogos(view, () => setHtml(view, html`${stripHtml(mgmt, now)}${top}<div class="chips"><div class="chiprow"><button data-act="filt" data-v="all" class="${ui.filt === 'all' ? 'on' : ''}">すべて<b>${total}</b></button>${G.map((g) => html`<button data-act="filt" data-v="${g.k}" class="${ui.filt === g.k ? 'on' : ''}">${g.lab}<b style="color:${ui.filt === g.k ? '' : g.col}">${g.n}</b></button>`)}</div></div><div class="lanes${ui.filt === 'all' ? '' : ' single'}">${lanes}</div>`));
-  /* 浮き上がるのは画面に見えている最初の数枚だけ。60社分を1枚ずつ動かすと、スマホでは切り替えのたびに重い */
-  view.querySelectorAll('.row, .pcard').forEach((el, i) => {
-    el.style.setProperty('--ei', Math.min(i, 12));
-    el.toggleAttribute('data-still', i >= MOVE_ROWS);
-  });
   /* 見出しに出ていない締切や予定も、時刻を過ぎればレーンやタイルが変わる。一番近い時刻を覚えておき、過ぎたら組み直す */
   const soon = [];
   all.forEach((c) => { if (c.dueAt && Domain.viewStatus(c, new Date(now)) === 'todo') soon.push(instant(c.dueAt)); });
@@ -205,6 +209,7 @@ function tickCountdown(el, now, rerender) {
       if (until > now) {
         if (el.dataset.rendered !== 'live') {
           el.dataset.rendered = 'live';
+          el.dataset.shape = 'live';
           setHtml(el, html`<b style="font-size:42px;color:var(--go)">開催中</b>`);
         }
         return;
@@ -215,6 +220,7 @@ function tickCountdown(el, now, rerender) {
     }
     if (el.dataset.rendered !== 'expired') {
       el.dataset.rendered = 'expired';
+      el.dataset.shape = 'expired';
       setHtml(el, html`<b style="font-size:42px;color:var(--dim)">期限切れ</b>`);
       if (rerender) setTimeout(rerender, 1200);
     }
@@ -227,8 +233,25 @@ function tickCountdown(el, now, rerender) {
   const key = [r.d, r.h, r.m, r.s].join(':');
   if (el.dataset.rendered === key) return;
   el.dataset.rendered = key;
-  setHtml(el, html`${r.d > 0 && html`<b>${r.d}</b><s>d</s>`}<b>${p(r.h)}</b><s>h</s><b>${p(r.m)}</b><s>m</s><b>${p(r.s)}</b><s>s</s>`);
+  /* 組み立て直すのは、日の欄が出たり消えたりするときだけ。ふだんは変わった数字だけを書き換える。
+     毎秒まるごと作り直すと、そのたびに要素を捨てて作り直すので、スクロールや指の操作が1秒ごとに引っかかる */
+  const shape = r.d > 0 ? 'd' : 'h';
+  if (el.dataset.shape !== shape) {
+    el.dataset.shape = shape;
+    setHtml(el, html`${r.d > 0 && html`<b data-u="d">${r.d}</b><s>d</s>`}<b data-u="h">${p(r.h)}</b><s>h</s><b data-u="m">${p(r.m)}</b><s>m</s><b data-u="s">${p(r.s)}</b><s>s</s>`);
+    return;
+  }
+  const vals = { d: String(r.d), h: p(r.h), m: p(r.m), s: p(r.s) };
+  el.querySelectorAll('b[data-u]').forEach((b) => {
+    const v = vals[b.dataset.u];
+    if (b.textContent !== v) b.textContent = v;
+  });
 }
+
+/* 絞り込みの入場の動きを流し直す印。同じクラスを付け直しても動きは最初からにならないので、
+   中身が同じ2つの動き（filt-in と filt-in-b）を交互に付ける。付け直しのために見た目の計算を強制しなくて済む */
+let filtTimer = 0;
+let filtFlip = false;
 
 /* 絞り込みを切り替える。描き直さずに、レーンの表示だけを変える */
 export function applyFilter() {
@@ -240,9 +263,15 @@ export function applyFilter() {
     l.classList.toggle('is-filt-hidden', ui.filt !== 'all' && l.dataset.lane !== ui.filt);
   });
   const vis = box.querySelectorAll('.lane:not(.is-filt-hidden) .row');
-  box.classList.remove('filt-in');
-  vis.forEach((r, i) => { r.style.animation = 'none'; r.style.setProperty('--fi', Math.min(i, 12)); r.toggleAttribute('data-still', i >= MOVE_ROWS); });
-  void box.offsetWidth;
-  vis.forEach((r) => { r.style.animation = ''; });
-  box.classList.add('filt-in');
+  vis.forEach((r, i) => {
+    const still = i >= MOVE_ROWS;
+    if (!still) r.style.setProperty('--fi', i);
+    if (r.hasAttribute('data-still') !== still) r.toggleAttribute('data-still', still);
+  });
+  clearTimeout(filtTimer);
+  filtFlip = !filtFlip;
+  box.classList.remove('filt-in', 'filt-in-b');
+  box.classList.add(filtFlip ? 'filt-in' : 'filt-in-b');
+  /* 動き終わったら外す。付けたままだと、あとで描き直したときにもう一度流れる */
+  filtTimer = setTimeout(() => box.classList.remove('filt-in', 'filt-in-b'), 600);
 }

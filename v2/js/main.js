@@ -24,6 +24,9 @@ import { isEditing } from './views/fields.js';
 let cleanups = [];
 let booted = false;
 let detailDirty = false;
+/* スマホでシートを開いている間に、一覧の描き直しを見送ったか。閉じたときに、見送ったときだけ描き直す */
+let listDirty = false;
+let enterTimer = 0;
 let lastFetch = 0;
 
 function listen(target, type, fn, opts) {
@@ -76,10 +79,11 @@ function syncPills() {
 function enter() {
   const el = document.getElementById('view');
   if (!el) return;
-  el.classList.remove('enter');
-  void el.offsetWidth;
+  /* 付け直しのために見た目の計算を強制しない（offsetWidth を読まない）。一覧は作り直したばかりの要素なので、
+     クラスが付いたままでも動きは最初から流れる。前の切り替えのタイマーは止め、新しい動きの途中で外れないようにする */
+  clearTimeout(enterTimer);
   el.classList.add('enter');
-  setTimeout(() => el.classList.remove('enter'), 1000);
+  enterTimer = setTimeout(() => el.classList.remove('enter'), 1000);
 }
 
 /* 画面全体を描き直す。入力中は詳細だけ描き直しを待たせ、入力が終わってから描く */
@@ -92,10 +96,13 @@ function renderAll(pageChanged) {
   /* 切り替えの直後（1秒ほど）に保存などで描き直すと、入場の動きがもう一度流れる。切り替え以外では先に外す */
   if (!pageChanged) { const v = document.getElementById('view'); if (v) v.classList.remove('enter'); }
   /* スマホで詳細などを開いている間は、後ろの見えない一覧を描き直さない。保存のたびに60社分を描き直すと、手前の操作が引っかかる。
-     閉じたときに initSheet の後片付けから renderAll が呼ばれるので、そこで1回だけ描き直す */
+     見送ったことを覚えておき、閉じたときに1回だけ描き直す（closedSheet） */
   const hidden = !pageChanged && !isWide() && isSheetOpen() && document.getElementById('view');
-  if (hidden) { /* 描き直さない */ }
-  else if (ui.page === 'pass') renderPassport(); else renderList(() => { if (!isEditing()) renderAll(); });
+  if (hidden) listDirty = true;
+  else {
+    listDirty = false;
+    if (ui.page === 'pass') renderPassport(); else renderList(() => { if (!isEditing()) renderAll(); });
+  }
   if (pageChanged) enter();
   if (ui.openId) {
     if (!store.company(ui.openId)) { ui.openId = null; if (isWide()) sideEmpty(); else if (isSheetOpen()) closeSheet(); }
@@ -338,16 +345,21 @@ function onStoreError(e) {
 // ============================================================
 
 function pullToRefresh() {
-  let y0 = 0, x0 = 0, pulling = false, dist = 0, locked = false, lastScroll = 0;
+  let y0 = 0, x0 = 0, pulling = false, dist = 0, locked = false, lastScroll = 0, raf = 0;
   const el = () => document.getElementById('ptr');
-  const set = (d) => {
+  /* 指の動きは1コマに何回も届く。そのたびに書くと無駄なので、次の描画の前に1回だけ、そのときの距離で書く */
+  const draw = () => {
+    raf = 0;
+    if (!pulling) return;
     const p = el(); if (!p) return;
-    const t = Math.min(1, d / 90);
+    const t = Math.min(1, dist / 90);
     p.style.opacity = t.toFixed(2);
-    p.style.transform = 'translate3d(-50%,' + Math.min(56, d * 0.6) + 'px,0) scale(' + (0.7 + t * 0.3).toFixed(2) + ')';
-    p.querySelector('.ptrRing').style.transform = 'rotate(' + d * 3 + 'deg)';
+    p.style.transform = 'translate3d(-50%,' + Math.min(56, dist * 0.6) + 'px,0) scale(' + (0.7 + t * 0.3).toFixed(2) + ')';
+    const ring = p.querySelector('.ptrRing');
+    if (ring) ring.style.transform = 'rotate(' + dist * 3 + 'deg)';
   };
   const reset = () => {
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
     const p = el(); if (!p) return;
     p.classList.remove('spin');
     p.style.transition = 'opacity .3s var(--ease),transform .5s var(--spring)';
@@ -374,17 +386,19 @@ function pullToRefresh() {
     }
     dist = dy;
     if (dist <= 0 || window.scrollY > 0) { pulling = false; reset(); return; }
-    set(dist);
+    if (!raf) raf = requestAnimationFrame(draw);
   }, { passive: true });
   listen(document, 'touchend', async () => {
     if (!pulling) return;
     pulling = false;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
     if (!(dist > 110 && locked && hasConfig())) { reset(); return; }
     const p = el();
     if (p) { p.classList.add('spin'); p.style.opacity = '1'; p.style.transform = 'translate3d(-50%,40px,0) scale(1)'; }
     if (await refresh(true)) toast('最新に更新しました。', true);
     reset();
-  });
+  }, { passive: true });
+  cleanups.push(() => { if (raf) cancelAnimationFrame(raf); });
 }
 
 /*
@@ -417,10 +431,21 @@ function keyboardWatch() {
 // 始める・止める
 // ============================================================
 
+/* シートを閉じたあと。開いている間に一覧が変わっていなければ作り直さない（見るだけ・ID のコピーだけで閉じたとき、
+   60社分を作り直すと戻った直後のスクロールが止まる）。止めていた秒読みと、その間に過ぎた締切の組み直しだけ追いつく */
+function closedSheet() {
+  if (!isWide()) ui.openId = null;
+  if (listDirty || !document.getElementById('view')) { listDirty = false; renderAll(); return; }
+  syncPills();
+  if (ui.page === 'list') tickHero(() => { if (!isEditing()) renderAll(); });
+}
+
 export function start() {
   cleanups = [];
   booted = false;
   detailDirty = false;
+  listDirty = false;
+  clearTimeout(enterTimer);
   refreshing = null;
   resetUi();
   store.resetStore();
@@ -437,7 +462,7 @@ export function start() {
   onLogoChange(() => renderAll());
   /* 入場の動きを見せるのは、区分が切り替わるとき（本選考への引き継ぎ）だけ */
   onDetailRerender((changed) => renderAll(!!changed));
-  cleanups.push(initSheet(() => { if (!isWide()) ui.openId = null; renderAll(); }));
+  cleanups.push(initSheet(closedSheet));
 
   listen(document, 'click', onClick);
   listen(document, 'input', onInput);
@@ -487,6 +512,7 @@ export function start() {
   return {
     ready,
     stop() {
+      clearTimeout(enterTimer);
       cleanups.forEach((fn) => { try { fn(); } catch (e) { /* 何もしない */ } });
       cleanups = [];
       store.resetStore();

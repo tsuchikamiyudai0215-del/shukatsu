@@ -1357,7 +1357,9 @@ test('ルートの行：⊖で削除・段階名で現在地・≡をつかん�
   fire(grip, 'pointerdown', 280, 120);
   assert.ok(R.d.body.classList.contains('route-dragging'));    // 動かしている間は描き直さない
   fire(grip, 'pointermove', 280, 320);
+  await sleep(20);                                              // 書くのは次の描画の前に1回だけ
   assert.match(rows()[0].style.transform, /200px/);
+  assert.match(rows()[1].style.transform, /translate3d/);       // 行き先までの行は上へずれる
   fire(grip, 'pointerup', 280, 320);
   assert.equal(R.d.body.classList.contains('route-dragging'), false);
   await until(() => route()[2] === 'エントリー', 1500);
@@ -1827,4 +1829,41 @@ test('shift のページ：読み込みの制限があり、スクリプトは�
   /* サーバーから来る値（警告・日付・時刻・エラー文）は esc を通す */
   for (const v of ['esc(w)', 'esc(x.start)', 'esc(x.date)', 'esc(e.message)', 'esc(p.start)']) assert.ok(js.includes(v), v);
   for (const raw of ['${w}', '${e.message}', '${x.start}']) assert.ok(!js.includes(raw), raw);
+});
+
+test('スマホで詳細を見るだけで閉じたら、一覧を作り直さない。開いている間に変わったときだけ作り直す', async () => {
+  const R = await boot();
+  const first = R.$('#view .row');
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="close-detail"]');
+  await sleep(50);
+  assert.equal(R.$('#view .row'), first, '見るだけなら同じ要素のまま');
+  R.click(`.row[data-id="${R.ids.b}"]`);
+  R.click('#sheet [data-act="done"]');
+  R.click('#sheet [data-act="close-detail"]');
+  await until(() => R.$('#view .row') !== first);              // 変えたあとは作り直す
+  R.stop();
+});
+
+test('見出しの秒読みは、要素を作り直さずに数字だけ書き換える', async () => {
+  const R = await boot();
+  const sec = () => R.$('#heroCd b[data-u="s"]');
+  const el = sec();
+  assert.ok(el);
+  const t0 = el.textContent;
+  await until(() => sec().textContent !== t0, 2500);
+  assert.equal(sec(), el);
+  R.stop();
+});
+
+test('絞り込みを続けて押すと、入場の動きの印を filt-in と filt-in-b で交互に付け替える（流し直すため）', async () => {
+  const R = await boot();
+  const lanes = () => R.$('.lanes');
+  R.click('.chiprow [data-v="todo"]');
+  const a = lanes().classList.contains('filt-in') ? 'filt-in' : 'filt-in-b';
+  R.click('.chiprow [data-v="all"]');
+  const b = lanes().classList.contains('filt-in') ? 'filt-in' : 'filt-in-b';
+  assert.notEqual(a, b);
+  assert.ok(R.$$('.lanes .row').slice(0, 10).every((r) => !r.hasAttribute('data-still')));
+  R.stop();
 });

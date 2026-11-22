@@ -431,6 +431,8 @@ async function addEvent() {
 export const detailActions = {
   'close-detail': () => closeDetail(),
   tab: (el) => {
+    /* 今のタブをもう一度押しても、中身は同じなので作り直さない */
+    if (ui.tab === el.dataset.v && root() && root().querySelector('.tab-pane')) return;
     ui.tab = el.dataset.v;
     const r = root();
     if (!r) return;
@@ -442,9 +444,12 @@ export const detailActions = {
       setHtml(pane, tabContent(c));
       bindReorder(pane.querySelector('.rlist'), { onMove: moveStage, onRemove: removeStageAt });
       pane.scrollTop = 0;
-      pane.classList.remove('swap');
-      pane.style.animation = 'none'; void pane.offsetWidth; pane.style.animation = '';
-      pane.classList.add('swap');
+      /* 中身が横から入る動きを流し直す。swap と swap-b を交互に付ける（app.css） */
+      /* 保存で描き直したときに付けた「動かさない」（animation:none）は外す。残っているとタブの動きも止まる */
+      pane.style.animation = '';
+      const next = pane.classList.contains('swap') ? 'swap-b' : 'swap';
+      pane.classList.remove('swap', 'swap-b');
+      pane.classList.add(next);
     }
   },
 

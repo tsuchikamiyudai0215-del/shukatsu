@@ -29,19 +29,16 @@ export function bindReorder(list, { onMove, onRemove }) {
     if (from < 0) return;
     e.preventDefault();
     try { grip.setPointerCapture(e.pointerId); } catch (err) { /* 取れなくても動く */ }
-    drag = { id: e.pointerId, grip, row, all, from, to: from, y0: e.clientY,
+    drag = { id: e.pointerId, grip, row, all, from, to: from, y0: e.clientY, dy: 0, raf: 0,
       tops: all.map((r) => r.getBoundingClientRect().top), h: row.getBoundingClientRect().height };
     row.classList.add('lift');
     /* 動かしている間は、裏の再取得で描き直さない（入力中と同じ扱い） */
     document.body.classList.add('route-dragging');
   });
 
-  list.addEventListener('pointermove', (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dy = e.clientY - drag.y0;
-    const { all, from, tops, h } = drag;
-    drag.row.style.transform = 'translate3d(0,' + dy + 'px,0)';
-    /* つかんだ行の真ん中が、どの行の真ん中を越えたかで行き先を決める */
+  /* つかんだ行の真ん中が、どの行の真ん中を越えたかで行き先を決める */
+  const destOf = (d) => {
+    const { all, from, tops, h, dy } = d;
     const mid = tops[from] + dy + h / 2;
     let to = from;
     for (let k = 0; k < all.length; k++) {
@@ -50,6 +47,18 @@ export function bindReorder(list, { onMove, onRemove }) {
       if (k > from && mid > c) to = k;
       if (k < from && mid < c && to === from) to = k;
     }
+    return to;
+  };
+
+  /* 指の動きは1コマに何回も届くので、書くのは次の描画の前に1回だけ。
+     ほかの行をずらすのは、行き先が変わったときだけ（変わらないのに全部の行へ書くと、そのたびに見た目の計算がやり直しになる） */
+  const drawDrag = () => {
+    if (!drag) return;
+    drag.raf = 0;
+    const { all, from, tops } = drag;
+    drag.row.style.transform = 'translate3d(0,' + drag.dy + 'px,0)';
+    const to = destOf(drag);
+    if (to === drag.to) return;
     drag.to = to;
     all.forEach((r, k) => {
       if (k === from) return;
@@ -58,11 +67,20 @@ export function bindReorder(list, { onMove, onRemove }) {
       if (to < from && k >= to && k < from) shift = tops[k + 1] - tops[k];
       r.style.transform = shift ? 'translate3d(0,' + shift + 'px,0)' : '';
     });
+  };
+
+  list.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.dy = e.clientY - drag.y0;
+    if (!drag.raf) drag.raf = requestAnimationFrame(drawDrag);
   });
 
   const endDrag = (e) => {
     if (!drag || (e && e.pointerId !== drag.id)) return;
-    const { all, from, to } = drag;
+    if (drag.raf) cancelAnimationFrame(drag.raf);
+    /* 最後の動きがまだ描かれていなくても、離した位置で行き先を決める */
+    const to = destOf(drag);
+    const { all, from } = drag;
     drag = null;
     all.forEach((r) => { r.style.transform = ''; r.classList.remove('lift'); });
     document.body.classList.remove('route-dragging');
@@ -81,8 +99,15 @@ export function bindReorder(list, { onMove, onRemove }) {
     if (e.target.closest && e.target.closest('.rgrip, .rminus')) return;
     const row = e.target.closest && e.target.closest('.rrow[data-i]');
     if (!row) return;
-    sw = { id: e.pointerId, row, x0: e.clientX, y0: e.clientY, on: false, dx: 0 };
+    sw = { id: e.pointerId, row, x0: e.clientX, y0: e.clientY, on: false, dx: 0, raf: 0 };
   });
+
+  const drawSwipe = () => {
+    if (!sw) return;
+    sw.raf = 0;
+    sw.row.style.transform = 'translate3d(' + sw.dx + 'px,0,0)';
+    sw.row.classList.toggle('far', Math.abs(sw.dx) > SWIPE_REMOVE);
+  };
 
   list.addEventListener('pointermove', (e) => {
     if (!sw || e.pointerId !== sw.id) return;
@@ -94,12 +119,12 @@ export function bindReorder(list, { onMove, onRemove }) {
       sw.row.classList.add('swipe');
     }
     sw.dx = dx;
-    sw.row.style.transform = 'translate3d(' + dx + 'px,0,0)';
-    sw.row.classList.toggle('far', Math.abs(dx) > SWIPE_REMOVE);
+    if (!sw.raf) sw.raf = requestAnimationFrame(drawSwipe);
   });
 
   const endSwipe = (e) => {
     if (!sw || (e && e.pointerId !== sw.id)) return;
+    if (sw.raf) cancelAnimationFrame(sw.raf);
     const { row, on, dx } = sw;
     sw = null;
     if (!on) return;

@@ -266,7 +266,10 @@ button,select,input{font-family:var(--body)}
 /* スマホの詳細は、カードが下から出てくる動きだけにする。見出しと中身まで同時に動かすと、出てくる動きが引っかかる。
    中身が横から入る動きは、タブを切り替えたとき（swap）だけ。PC の右パネルは出てくる動きが無いので、見出しと中身を動かす */
 .sheet .card .card-head,.sheet .card .tab-pane{animation:none}
-.sheet .card .tab-pane.swap{animation:tabPaneIn .42s var(--spring) both}
+/* タブを切り替えたら、swap と swap-b を交互に付ける（detail.js）。名前の違う動きに替わるので、付け直しのたびに最初から流れる。
+   流し直しのために見た目の計算を強制しなくて済む。中身はどちらも tabPaneIn と同じ */
+.tab-pane.swap,.sheet .card .tab-pane.swap{animation:tabPaneInA .42s var(--spring) both}
+.tab-pane.swap-b,.sheet .card .tab-pane.swap-b{animation:tabPaneInB .42s var(--spring) both}
 /* × は見出しの上の方にあるので、タブの列は × のための右の余白まで使う（引き継ぎを右端に置く幅を取る） */
 .tabs{display:flex;gap:2px;margin-top:20px;margin-right:-46px;border-bottom:1px solid var(--line-soft);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
@@ -282,6 +285,14 @@ button,select,input{font-family:var(--body)}
   touch-action:pan-y;-webkit-overflow-scrolling:touch;
   padding-bottom:32px;padding-right:4px;animation:tabPaneIn .42s var(--spring) both}
 @keyframes tabPaneIn{
+  from{opacity:0;transform:translate3d(16px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes tabPaneInA{
+  from{opacity:0;transform:translate3d(16px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes tabPaneInB{
   from{opacity:0;transform:translate3d(16px,0,0)}
   to{opacity:1;transform:translate3d(0,0,0)}
 }
@@ -518,17 +529,28 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   background:currentColor;opacity:.8;flex:0 0 auto}
 .lane > .accord-btn{display:flex;align-items:center;gap:9px;margin:22px 0 10px}
 .lane.is-filt-hidden{display:none !important}
+/* filt-in と filt-in-b は同じ動き。名前の違う動きを交互に付けると、付け直しのたびに最初から流れる（list.js の applyFilter） */
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .lab,
 #view .lanes.filt-in .lane:not(.is-filt-hidden) > .accord-btn{
   animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards}
+#view .lanes.filt-in-b .lane:not(.is-filt-hidden) > .lab,
+#view .lanes.filt-in-b .lane:not(.is-filt-hidden) > .accord-btn{
+  animation:enterUp2 .28s cubic-bezier(.2,.8,.2,1) backwards}
 #view .lanes.filt-in .lane:not(.is-filt-hidden) .row{
-  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards !important;
+  animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards !important}
+#view .lanes.filt-in-b .lane:not(.is-filt-hidden) .row{
+  animation:enterUp2 .28s cubic-bezier(.2,.8,.2,1) backwards !important}
+#view .lanes.filt-in .lane:not(.is-filt-hidden) .row,
+#view .lanes.filt-in-b .lane:not(.is-filt-hidden) .row{
   animation-delay:calc(var(--fi,0) * 18ms) !important}
-/* 浮き上がる数枚だけは、画面の外にあっても描く（content-visibility で描き止めると、動きの途中で出てくる） */
-#view .lanes.filt-in .row:not([data-still]){content-visibility:visible}
+/* 浮き上がる数枚だけは、画面の外にあっても描く（content-visibility で描き止めると、動きの途中で出てくる）。
+   動いている間だけ別の層にして、動き始めの1コマ目で層を作る手間を先に済ませておく */
+#view .lanes.filt-in .row:not([data-still]),
+#view .lanes.filt-in-b .row:not([data-still]){content-visibility:visible;will-change:transform,opacity}
 /* 残りのタイルは動かさない。60社分を1枚ずつ動かすと、スマホでは2秒近く動きが続いて、次の操作まで重くなる */
 #view.enter .row[data-still],#view.enter .pcard[data-still],
-#view .lanes.filt-in .lane:not(.is-filt-hidden) .row[data-still]{animation:none !important}
+#view .lanes.filt-in .lane:not(.is-filt-hidden) .row[data-still],
+#view .lanes.filt-in-b .lane:not(.is-filt-hidden) .row[data-still]{animation:none !important}
 .accord-btn{width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;color:var(--muted);
   transition:transform .42s var(--spring),opacity .2s var(--ease)}
 .accord-btn:active{transform:scale(.98);opacity:.8;transition:transform .1s var(--press)}
@@ -714,9 +736,12 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 /* 行き先（to）は書かない。書くと、薄くしてある終了・見送りのタイルも最後に濃さ1で止まってしまう。
    終わったら何も残さない（backwards）ので、押したときに縮む動きも効く */
 @keyframes enterUp{from{opacity:0;transform:translate3d(0,10px,0)}}
+@keyframes enterUp2{from{opacity:0;transform:translate3d(0,10px,0)}}
 #view.enter .row,#view.enter .pcard,#view.enter .stripitem,#view.enter .hero,#view.enter .chips{
   animation:enterUp .28s cubic-bezier(.2,.8,.2,1) backwards}
 #view.enter .row,#view.enter .pcard{animation-delay:calc(var(--ei,0) * 18ms)}
+/* 動く最初の数枚だけ、動いている間は別の層にしておく。記録タブのカードは大きく、層にすると重いので付けない */
+#view.enter .row:not([data-still]){will-change:transform,opacity}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0ms !important;
