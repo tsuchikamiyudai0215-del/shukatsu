@@ -8,7 +8,7 @@
 import { setHtml } from '../html.js';
 import { isWide } from '../state.js';
 
-const st = { pushed: false, locked: false, lockY: 0, dismissing: false, closeTimer: 0, downOnBackdrop: false, onClosed: null };
+const st = { pushed: false, locked: false, lockY: 0, dismissing: false, closeTimer: 0, actTimer: 0, raf1: 0, raf2: 0, downOnBackdrop: false, onClosed: null };
 
 function box() { return document.getElementById('sheet'); }
 
@@ -20,7 +20,7 @@ export function isSheetOpen() {
 function lockScroll(on) {
   const de = document.documentElement;
   if (on) {
-    st.lockY = window.scrollY;
+    /* 戻す位置（st.lockY）は showSheet が中身を入れる前に読んでおく。入れたあとに読むと、新しいシートの見た目の計算をその場でさせてしまう */
     de.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
   } else {
@@ -37,20 +37,23 @@ function unlock() {
 /* シートを出す。h は .sheet ごと組み立てた HTML */
 export function showSheet(h, opts = {}) {
   clearTimeout(st.closeTimer);
+  clearTimeout(st.actTimer);
+  cancelAnimationFrame(st.raf1); cancelAnimationFrame(st.raf2);
+  const lock = opts.lockOnWide || !isWide();
+  if (lock && !st.locked) st.lockY = window.scrollY;
   const b = box();
   setHtml(b, h);
-  /* 次の描画で出す（出す動きを見せるため）。画面が裏にあると描画が止まるので、時間でも出す */
+  if (lock) opened();
+  /* 出す動きは2コマ目から始める。1コマ目は、新しいシートの見た目の計算と層づくりに使わせる。
+     同じコマに重ねると、出始めの数コマが飛ぶ。画面が裏にあると描画が止まるので、時間でも出す */
   const activate = () => {
+    st.raf1 = st.raf2 = 0;
+    clearTimeout(st.actTimer);
     const sh = b.querySelector('.sheet');
     if (sh && !sh.classList.contains('out')) sh.classList.add('is-active');
   };
-  requestAnimationFrame(activate);
-  setTimeout(activate, 60);
-  const card = b.querySelector('.card');
-  if (card && card.classList.contains('noblur')) {
-    setTimeout(() => { const c = b.querySelector('.card'); if (c) c.classList.remove('noblur'); }, 620);
-  }
-  if (opts.lockOnWide || !isWide()) opened();
+  st.raf1 = requestAnimationFrame(() => { st.raf2 = requestAnimationFrame(activate); });
+  st.actTimer = setTimeout(activate, 80);
 }
 
 function opened() {
@@ -80,8 +83,6 @@ function closeOverlay() {
     if (st.onClosed) st.onClosed();
     return;
   }
-  const c = sh.querySelector('.card');
-  if (c) c.classList.add('noblur');
   sh.classList.remove('is-active');
   sh.classList.add('out');
   clearTimeout(st.closeTimer);
@@ -119,6 +120,8 @@ export function closeThen(fn) {
 /* 画面の幅が変わったときなどに、アニメーション無しで片付ける */
 export function dropSheet() {
   clearTimeout(st.closeTimer);
+  clearTimeout(st.actTimer);
+  cancelAnimationFrame(st.raf1); cancelAnimationFrame(st.raf2);
   const b = box();
   if (b) b.innerHTML = '';
   unlock();
@@ -130,10 +133,10 @@ function bindGesture() {
   if (!card || card.dataset.bound) return;
   card.dataset.bound = '1';
   const sheet = card.parentNode;
-  let y0 = 0, x0 = 0, t0 = 0, dy = 0, active = false, tracking = false, raf = 0, from = null;
+  let y0 = 0, x0 = 0, t0 = 0, dy = 0, active = false, tracking = false, raf = 0;
 
   /* 指の下にある入れ物（会社名の候補など）のどれかが下へスクロールしてあれば、閉じずにスクロールを優先する */
-  const scrolled = () => {
+  const scrolled = (from) => {
     const pane = card.querySelector('.tab-pane');
     if (pane && pane.scrollTop > 0) return true;
     for (let el = from; el && el !== sheet; el = el.parentNode) if (el.scrollTop > 0) return true;
@@ -146,26 +149,15 @@ function bindGesture() {
     card.style.transform = 'translate3d(0,' + d + 'px,0) scale(' + Math.max(0.9, 1 - d / 2400) + ')';
   };
 
-  card.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) return;
-    /* キーボードが出ている間は入力中なので、スワイプで閉じない（候補を見ようとして消えてしまう） */
-    if (document.body.classList.contains('kb-open')) { tracking = false; return; }
-    /* 選考ルートの ≡ は行の並べ替えに使うので、下へ動かしても詳細を閉じない */
-    if (e.target.closest && e.target.closest('.rgrip')) { tracking = false; return; }
-    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
-    t0 = Date.now(); dy = 0; active = false; tracking = true; from = e.target;
-    card.classList.remove('spring', 'fly');
-  }, { passive: true });
-
-  card.addEventListener('touchmove', (e) => {
+  /* 指の動きを止められる見張り（passive: false）は、閉じる動きになりうるときだけ付ける。
+     付けっぱなしだと、中身を普通にスクロールするときも、ブラウザが毎回この処理を待つので、スクロールがなめらかにならない */
+  const onMove = (e) => {
     if (!tracking || e.touches.length !== 1) return;
-    if (active && !card.classList.contains('noblur')) card.classList.add('noblur');
     const cy = e.touches[0].clientY, cx = e.touches[0].clientX;
     const vdy = cy - y0, vdx = cx - x0;
     if (!active) {
-      if (Math.abs(vdx) > Math.abs(vdy)) { tracking = false; return; }
-      /* 中を上にスクロールしてある間は、スワイプで閉じない */
-      if (scrolled()) { y0 = cy; t0 = Date.now(); return; }
+      /* 横に動かした・上へ動かした（中身のスクロール）なら、ブラウザに任せて見張りを外す */
+      if (Math.abs(vdx) > Math.abs(vdy) || vdy < -6) { tracking = false; unwatch(); return; }
       /* いちばん上から下へ引くときは、中身の跳ね返り（ブラウザのスクロール）を最初から止める。
          始まってしまうと、あとから止められず、カードの動きと取り合ってカクつく */
       if (vdy > 0 && e.cancelable) e.preventDefault();
@@ -174,9 +166,26 @@ function bindGesture() {
     dy = vdy;
     if (!raf) raf = requestAnimationFrame(apply);
     if (e.cancelable) e.preventDefault();
-  }, { passive: false });
+  };
+  const unwatch = () => card.removeEventListener('touchmove', onMove);
+
+  card.addEventListener('touchstart', (e) => {
+    unwatch();
+    if (e.touches.length !== 1) return;
+    /* キーボードが出ている間は入力中なので、スワイプで閉じない（候補を見ようとして消えてしまう） */
+    if (document.body.classList.contains('kb-open')) { tracking = false; return; }
+    /* 選考ルートの ≡ は行の並べ替えに使うので、下へ動かしても詳細を閉じない */
+    if (e.target.closest && e.target.closest('.rgrip')) { tracking = false; return; }
+    /* 中をスクロールしてあるときは閉じない。上まで戻したら、指を離してもう一度引くと閉じる（iPhone の標準のシートと同じ） */
+    if (scrolled(e.target)) { tracking = false; return; }
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+    t0 = Date.now(); dy = 0; active = false; tracking = true;
+    card.classList.remove('spring', 'fly');
+    card.addEventListener('touchmove', onMove, { passive: false });
+  }, { passive: true });
 
   const end = () => {
+    unwatch();
     if (!tracking) return;
     tracking = false;
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
@@ -185,19 +194,20 @@ function bindGesture() {
     const v = dy / Math.max(1, Date.now() - t0);
     if (dy > 96 || v > 0.5) dismiss(); else bounce();
   };
-  card.addEventListener('touchend', end);
-  card.addEventListener('touchcancel', end);
+  card.addEventListener('touchend', end, { passive: true });
+  card.addEventListener('touchcancel', end, { passive: true });
 
   function bounce() {
     card.classList.remove('drag');
     card.classList.add('spring');
     card.style.transform = '';
-    setTimeout(() => card.classList.remove('noblur'), 600);
   }
   function dismiss() {
+    /* 高さはクラスを変える前に読む。変えたあとに読むと、その場で見た目の計算をさせてしまう */
+    const h = window.innerHeight;
     card.classList.remove('drag');
-    card.classList.add('fly', 'noblur');
-    card.style.transform = 'translate3d(0,' + Math.max(window.innerHeight, dy + 400) + 'px,0) scale(.96)';
+    card.classList.add('fly');
+    card.style.transform = 'translate3d(0,' + Math.max(h, dy + 400) + 'px,0) scale(.96)';
     card.style.opacity = '0';
     sheet.classList.remove('is-active');
     sheet.classList.add('out');

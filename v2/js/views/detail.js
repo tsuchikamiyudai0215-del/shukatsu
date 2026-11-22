@@ -301,7 +301,7 @@ export function renderDetail() {
   }
   const card = document.querySelector('#sheet .sheet .card');
   if (card && card.classList.contains('detail')) { paintInto(card, c); return; }
-  showSheet(html`<div class="sheet"><div class="card noblur detail" data-id="${c.id}">${fullHtml(c)}</div></div>`);
+  showSheet(html`<div class="sheet"><div class="card detail" data-id="${c.id}">${fullHtml(c)}</div></div>`);
 }
 
 /* 詳細を開く。同じ会社を開き直したときも、開いたときの動きは見せる */

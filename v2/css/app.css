@@ -239,9 +239,13 @@ button,select,input{font-family:var(--body)}
   transform:translate3d(0,105%,0);
   transition:transform .58s var(--spring);
   will-change:transform;
+  /* 中の描き直しを、カードの外の見た目の計算に広げない */
+  contain:layout style;
 }
+/* iPhone では外側の影を軽くする。画面いっぱいの板に大きくぼかした影を付けると、開閉と引き下げの全部のコマで重い。
+   後ろは暗幕（rgba(0,0,0,.7)）と縁取りがあるので、影を軽くしても見た目はほぼ変わらない */
+.ios .sheet .card{box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .sheet.is-active .card{transform:translate3d(0,0,0)}
-.card.noblur{backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
 .grab{width:40px;height:5px;background:rgba(255,255,255,.3);border-radius:3px;margin:0 auto 16px;
   transition:background .2s var(--ease);flex:0 0 auto}
 .card.drag .grab{background:rgba(255,255,255,.7)}
@@ -282,7 +286,7 @@ button,select,input{font-family:var(--body)}
   background:none;color:var(--go);font-size:11.5px;font-weight:500;opacity:.8;white-space:nowrap}
 .tabs .carry.done{color:var(--dim);opacity:1;cursor:default}
 .tab-pane{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
-  touch-action:pan-y;-webkit-overflow-scrolling:touch;
+  touch-action:pan-y;-webkit-overflow-scrolling:touch;contain:layout style;
   padding-bottom:32px;padding-right:4px;animation:tabPaneIn .42s var(--spring) both}
 @keyframes tabPaneIn{
   from{opacity:0;transform:translate3d(16px,0,0)}

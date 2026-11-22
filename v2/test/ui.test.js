@@ -1529,6 +1529,26 @@ test('詳細を下へ引く：カードが指に付いてくる。後ろの一�
   fire('touchend');
   await sleep(400);
   assert.ok(R.$('#sheet .card'));                                // 少しだけなら閉じずに戻る
+
+  /* 中を下までスクロールしてある状態から引いても、閉じず、中身のスクロールも止めない（ブラウザに任せる） */
+  const pane = card.querySelector('.tab-pane');
+  Object.defineProperty(pane, 'scrollTop', { value: 50, configurable: true });
+  fire('touchstart', 100);
+  assert.equal(fire('touchmove', 103).defaultPrevented, false);
+  fire('touchmove', 300);
+  await sleep(20);
+  assert.equal(card.style.transform, '');
+  fire('touchend');
+  /* 上まで戻したら、指を離してもう一度引くと閉じる動きになる */
+  Object.defineProperty(pane, 'scrollTop', { value: 0, configurable: true });
+  fire('touchstart', 100);
+  fire('touchmove', 160);
+  await sleep(20);
+  assert.match(card.style.transform, /translate3d\(0,\s*60px/);
+  await sleep(200);                                              // ゆっくり離す（速いと閉じて、閉じる処理が次のテストに漏れる）
+  fire('touchend');
+  await sleep(400);
+  assert.ok(R.$('#sheet .card'));
   R.stop();
 });
 
