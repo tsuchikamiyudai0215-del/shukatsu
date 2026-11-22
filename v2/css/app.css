@@ -144,9 +144,10 @@ button,select,input{font-family:var(--body)}
   margin-bottom:9px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;justify-content:space-between;
   opacity:var(--base-op, 1);
-  transition:transform .5s var(--spring),opacity .2s var(--ease),background .2s var(--ease)}
+  /* 背景はグラデーションで、ブラウザは途中の色を作れずに切り替わるだけなので、transition に入れない（入れると塗り直しの印だけ増える） */
+  transition:transform .5s var(--spring),opacity .2s var(--ease)}
 .row:active{transform:scale(.975);background:var(--surface-hi);
-  transition:transform .1s var(--press),background .1s var(--ease)}
+  transition:transform .1s var(--press)}
 .row.is-fixed{
   background:linear-gradient(180deg, rgba(64,214,120,0.24) 0%, rgba(40,150,90,0.1) 100%), rgba(18,34,26,0.4);
   box-shadow:var(--tile-shadow)}
@@ -162,8 +163,12 @@ button,select,input{font-family:var(--body)}
 .ios .row:not(.is-fixed):not(.is-offer):not(.is-hot),.ios .stripitem{background:linear-gradient(180deg,#2A2F3D 0%,#191D2A 100%);box-shadow:none}
 .ios .row:not(.is-fixed):not(.is-offer):not(.is-hot):active{background:linear-gradient(180deg,#3F4758 0%,#262C3C 100%)}
 /* つまみを指で動かしている間も、すりガラスにしない。ぼかしは一番重い塗り方で、指に付いてくる動きがカクつく */
-.ios .grabbing .pill{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(70,82,108,.92) !important}
-.ios .tabbar.lifted,.ios .seg.lifted{box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px rgba(0,0,0,.5)}
+.ios .grabbing .pill{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(70,82,108,.92) !important;
+  box-shadow:0 2px 8px rgba(0,0,0,.35) !important}
+.ios .tabbar::after,.ios .seg::after{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),
+             inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16),
+             inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px rgba(0,0,0,.5)}
 /* 上に留まる絞り込みの列は、スクロール中ずっと塗り直すので、ボタンの影を外す */
 .ios .chiprow button,.ios .chiprow button.on{box-shadow:none}
 /* 締切まで2日以内。赤い数字だけでなく、面そのものにも熱を持たせる。
@@ -352,20 +357,26 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   touch-action:pan-y;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   position:relative;isolation:isolate;
-  background:var(--chrome);
+  /* 持ち上げたときの見た目に切り替えるのに、背景と大きくぼかした影を transition で変えると、その間ずっと塗り直しになる。
+     本体の背景は持ち上げたときのものにしておき、ふだんの背景は ::before、持ち上げたときの影は ::after に置いて、
+     どちらも opacity だけで出し入れする。縁の色だけは本体で変える（細い線なので軽く、見た目をそのままにできる） */
+  background:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 100%), rgba(26,26,36,0.3);
   border:1px solid rgba(255,255,255,0.14);
   box-shadow:var(--glass-edge);
-  transition:transform .5s var(--spring),background .3s var(--ease),
-             border-color .3s var(--ease),box-shadow .3s var(--ease);
+  transition:transform .5s var(--spring),border-color .3s var(--ease);
 }
+.tabbar::before,.seg::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
+  transition:opacity .3s var(--ease)}
+.tabbar.lifted::before,.seg.lifted::before{opacity:0}
 /* すりガラス（backdrop-filter）は、切り替えのつまみを指で動かしている間だけに使う。
    下のタブバーも無地にしてある：画面の下に固定なので、すりガラスだと一覧をスクロールするたびに後ろをぼかし直して重いため */
-.tabbar{position:fixed;left:50%;transform:translateX(-50%);
-  background:linear-gradient(180deg, rgba(44,54,75,.98) 0%, rgba(24,30,45,.99) 100%);
+.tabbar{position:fixed;left:50%;transform:translateX(-50%);will-change:transform;
   bottom:calc(18px + env(safe-area-inset-bottom));z-index:45;
   display:inline-flex;align-items:center;justify-content:center;gap:2px;
   white-space:nowrap;max-width:calc(100vw - 24px);
   border-radius:var(--r-chip);padding:5px;--pw:88px;--pg:2px}
+.tabbar::before{background:linear-gradient(180deg, rgba(44,54,75,.98) 0%, rgba(24,30,45,.99) 100%)}
 .tabbar button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;
   padding:10px 0;border-radius:var(--r-chip);cursor:pointer;position:relative;z-index:1;
   white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
@@ -378,8 +389,8 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .tabbar .ico svg{width:22px;height:22px;display:block}
 
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:0 auto 16px;max-width:320px;
-  background:linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.04) 100%), rgba(18,18,28,0.55);
   border-radius:var(--r-chip);padding:4px}
+.seg::before{background:linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.04) 100%), rgba(18,18,28,0.55)}
 .seg button{background:none;border:none;color:var(--muted);position:relative;z-index:1;
   border-radius:var(--r-chip);padding:10px 0;font-size:13px;font-weight:600;cursor:pointer;
   white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;
@@ -408,14 +419,11 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
   opacity:0;transition:opacity .25s var(--ease);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),
-             inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16)}
-.tabbar.lifted::after,.seg.lifted::after{opacity:1}
-
-.tabbar.lifted,.seg.lifted{
-  background:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 100%), rgba(26,26,36,0.3);
-  border-color:rgba(255,255,255,.36);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(0,0,0,.4),
+             inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16),
+             inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(0,0,0,.4),
              0 0 30px rgba(255,255,255,.14),0 18px 46px rgba(0,0,0,.6)}
+.tabbar.lifted::after,.seg.lifted::after{opacity:1}
+.tabbar.lifted,.seg.lifted{border-color:rgba(255,255,255,.36)}
 .tabbar.lifted{transform:translateX(-50%) scale(1.055)}
 .seg.lifted{transform:scale(1.045)}
 @media (min-width:1000px){ .tabbar.lifted{transform:scale(1.055)} }
@@ -515,7 +523,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   border:1px solid rgba(255,255,255,.16);color:var(--muted);border-radius:var(--r-chip);
   padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 8px rgba(0,0,0,.3);
-  transition:background .24s var(--ease),color .24s var(--ease),transform .5s var(--spring)}
+  transition:color .24s var(--ease),transform .5s var(--spring)}
 .chiprow button:active{transform:scale(.88);transition:transform .1s var(--press)}
 .chiprow button b{font-family:var(--disp);font-size:16px;font-weight:600;line-height:1}
 .chiprow button.on{background:linear-gradient(180deg,#FFFFFF 0%,#EDEDF4 100%);
