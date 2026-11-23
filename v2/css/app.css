@@ -359,11 +359,12 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   position:relative;isolation:isolate;
   /* 持ち上げたときの見た目に切り替えるのに、背景と大きくぼかした影を transition で変えると、その間ずっと塗り直しになる。
      本体の背景は持ち上げたときのものにしておき、ふだんの背景は ::before、持ち上げたときの影は ::after に置いて、
-     どちらも opacity だけで出し入れする。縁の色だけは本体で変える（細い線なので軽く、見た目をそのままにできる） */
+     どちらも opacity だけで出し入れする。持ち上げたときの明るい縁も ::after に持たせる。
+     本体の縁の色を変えると、iPhone ではその間ずっと本体（影ごと1枚の層）を描き直してしまうため */
   background:linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 100%), rgba(26,26,36,0.3);
   border:1px solid rgba(255,255,255,0.14);
   box-shadow:var(--glass-edge);
-  transition:transform .5s var(--spring),border-color .3s var(--ease);
+  transition:transform .5s var(--spring);
 }
 .tabbar::before,.seg::before{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
@@ -415,15 +416,16 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
 .seg .pill{left:4px;top:4px;height:calc(100% - 8px);width:calc((100% - 8px) / 2)}
 .seg.i1 .pill{transform:translate3d(100%,0,0)}
 
+/* 本体の縁（1px）にぴったり重ねるため、1px 外へ広げて自分の縁を持たせる */
 .tabbar::after,.seg::after{
-  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
+  content:'';position:absolute;inset:-1px;border:1px solid rgba(255,255,255,.36);
+  border-radius:inherit;pointer-events:none;z-index:3;
   opacity:0;transition:opacity .25s var(--ease);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),
              inset 1px 0 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(255,255,255,.16),
              inset 0 1px 0 rgba(255,255,255,.7),inset 0 -1px 0 rgba(0,0,0,.4),
              0 0 30px rgba(255,255,255,.14),0 18px 46px rgba(0,0,0,.6)}
 .tabbar.lifted::after,.seg.lifted::after{opacity:1}
-.tabbar.lifted,.seg.lifted{border-color:rgba(255,255,255,.36)}
 .tabbar.lifted{transform:translateX(-50%) scale(1.055)}
 .seg.lifted{transform:scale(1.045)}
 @media (min-width:1000px){ .tabbar.lifted{transform:scale(1.055)} }
@@ -717,7 +719,7 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   border:1px solid transparent;border-radius:var(--r-field);padding:12px 20px;font-size:13px;font-weight:500;
   box-shadow:var(--glass-drop-lg);transition:opacity .3s var(--ease),transform .58s var(--spring);max-width:88vw}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
-#ptr{position:fixed;top:calc(6px + env(safe-area-inset-top));left:50%;
+#ptr{position:fixed;top:calc(6px + env(safe-area-inset-top));left:50%;will-change:transform,opacity;
   transform:translate3d(-50%,-40px,0) scale(.7);opacity:0;z-index:70;pointer-events:none;
   width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;
   background:var(--chrome);border:1px solid rgba(255,255,255,.18);box-shadow:var(--glass-edge)}
@@ -732,7 +734,6 @@ input[type="datetime-local"]:not(:focus):placeholder-shown{color:var(--dim)}
   padding:6px 16px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);
   box-shadow:var(--glass-edge);transition:opacity .3s var(--ease),transform .5s var(--spring)}
 #stale.on{opacity:1;transform:translate3d(-50%,0,0)}
-.tabbar::before,.seg::before{border-radius:inherit}
 #busy{position:fixed;inset:0;background:rgba(0,0,0,.72);
   display:none;align-items:center;justify-content:center;z-index:99;
   font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.2em}
@@ -862,8 +863,8 @@ body.sheet-open .tabbar{opacity:0;transform:translateX(-50%) translate3d(0,26px,
   color:var(--dim);touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
 .rgrip svg{width:20px;height:20px}
 /* つかんでいる行は浮かせて、指にそのまま付いてこさせる。ほかの行は動いてすき間を空ける */
-.rrow.lift{z-index:5;transition:none;background:rgb(44,54,75);box-shadow:0 10px 28px -6px rgba(0,0,0,.65);cursor:grabbing}
-.rrow.swipe{transition:none;background:rgba(255,69,58,.2)}
+.rrow.lift{z-index:5;transition:none;will-change:transform;background:rgb(44,54,75);box-shadow:0 10px 28px -6px rgba(0,0,0,.65);cursor:grabbing}
+.rrow.swipe{transition:none;will-change:transform;background:rgba(255,69,58,.2)}
 .rrow.swipe.far{background:rgba(255,69,58,.42)}
 .rjoint{display:flex;align-items:center;gap:10px;height:44px}
 .rjoint::before,.rjoint::after{content:'';flex:1;border-top:1px solid var(--line-soft)}

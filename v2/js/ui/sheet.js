@@ -34,11 +34,17 @@ function unlock() {
   if (st.locked) { st.locked = false; lockScroll(false); }
 }
 
+/* 出す動きの予約（2コマ先と時間の保険）を止める。閉じたあとや作り直したあとに、古いシートへ is-active を付けないように */
+function stopOpen() {
+  clearTimeout(st.actTimer);
+  cancelAnimationFrame(st.raf1); cancelAnimationFrame(st.raf2);
+  st.raf1 = st.raf2 = 0;
+}
+
 /* シートを出す。h は .sheet ごと組み立てた HTML */
 export function showSheet(h, opts = {}) {
   clearTimeout(st.closeTimer);
-  clearTimeout(st.actTimer);
-  cancelAnimationFrame(st.raf1); cancelAnimationFrame(st.raf2);
+  stopOpen();
   const lock = opts.lockOnWide || !isWide();
   if (lock && !st.locked) st.lockY = window.scrollY;
   const b = box();
@@ -71,6 +77,7 @@ export function closeSheet() {
 }
 
 function closeOverlay() {
+  stopOpen();
   const b = box();
   const sh = b.querySelector('.sheet');
   document.body.classList.remove('sheet-open');
@@ -112,6 +119,7 @@ export function closeThen(fn) {
     return;
   }
   clearTimeout(st.closeTimer);
+  stopOpen();
   box().innerHTML = '';
   unlock();
   fn();
@@ -120,8 +128,7 @@ export function closeThen(fn) {
 /* 画面の幅が変わったときなどに、アニメーション無しで片付ける */
 export function dropSheet() {
   clearTimeout(st.closeTimer);
-  clearTimeout(st.actTimer);
-  cancelAnimationFrame(st.raf1); cancelAnimationFrame(st.raf2);
+  stopOpen();
   const b = box();
   if (b) b.innerHTML = '';
   unlock();
@@ -170,8 +177,9 @@ function bindGesture() {
   const unwatch = () => card.removeEventListener('touchmove', onMove);
 
   card.addEventListener('touchstart', (e) => {
-    unwatch();
+    /* 引いている途中で2本目の指が触れたときは、見張りを外さない（外すと、指を離すまでシートが途中で止まる） */
     if (e.touches.length !== 1) return;
+    unwatch();
     /* キーボードが出ている間は入力中なので、スワイプで閉じない（候補を見ようとして消えてしまう） */
     if (document.body.classList.contains('kb-open')) { tracking = false; return; }
     /* 選考ルートの ≡ は行の並べ替えに使うので、下へ動かしても詳細を閉じない */
@@ -239,6 +247,7 @@ export function initSheet(onClosed) {
   b.addEventListener('click', onClick);
   return () => {
     clearTimeout(st.closeTimer);
+    stopOpen();
     window.removeEventListener('popstate', onPop);
     b.removeEventListener('pointerdown', onDown, true);
     b.removeEventListener('click', onClick);

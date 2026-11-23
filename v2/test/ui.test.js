@@ -1523,6 +1523,13 @@ test('詳細を下へ引く：カードが指に付いてくる。後ろの一�
   fire('touchmove', 160);
   await sleep(20);
   assert.match(card.style.transform, /translate3d\(0,\s*60px/);
+  /* 引いている途中で2本目の指が触れても、見張りは外れない（外れると途中で固まる） */
+  const two = new R.w.Event('touchstart', { bubbles: true, cancelable: true });
+  two.touches = [{ clientX: 100, clientY: 160 }, { clientX: 200, clientY: 300 }];
+  card.querySelector('.tab-pane').dispatchEvent(two);
+  fire('touchmove', 180);
+  await sleep(20);
+  assert.match(card.style.transform, /translate3d\(0,\s*80px/);
   assert.equal(R.$('#app').style.transform, '');                  // 後ろの一覧は縮めない（重くてカクつくため）
   assert.equal(R.d.body.style.getPropertyValue('--bgs'), '');
   await sleep(200);                                              // ゆっくり引いて離す（速く払うと閉じる）

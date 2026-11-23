@@ -83,7 +83,8 @@ function enter() {
      クラスが付いたままでも動きは最初から流れる。前の切り替えのタイマーは止め、新しい動きの途中で外れないようにする */
   clearTimeout(enterTimer);
   el.classList.add('enter');
-  enterTimer = setTimeout(() => el.classList.remove('enter'), 1000);
+  /* 動く最初の10枚は 9 × 18ms ＋ 280ms ≒ 0.45 秒で終わる。終わったらすぐ外して、動いている間だけ作った層を早く手放す */
+  enterTimer = setTimeout(() => el.classList.remove('enter'), 600);
 }
 
 /* 画面全体を描き直す。入力中は詳細だけ描き直しを待たせ、入力が終わってから描く */
@@ -93,8 +94,8 @@ function renderAll(pageChanged) {
   importLegacyManual(store.companies());
   ensureShell();
   syncPills();
-  /* 切り替えの直後（1秒ほど）に保存などで描き直すと、入場の動きがもう一度流れる。切り替え以外では先に外す */
-  if (!pageChanged) { const v = document.getElementById('view'); if (v) v.classList.remove('enter'); }
+  /* 切り替えの直後（0.6秒ほど）に保存などで描き直すと、入場の動きがもう一度流れる。切り替え以外では先に外す */
+  if (!pageChanged) { clearTimeout(enterTimer); const v = document.getElementById('view'); if (v) v.classList.remove('enter'); }
   /* スマホで詳細などを開いている間は、後ろの見えない一覧を描き直さない。保存のたびに60社分を描き直すと、手前の操作が引っかかる。
      見送ったことを覚えておき、閉じたときに1回だけ描き直す（closedSheet） */
   const hidden = !pageChanged && !isWide() && isSheetOpen() && document.getElementById('view');
