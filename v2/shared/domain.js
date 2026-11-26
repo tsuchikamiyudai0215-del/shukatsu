@@ -663,6 +663,129 @@ var Domain = (function () {
   }
 
   // ============================================================
+  // 締切と予定のつながり
+  // ============================================================
+
+  /*
+   * 面接・GD・面談・インターンは、日程が必ず決まる段階。その段階の「締切」は、予定タブの予定と同じ日時になる。
+   * 2か所に別々に入れると、片方だけ直して食い違ったり、カレンダーに同じ面接が2つ並んだりするので、
+   * 予定に link: 'due' の印を付けて「今の段階の締切と同じもの」としてつなぐ。日時を写し合うのは、つないだ1件だけ。
+   * ES や Web テストのように、締切が本当に「締め切り」のものはつながない。
+   */
+  function scheduleKind(name) {
+    var s = str(name);
+    if (/面接/.test(s)) return '面接';
+    if (/GD|グループディスカッション/i.test(s)) return 'GD';
+    if (/面談/.test(s)) return '面談';
+    if (/インターン/.test(s)) return 'インターン';
+    return '';
+  }
+
+  /* 対応中で、今の段階と予定の種類が同じ仲間（一次面接と面接など）ならつなげる */
+  function canLinkDue(c, kind) {
+    if (!c || c.status !== 'todo') return false;
+    var k = scheduleKind(position(c));
+    return !!k && scheduleKind(kind) === k;
+  }
+
+  function linkedEvent(c, events) {
+    var id = c && c.id;
+    for (var i = 0; i < (events || []).length; i++) {
+      var e = events[i];
+      if (e && e.companyId === id && str(e.link) === 'due') return e;
+    }
+    return null;
+  }
+
+  /* 予定の始まりを、締切の形にする。終日の予定は時刻なしの締切にする */
+  function dueOfEvent(e) {
+    return e.allDay ? { dueAt: str(e.startAt).slice(0, 10), hasTime: false } : { dueAt: str(e.startAt), hasTime: true };
+  }
+
+  function sameDue(c, d) {
+    var n = normalizeDue(d.dueAt, d.hasTime);
+    return str(c.dueAt) === n.dueAt && !!c.dueHasTime === n.dueHasTime;
+  }
+
+  /*
+   * 予定を足すとき。つなげるなら link を付け、締切に写す値（due）も返す。
+   * 締切がもう別の日時で入っていて、replaceDue が無ければ、勝手に上書きせず conflict を返してつながない。
+   * 画面は conflict のときに「締切も変えますか」と聞き、はいなら replaceDue を付けて送り直す
+   */
+  function linkOnAdd(c, e, events, opts) {
+    var ev = copy(e);
+    ev.link = '';
+    if (!canLinkDue(c, e.kind) || linkedEvent(c, events)) return { event: ev };
+    var d = dueOfEvent(e);
+    if (str(c.dueAt) && !sameDue(c, d) && !(opts && opts.replaceDue)) return { event: ev, conflict: true };
+    ev.link = 'due';
+    return { event: ev, due: sameDue(c, d) ? null : d };
+  }
+
+  /* 締切から予定を作る。長さは1時間（時刻なしなら終日） */
+  function eventOfDue(c, id) {
+    var e = createEvent(id, c.id, {
+      kind: position(c),
+      startAt: c.dueHasTime ? c.dueAt : str(c.dueAt).slice(0, 10) + 'T00:00',
+      endAt: c.dueHasTime ? addMinutes(c.dueAt, 60) : '',
+      allDay: !c.dueHasTime
+    });
+    e.link = 'due';
+    return e;
+  }
+
+  /*
+   * 会社への操作（apply）のあとで、つないだ予定をどう直すか。{ write: 書く予定, remove: 消す予定の id } を返す。
+   * ・段階が変わった・対応中でなくなった … つながりだけ外す（終わった面接は記録として残す）
+   * ・締切が動いた … つないだ予定も同じだけ動かす（長さは保つ）
+   * ・締切を未定にした … つないだ予定を消す
+   * ・つないだ予定が無く、日程の決まる段階に締切を入れた … 同じ日時の予定があればつなぎ、無ければ作る。
+   *   同じ日時のまま「締切を保存」を押したとき（op が setDue）も同じにする。この仕組みより前に入れた締切をつなぐため
+   */
+  function syncLinked(before, after, events, newId, op) {
+    var out = { write: [], remove: [] };
+    var ev = linkedEvent(after, events);
+    var stageChanged = position(before) !== position(after);
+    var dueChanged = str(before.dueAt) !== str(after.dueAt) || !!before.dueHasTime !== !!after.dueHasTime;
+    if (ev) {
+      if (after.status !== 'todo' || stageChanged) {
+        var off = copy(ev); off.link = '';
+        out.write.push(off);
+      } else if (dueChanged) {
+        if (!str(after.dueAt)) { out.remove.push(ev.id); return out; }
+        var moved = copy(ev);
+        var s0 = parseWall(ev.startAt), e0 = parseWall(ev.endAt);
+        if (after.dueHasTime) {
+          moved.startAt = after.dueAt;
+          moved.allDay = false;
+          moved.endAt = e0 != null && s0 != null && !ev.allDay ? addMinutes(after.dueAt, Math.round((e0 - s0) / MIN_MS)) : addMinutes(after.dueAt, 60);
+        } else {
+          var day = str(after.dueAt).slice(0, 10);
+          moved.startAt = day + 'T00:00';
+          moved.allDay = true;
+          moved.daily = false;
+          moved.endAt = ev.allDay && e0 != null && s0 != null ? addDays(day, Math.round((e0 - s0) / DAY_MS)) + 'T00:00' : '';
+        }
+        out.write.push(moved);
+      }
+      return out;
+    }
+    var saved = dueChanged || (op && op.type === 'setDue');
+    if (after.status !== 'todo' || !saved || !str(after.dueAt) || !scheduleKind(position(after))) return out;
+    for (var i = 0; i < (events || []).length; i++) {
+      var e = events[i];
+      if (!e || e.companyId !== after.id || !canLinkDue(after, e.kind)) continue;
+      if (sameDue(after, dueOfEvent(e))) {
+        var on = copy(e); on.link = 'due';
+        out.write.push(on);
+        return out;
+      }
+    }
+    out.write.push(eventOfDue(after, newId()));
+    return out;
+  }
+
+  // ============================================================
   // カレンダー
   // ============================================================
 
@@ -740,7 +863,8 @@ var Domain = (function () {
    */
   function desiredCalendar(company, events, now) {
     var out = [];
-    if (company.status === 'todo' && parseWall(company.dueAt) != null) out.push(dueItem(company));
+    /* 締切が予定とつながっているときは、予定のほうだけ入れる（同じ面接を2つ並べない。場所や長さを持てるのは予定のほう） */
+    if (company.status === 'todo' && parseWall(company.dueAt) != null && !linkedEvent(company, events)) out.push(dueItem(company));
     var closed = company.status === 'failed' || company.status === 'skipped';
     (events || []).forEach(function (e) {
       if (!e || e.companyId !== company.id) return;
@@ -1157,6 +1281,11 @@ var Domain = (function () {
     duplicateOf: duplicateOf,
     normalize: normalize,
     createEvent: createEvent,
+    scheduleKind: scheduleKind,
+    canLinkDue: canLinkDue,
+    linkedEvent: linkedEvent,
+    linkOnAdd: linkOnAdd,
+    syncLinked: syncLinked,
 
     routeOf: routeOf,
     defaultRoute: defaultRoute,

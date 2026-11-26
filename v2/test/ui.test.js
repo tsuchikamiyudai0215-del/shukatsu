@@ -1894,3 +1894,28 @@ test('絞り込みを続けて押すと、入場の動きの印を filt-in と f
   assert.ok(R.$$('.lanes .row').slice(0, 10).every((r) => !r.hasAttribute('data-still')));
   R.stop();
 });
+
+test('面接の予定を足すとき、締切が別の日時なら聞いてから変える。つながったら締切と予定の両方に書く', async () => {
+  let ids = {};
+  const R = await boot({ after: (T) => {
+    ids.m = T.api('addCompany', { name: '面接中', stage: '面接', dueAt: '2030-05-01T10:00', route: Domain.LEGACY_ROUTE }).company.id;
+  } });
+  const asked = [];
+  R.w.confirm = (m) => { asked.push(m); return true; };
+  R.click(`.row[data-id="${ids.m}"]`);
+  assert.match(R.$('#sheet .tab-pane').textContent, /予定タブにも同じ日時の予定を作ります/);
+  R.click('#sheet [data-act="tab"][data-v="events"]');
+  const set = (id, v) => { R.$('#sheet #' + id).value = v; };
+  set('evKind', '面接');
+  set('evAtD', '2030-05-03'); set('evAtH', '14'); set('evAtM', '00');
+  R.click('#sheet [data-act="add-event"]');
+  await until(() => R.$$('#sheet [data-act="delete-event"]').length === 1);
+  assert.match(asked[0], /締切.*変えますか/);
+  assert.equal(R.calls.find((c) => c.action === 'addEvent').args.replaceDue, true);
+  assert.match(R.$('#sheet .tab-pane').textContent, /締切とつながっています/);
+  assert.equal(R.T.api('getData', {}).companies.find((c) => c.id === ids.m).dueAt, '2030-05-03T14:00');
+  /* 消すときは、締切も未定になると知らせる */
+  R.click('#sheet [data-act="delete-event"]');
+  assert.match(asked[1], /締切も未定/);
+  R.stop();
+});

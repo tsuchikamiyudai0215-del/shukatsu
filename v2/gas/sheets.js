@@ -13,7 +13,8 @@
 var COMPANY_COLS = ['id', 'kind', 'name', 'term', 'status', 'stage', 'route', 'lostStage',
   'dueAt', 'dueHasTime', 'submittedAt', 'resultAt', 'url', 'loginId', 'pw', 'domain', 'industry',
   'logo', 'logoManual', 'folderUrl', 'cal', 'updatedAt', 'routeLinks', 'history'];
-var EVENT_COLS = ['id', 'companyId', 'kind', 'startAt', 'endAt', 'allDay', 'daily', 'place'];
+/* link は、今の段階の締切とつないだ予定の印（'due'）。Domain.linkOnAdd・syncLinked を参照 */
+var EVENT_COLS = ['id', 'companyId', 'kind', 'startAt', 'endAt', 'allDay', 'daily', 'place', 'link'];
 
 var BOOL_COLS = { dueHasTime: 1, logoManual: 1, allDay: 1, daily: 1 };
 var JSON_COLS = { route: '[]', routeLinks: '[]', cal: '{}', history: '[]' };

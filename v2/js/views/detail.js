@@ -111,6 +111,14 @@ function historyHtml(c) {
   return section('due', '#8E8E93', '結果の履歴', rows);
 }
 
+/* 面接などの締切は、予定タブの予定とつながる（Domain.syncLinked）。どうなるかを締切の下に一言で書く */
+function dueLinkNote(c) {
+  const ev = Domain.linkedEvent(c, store.eventsOf(c.id));
+  if (ev) return html`<div class="sub" style="margin-top:6px">予定タブの「${ev.kind}」とつながっています。片方を直すと、もう片方も変わります。</div>`;
+  if (Domain.scheduleKind(Domain.position(c))) return html`<div class="sub" style="margin-top:6px">締切を入れると、予定タブにも同じ日時の予定を作ります。</div>`;
+  return '';
+}
+
 function infoTab(c, now) {
   const st = Domain.viewStatus(c, new Date(now));
   const parts = [];
@@ -119,7 +127,7 @@ function infoTab(c, now) {
     const r = c.dueAt ? rem(c.dueAt, now) : null;
     parts.push(section('due', 'var(--blue)', '締切まで', html`<div class="ig-body">${r
       ? html`<div class="cd" style="margin-top:0;color:${r.ms < 172800000 ? 'var(--hot)' : 'var(--text)'}"><b style="font-size:50px">${r.d}</b><s>d</s><b style="font-size:50px">${('0' + r.h).slice(-2)}</b><s>h</s><b style="font-size:50px">${('0' + r.m).slice(-2)}</b><s>m</s></div><div class="sub">${fdate(c.dueAt)}${c.dueHasTime ? ' ' + ftime(c.dueAt) : ' 時刻未設定'}</div>`
-      : html`<div style="font-size:15px;color:var(--muted)">締切が未設定です。</div>`}</div><div class="ig-body">${dtField('coDue', c.dueAt, '23:59')}</div><div class="ig-row ibtns"><button data-act="set-due">締切を保存</button>${c.dueAt && html`<button data-act="clear-due">未定にする</button>`}</div>`));
+      : html`<div style="font-size:15px;color:var(--muted)">締切が未設定です。</div>`}${dueLinkNote(c)}</div><div class="ig-body">${dtField('coDue', c.dueAt, '23:59')}</div><div class="ig-row ibtns"><button data-act="set-due">締切を保存</button>${c.dueAt && html`<button data-act="clear-due">未定にする</button>`}</div>`));
   }
   if (st === 'waiting') {
     const d = since(Domain.waitingSince(c), now);
@@ -199,7 +207,7 @@ function eventsTab(c, now) {
   const list = evs.length ? evs.map((ev) => {
     const r = rem(ev.startAt, now), live = evOngoing(ev, now);
     const span = spanText(ev);
-    return html`<div class="ig-row"><span class="evd" style="font-size:${r ? '26px' : '13px'};color:${r ? (r.days <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? (r.days === 0 ? '今日' : r.days) : (live ? '開催中' : '—')}</span><div class="evb"><div class="evk">${ev.kind}${span && html`<span>${span}</span>`}</div><div class="sub">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}</div></div><button class="evx" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
+    return html`<div class="ig-row"><span class="evd" style="font-size:${r ? '26px' : '13px'};color:${r ? (r.days <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? (r.days === 0 ? '今日' : r.days) : (live ? '開催中' : '—')}</span><div class="evb"><div class="evk">${ev.kind}${span && html`<span>${span}</span>`}</div><div class="sub">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}${ev.link === 'due' ? '　締切とつながっています。' : ''}</div></div><button class="evx" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
   }) : html`<div class="ig-body inote">予定はまだありません。</div>`;
   /* 追加の欄。終日・連日は手本（iPhone の設定）と同じ切り替えスイッチにする */
   const add = html`<div class="ig-body"><select class="f" id="evKind" data-change="evkind-pick" style="margin:0">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div></div><label class="ig-row ichk"><span>終日（時刻を使わない）</span><input type="checkbox" class="sw" id="evAll" data-change="allday"></label><div class="ig-body"><div class="ilab" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="ilab" id="evEndLab" style="margin-top:14px">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}</div><label class="ig-row ichk" id="evDailyWrap"><span>毎日この時間帯（連日）</span><input type="checkbox" class="sw" id="evDaily"></label><div class="ig-body"><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin:0"></div>${rowBtn('add-event', '予定を追加する', 'blue strong')}`;
@@ -418,8 +426,16 @@ async function addEvent() {
     companyId: ui.openId, kind, startAt: at, endAt: all && end === at ? '' : end,
     allDay: all, daily: !all && !!(r.querySelector('#evDaily') || {}).checked, place: val('evPlace')
   };
-  try { Domain.createEvent('check', ui.openId, fields); } catch (e) { toast(e.message); return; }
-  const res = await runBusy('addEvent', fields, fields.daily && fields.endAt ? '連日の予定を追加しました。' : '予定を追加しました。');
+  let plan;
+  try { plan = Domain.linkOnAdd(current(), Domain.createEvent('check', ui.openId, fields), store.eventsOf(ui.openId), {}); } catch (e) { toast(e.message); return; }
+  /* 今の段階の締切がもう別の日時で入っているときは、勝手に上書きせず聞く */
+  if (plan.conflict) {
+    const c = current();
+    fields.replaceDue = window.confirm('今の締切（' + fdate(c.dueAt) + (c.dueHasTime ? ' ' + ftime(c.dueAt) : '') + '）も、この予定の日時に変えますか？\n「キャンセル」なら、締切はそのままで予定だけを足します。');
+  }
+  const linked = plan.event.link === 'due' || fields.replaceDue;
+  const msg = linked ? '予定を追加して、締切にも入れました。' : fields.daily && fields.endAt ? '連日の予定を追加しました。' : '予定を追加しました。';
+  const res = await runBusy('addEvent', fields, msg);
   if (!res) return;
   if (own) rememberEventKind(kind);
   /* 描き直しは書きかけを残すので、追加できた分は先に空にしておく */
@@ -480,7 +496,12 @@ export const detailActions = {
     if (!v) { toast('日付を入れてください。'); return; }
     act('setDue', { dueAt: v, hasTime: true }, '締切を保存しました。');
   },
-  'clear-due': () => act('setDue', { dueAt: '' }, '締切を未定にしました。'),
+  'clear-due': () => {
+    const c = current();
+    const ev = c && Domain.linkedEvent(c, store.eventsOf(c.id));
+    if (ev && !window.confirm('つながっている予定（' + ev.kind + '）も削除します。よろしいですか？')) return;
+    act('setDue', { dueAt: '' }, ev ? '締切を未定にして、予定も削除しました。' : '締切を未定にしました。');
+  },
   'set-info': () => act('setInfo', { url: val('coUrl'), loginId: val('coId') }, 'マイページを保存しました。'),
   'set-industry': () => {
     const v = val('indVal');
@@ -557,7 +578,9 @@ export const detailActions = {
 
   'add-event': () => addEvent(),
   'delete-event': async (el) => {
-    if (!window.confirm('この予定を削除します。カレンダーからも消えます。')) return;
+    const ev = store.events().find((e) => e.id === el.dataset.v);
+    const linked = ev && ev.link === 'due';
+    if (!window.confirm(linked ? 'この予定を削除します。つながっている締切も未定になります。カレンダーからも消えます。' : 'この予定を削除します。カレンダーからも消えます。')) return;
     const r = await runBusy('deleteEvent', { id: el.dataset.v }, '予定を削除しました。');
     if (r) renderDetail();
   },

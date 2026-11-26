@@ -1210,3 +1210,70 @@ test('findFormulaCells：もう数式になっているセルを、中身を出�
 });
 
 function resetCacheAndRead(T) { for (const k of Object.keys(T.cache)) delete T.cache[k]; }
+
+test('面接の予定を足すと、今の段階の締切にも入る。カレンダーには1つだけ入る', () => {
+  const T = mk();
+  const c = addCo(T, { stage: '面接' });
+  const r = T.api('addEvent', { companyId: c.id, kind: '面接', startAt: '2030-01-05T10:00', endAt: '2030-01-05T11:00', place: '本社' });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.company.dueAt, '2030-01-05T10:00');
+  assert.equal(r.company.dueHasTime, true);
+  assert.equal(r.events[0].link, 'due');
+  assert.deepEqual(T.liveIn(DEV_CAL).map((e) => e.title), ['【面接】A社']);
+  assert.notEqual(r.company.updatedAt, c.updatedAt);   // ほかの端末の保存とぶつかったら分かるように
+});
+
+test('つながっていると：締切を動かせば予定も動き、予定を消せば締切も未定になる', () => {
+  const T = mk();
+  const c = addCo(T, { stage: '面接' });
+  const added = T.api('addEvent', { companyId: c.id, kind: '面接', startAt: '2030-01-05T10:00', endAt: '2030-01-05T11:30' });
+  const moved = mutate(T, added.company, 'setDue', { dueAt: '2030-01-08T13:00', hasTime: true });
+  assert.equal(moved.ok, true, moved.error);
+  assert.equal(moved.events.length, 1);
+  assert.equal(moved.events[0].startAt, '2030-01-08T13:00');
+  assert.equal(moved.events[0].endAt, '2030-01-08T14:30');
+  assert.equal(T.liveIn(DEV_CAL).length, 1);
+
+  const del = T.api('deleteEvent', { id: moved.events[0].id });
+  assert.equal(del.ok, true, del.error);
+  assert.equal(del.company.dueAt, '');
+  assert.equal(T.liveIn(DEV_CAL).length, 0);
+});
+
+test('つながっていると：面接の締切を入れれば予定ができ、未定にすれば予定も消える。通過したら予定は残してつながりを外す', () => {
+  const T = mk();
+  const c = addCo(T, { stage: '面接' });
+  const set = mutate(T, c, 'setDue', { dueAt: '2030-02-01T15:00', hasTime: true });
+  assert.equal(set.events.length, 1);
+  assert.equal(set.events[0].kind, '面接');
+  assert.equal(set.events[0].link, 'due');
+  const cleared = mutate(T, set.company, 'setDue', { dueAt: '' });
+  assert.equal(cleared.events.length, 0);
+
+  const again = mutate(T, cleared.company, 'setDue', { dueAt: '2030-02-03T15:00', hasTime: true });
+  const passed = mutate(T, again.company, 'pass');
+  assert.equal(passed.ok, true, passed.error);
+  assert.equal(passed.events.length, 1);
+  assert.equal(passed.events[0].link, '');
+});
+
+test('別の日時の締切があるときは、replaceDue が無ければ締切を変えず、予定もつながない', () => {
+  const T = mk();
+  const c = addCo(T, { stage: '面接', dueAt: '2030-03-01T10:00' });
+  const r = T.api('addEvent', { companyId: c.id, kind: '面接', startAt: '2030-03-05T10:00' });
+  assert.equal(r.company.dueAt, '2030-03-01T10:00');
+  assert.equal(r.events[0].link, '');
+  const r2 = T.api('addEvent', { companyId: c.id, kind: '面接', startAt: '2030-03-06T10:00', replaceDue: true });
+  assert.equal(r2.company.dueAt, '2030-03-06T10:00');
+  assert.equal(r2.events.filter((e) => e.link === 'due').length, 1);
+});
+
+test('ES の締切と説明会はつながない（今までどおり）', () => {
+  const T = mk();
+  const c = addCo(T, { stage: 'ES' });
+  const set = mutate(T, c, 'setDue', { dueAt: '2030-01-10T23:59', hasTime: true });
+  assert.equal(set.events.length, 0);
+  const r = T.api('addEvent', { companyId: c.id, kind: '説明会', startAt: '2030-01-05T10:00' });
+  assert.equal(r.company.dueAt, '2030-01-10T23:59');
+  assert.equal(r.events[0].link, '');
+});

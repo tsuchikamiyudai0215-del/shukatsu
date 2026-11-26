@@ -970,3 +970,107 @@ test('記録：印の無い会社と印のある会社が混ざっても、関�
   const t = D.tally([linked({ id: 'a', stage: '面接', status: 'waiting' }), co({ id: 'b', stage: 'GD', status: 'waiting' })], NOW);
   assert.deepEqual(t.stages.map((x) => x.stage), ['エントリー', 'ES', 'ES＋テスト', '適性検査', 'GD', '面接']);
 });
+
+// ============================================================
+// 締切と予定のつながり
+// ============================================================
+
+const ev = (over) => Object.assign(D.createEvent('e_1', 'c_1', { kind: '面接', startAt: '2026-10-05T14:00', endAt: '2026-10-05T15:30' }), over || {});
+
+test('つなぐのは日程が必ず決まる段階（面接・GD・面談・インターン）だけ。ES やテストはつながない', () => {
+  assert.equal(D.scheduleKind('一次面接'), '面接');
+  assert.equal(D.scheduleKind('最終面接'), '面接');
+  assert.equal(D.scheduleKind('GD'), 'GD');
+  assert.equal(D.scheduleKind('リクルーター面談'), '面談');
+  assert.equal(D.scheduleKind('インターン'), 'インターン');
+  for (const s of ['ES', '適性検査', 'テスト', 'エントリー']) assert.equal(D.scheduleKind(s), '', s);
+  assert.equal(D.canLinkDue(co({ stage: '一次面接' }), '面接'), true);
+  assert.equal(D.canLinkDue(co({ stage: 'ES' }), '面接'), false);
+  assert.equal(D.canLinkDue(co({ stage: '面接', status: 'waiting' }), '面接'), false);
+});
+
+test('予定を足す：締切が空ならつないで締切にも入れる。別の日時の締切は聞くまで上書きしない', () => {
+  const c = co({ stage: '面接' });
+  let p = D.linkOnAdd(c, ev(), []);
+  assert.equal(p.event.link, 'due');
+  assert.deepEqual(p.due, { dueAt: '2026-10-05T14:00', hasTime: true });
+
+  const other = co({ stage: '面接', dueAt: '2026-10-07T10:00', dueHasTime: true });
+  p = D.linkOnAdd(other, ev(), []);
+  assert.equal(p.conflict, true);
+  assert.equal(p.event.link, '');
+  p = D.linkOnAdd(other, ev(), [], { replaceDue: true });
+  assert.equal(p.event.link, 'due');
+  assert.equal(p.due.dueAt, '2026-10-05T14:00');
+
+  /* 同じ日時の締切なら、聞かずにつなぐ（締切は書き換えない） */
+  p = D.linkOnAdd(co({ stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true }), ev(), []);
+  assert.equal(p.event.link, 'due');
+  assert.equal(p.due, null);
+  /* 終日の予定は、時刻なしの締切にする */
+  p = D.linkOnAdd(c, ev({ allDay: true, startAt: '2026-10-05T00:00', endAt: '' }), []);
+  assert.deepEqual(p.due, { dueAt: '2026-10-05', hasTime: false });
+  /* もうつないだ予定があれば、2つ目はつながない。種類が違う予定もつながない */
+  assert.equal(D.linkOnAdd(c, ev({ id: 'e_2' }), [ev({ link: 'due' })]).event.link, '');
+  assert.equal(D.linkOnAdd(c, ev({ kind: '説明会' }), []).event.link, '');
+});
+
+test('締切を動かす：つないだ予定も長さを保って動く。未定にすると予定を消す', () => {
+  const before = co({ stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true });
+  const linkedEv = ev({ link: 'due' });
+  let after = D.apply(before, { type: 'setDue', dueAt: '2026-10-06T10:00', hasTime: true }, NOW);
+  let p = D.syncLinked(before, after, [linkedEv], () => 'e_new');
+  assert.equal(p.write.length, 1);
+  assert.equal(p.write[0].startAt, '2026-10-06T10:00');
+  assert.equal(p.write[0].endAt, '2026-10-06T11:30');
+  assert.equal(p.write[0].link, 'due');
+
+  after = D.apply(before, { type: 'setDue', dueAt: '' }, NOW);
+  p = D.syncLinked(before, after, [linkedEv], () => 'e_new');
+  assert.deepEqual(p.remove, ['e_1']);
+});
+
+test('段階が変わった・対応中でなくなったら、予定は残してつながりだけ外す', () => {
+  const before = co({ stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true });
+  const linkedEv = ev({ link: 'due' });
+  for (const type of ['pass', 'fail', 'skip', 'done']) {
+    const after = D.apply(before, { type }, NOW);
+    const p = D.syncLinked(before, after, [linkedEv], () => 'e_new');
+    assert.equal(p.remove.length, 0, type);
+    assert.equal(p.write.length, 1, type);
+    assert.equal(p.write[0].link, '', type);
+  }
+});
+
+test('日程の決まる段階に締切を入れたら、予定を作る。同じ日時の予定がもうあれば、それをつなぐ', () => {
+  const before = co({ stage: '一次面接', route: ['ES', '一次面接', '内定'] });
+  const after = D.apply(before, { type: 'setDue', dueAt: '2026-10-05T14:00', hasTime: true }, NOW);
+  let p = D.syncLinked(before, after, [], () => 'e_new');
+  assert.equal(p.write.length, 1);
+  assert.equal(p.write[0].id, 'e_new');
+  assert.equal(p.write[0].kind, '一次面接');
+  assert.equal(p.write[0].startAt, '2026-10-05T14:00');
+  assert.equal(p.write[0].endAt, '2026-10-05T15:00');
+  assert.equal(p.write[0].link, 'due');
+
+  p = D.syncLinked(before, after, [ev()], () => 'e_new');
+  assert.equal(p.write.length, 1);
+  assert.equal(p.write[0].id, 'e_1');
+  assert.equal(p.write[0].link, 'due');
+
+  /* この仕組みより前に入れた締切は、同じ日時のまま「締切を保存」を押せばつながる。保存以外の操作では作らない */
+  const old = co({ stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true });
+  const resaved = D.apply(old, { type: 'setDue', dueAt: '2026-10-05T14:00', hasTime: true }, NOW);
+  assert.equal(D.syncLinked(old, resaved, [], () => 'e_new', { type: 'setDue' }).write.length, 1);
+  assert.equal(D.syncLinked(old, D.apply(old, { type: 'setInfo', url: 'https://x.example' }, NOW), [], () => 'e_new', { type: 'setInfo' }).write.length, 0);
+
+  /* ES の締切では作らない */
+  const es = co({ stage: 'ES' });
+  assert.deepEqual(D.syncLinked(es, D.apply(es, { type: 'setDue', dueAt: '2026-10-05T23:59', hasTime: true }, NOW), [], () => 'x'), { write: [], remove: [] });
+});
+
+test('カレンダー：締切が予定とつながっているときは、予定のほうだけ入れる（同じ面接を2つ並べない）', () => {
+  const c = co({ stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true });
+  assert.deepEqual(D.desiredCalendar(c, [ev()]).map((i) => i.key), ['due', 'ev:e_1']);
+  assert.deepEqual(D.desiredCalendar(c, [ev({ link: 'due' })]).map((i) => i.key), ['ev:e_1']);
+});

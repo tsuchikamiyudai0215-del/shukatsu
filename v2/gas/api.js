@@ -234,7 +234,14 @@ function mutate_(args) {
   var now = new Date();
   var next = Domain.apply(c, op, now);
   next.updatedAt = stampAfter_(c.updatedAt);
+  applyLinked_(Domain.syncLinked(c, next, eventsOf_(c.id), function () { return newId_('e'); }, op));
   return saveWithCalendar_(next, now);
+}
+
+/* 締切とつないだ予定の直し（Domain.syncLinked の結果）をシートに書く */
+function applyLinked_(plan) {
+  plan.write.forEach(function (e) { events_().write(e); });
+  if (plan.remove.length) events_().removeMany(plan.remove);
 }
 
 function folderFor_(name) {
@@ -291,19 +298,35 @@ function deleteCompany_(args) {
   return out;
 }
 
+/* 予定を足す。今の段階の締切とつなげるなら、締切にも同じ日時を入れる（Domain.linkOnAdd）。
+   締切がもう別の日時で入っているときは、画面が聞いてから replaceDue を付けて送ってくる */
 function addEvent_(f) {
   f = f || {};
   var c = mustFind_(f.companyId);
-  var e = Domain.createEvent(newId_('e'), c.id, f);
-  events_().write(e);
-  return saveWithCalendar_(c, new Date());
+  var now = new Date();
+  var plan = Domain.linkOnAdd(c, Domain.createEvent(newId_('e'), c.id, f), eventsOf_(c.id), { replaceDue: !!f.replaceDue });
+  events_().write(plan.event);
+  if (plan.due) {
+    var next = Domain.apply(c, { type: 'setDue', dueAt: plan.due.dueAt, hasTime: plan.due.hasTime }, now);
+    next.updatedAt = stampAfter_(c.updatedAt);
+    c = next;
+  }
+  return saveWithCalendar_(c, now);
 }
 
 function deleteEvent_(args) {
   var e = events_().find(str_(args.id));
   if (!e) throw new Error('予定が見つかりません。');
   events_().removeMany([e.id]);
-  return saveWithCalendar_(mustFind_(e.companyId), new Date());
+  var c = mustFind_(e.companyId);
+  var now = new Date();
+  /* 締切とつないだ予定を消したら、締切も未定にする（同じものなので） */
+  if (str_(e.link) === 'due' && c.status === 'todo' && str_(c.dueAt)) {
+    var next = Domain.apply(c, { type: 'setDue', dueAt: '' }, now);
+    next.updatedAt = stampAfter_(c.updatedAt);
+    c = next;
+  }
+  return saveWithCalendar_(c, now);
 }
 
 /**
