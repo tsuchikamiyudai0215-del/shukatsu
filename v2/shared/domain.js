@@ -785,6 +785,39 @@ var Domain = (function () {
     return out;
   }
 
+  /*
+   * この仕組みより前に入れた締切と予定を、1社ずつまとめてつなぐときの決め方。
+   * { result, write: 書く予定, due: 締切に写す値か null } を返す。result はログに出す分け方。
+   * ・締切と同じ日時の予定がある … つなぐ（link）
+   * ・締切はあるが、同じ種類の予定が無い … 締切から予定を作る（create）
+   * ・締切はあるが、同じ種類の予定が別の日時にある … どちらが正しいか分からないので触らない（mismatch）
+   * ・締切が未定で、これからの同じ種類の予定が1つだけ … つないで、その日時を締切に入れる（fromEvent）
+   * ・締切が未定で、これからの予定が2つ以上 … どれか決められないので触らない（many）
+   */
+  function linkExisting(c, events, newId, now) {
+    var none = { result: '', write: [], due: null };
+    if (!c || c.kind === 'mgmt' || c.status !== 'todo' || !scheduleKind(position(c)) || linkedEvent(c, events)) return none;
+    var cands = (events || []).filter(function (e) { return e && e.companyId === c.id && canLinkDue(c, e.kind); });
+    var on = function (e) { var x = copy(e); x.link = 'due'; return x; };
+    if (str(c.dueAt)) {
+      for (var i = 0; i < cands.length; i++) {
+        if (sameDue(c, dueOfEvent(cands[i]))) return { result: 'link', write: [on(cands[i])], due: null };
+      }
+      if (cands.length) return { result: 'mismatch', write: [], due: null };
+      return { result: 'create', write: [eventOfDue(c, newId())], due: null };
+    }
+    var t = wallNow(now);
+    var ahead = cands.filter(function (e) {
+      var end = parseWall(e.endAt), start = parseWall(e.startAt);
+      if (end == null && start == null) return false;
+      var last = end != null ? end : start + (e.allDay ? DAY_MS : 0);
+      return last >= t;
+    });
+    if (ahead.length > 1) return { result: 'many', write: [], due: null };
+    if (!ahead.length) return none;
+    return { result: 'fromEvent', write: [on(ahead[0])], due: dueOfEvent(ahead[0]) };
+  }
+
   // ============================================================
   // カレンダー
   // ============================================================
@@ -1286,6 +1319,7 @@ var Domain = (function () {
     linkedEvent: linkedEvent,
     linkOnAdd: linkOnAdd,
     syncLinked: syncLinked,
+    linkExisting: linkExisting,
 
     routeOf: routeOf,
     defaultRoute: defaultRoute,

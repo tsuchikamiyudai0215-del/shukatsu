@@ -1069,6 +1069,40 @@ test('日程の決まる段階に締切を入れたら、予定を作る。同�
   assert.deepEqual(D.syncLinked(es, D.apply(es, { type: 'setDue', dueAt: '2026-10-05T23:59', hasTime: true }, NOW), [], () => 'x'), { write: [], remove: [] });
 });
 
+test('前からある締切と予定をまとめてつなぐ：はっきりしたものだけつなぎ、迷うものは触らない', () => {
+  const id = () => 'e_new';
+  const due = { stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true };
+  /* 同じ日時の予定がある → つなぐ */
+  let p = D.linkExisting(co(due), [ev()], id, NOW);
+  assert.equal(p.result, 'link');
+  assert.equal(p.write[0].id, 'e_1');
+  assert.equal(p.write[0].link, 'due');
+  /* 予定が無い → 締切から作る */
+  p = D.linkExisting(co(due), [], id, NOW);
+  assert.equal(p.result, 'create');
+  assert.equal(p.write[0].id, 'e_new');
+  /* 日時が違う → 触らない */
+  p = D.linkExisting(co(due), [ev({ startAt: '2026-10-06T14:00', endAt: '2026-10-06T15:00' })], id, NOW);
+  assert.equal(p.result, 'mismatch');
+  assert.equal(p.write.length, 0);
+  /* 締切が未定で、これからの予定が1つ → 締切に入れる。終わった予定は数えない */
+  const past = ev({ id: 'e_0', startAt: '2026-09-01T10:00', endAt: '2026-09-01T11:00' });
+  p = D.linkExisting(co({ stage: '面接' }), [past, ev()], id, NOW);
+  assert.equal(p.result, 'fromEvent');
+  assert.equal(p.write[0].id, 'e_1');
+  assert.deepEqual(p.due, { dueAt: '2026-10-05T14:00', hasTime: true });
+  /* これからの予定が2つ → 触らない */
+  p = D.linkExisting(co({ stage: '面接' }), [ev(), ev({ id: 'e_2', startAt: '2026-10-08T10:00', endAt: '2026-10-08T11:00' })], id, NOW);
+  assert.equal(p.result, 'many');
+  /* もうつながっている・ES・対応中でない・予定も締切も無い → 何もしない */
+  assert.equal(D.linkExisting(co(due), [ev({ link: 'due' })], id, NOW).result, '');
+  assert.equal(D.linkExisting(co({ stage: 'ES', dueAt: '2026-10-05T23:59', dueHasTime: true }), [], id, NOW).result, '');
+  assert.equal(D.linkExisting(co(Object.assign({}, due, { status: 'waiting' })), [], id, NOW).result, '');
+  assert.equal(D.linkExisting(co({ stage: '面接' }), [past], id, NOW).result, '');
+  /* 種類の違う予定（説明会）は候補にしない */
+  assert.equal(D.linkExisting(co(due), [ev({ kind: '説明会' })], id, NOW).result, 'create');
+});
+
 test('カレンダー：締切が予定とつながっているときは、予定のほうだけ入れる（同じ面接を2つ並べない）', () => {
   const c = co({ stage: '面接', dueAt: '2026-10-05T14:00', dueHasTime: true });
   assert.deepEqual(D.desiredCalendar(c, [ev()]).map((i) => i.key), ['due', 'ev:e_1']);

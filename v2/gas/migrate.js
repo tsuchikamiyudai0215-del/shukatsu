@@ -312,6 +312,69 @@ function retryMissingLogos() {
 }
 
 // ============================================================
+// 前から入っている締切と予定をつなぐ
+// ============================================================
+
+/*
+ * 締切と予定のつながりを入れる前の会社を、まとめてつなぐ。エディタから実行する。何度実行してもよい。
+ *   findLinkableDue … 何が起きるかをログに出すだけ。何も変えない
+ *   linkExistingDue … 実際につなぐ。カレンダーも合わせる（締切の予定が、つないだ面接の予定に置きかわる）
+ * 決め方は Domain.linkExisting。日時が食い違うものと、候補が2つ以上あるものは触らずにログに出すので、画面で直す。
+ */
+var LINK_LABEL = {
+  link: '同じ日時の予定とつなぐ',
+  create: '締切から予定を作る',
+  fromEvent: 'これからの予定を締切に入れる',
+  mismatch: '締切と予定の日時が違うので触らない',
+  many: 'これからの予定が2つ以上あるので触らない'
+};
+
+function findLinkableDue() { return linkExistingDue_(false); }
+function linkExistingDue() { return linkExistingDue_(true); }
+
+function linkExistingDue_(fix) {
+  resetRun_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(LOCK_WAIT_MS);
+  try {
+    var now = new Date();
+    var count = {}, failed = 0;
+    var all = events_().all();
+    companies_().all().forEach(function (c) {
+      var evs = all.filter(function (e) { return e.companyId === c.id; });
+      var plan = Domain.linkExisting(c, evs, function () { return newId_('e'); }, now);
+      if (!plan.result) return;
+      count[plan.result] = (count[plan.result] || 0) + 1;
+      console.log(c.name + '（' + Domain.position(c) + '）：' + LINK_LABEL[plan.result]);
+      if (!fix || !plan.write.length) return;
+      try {
+        plan.write.forEach(function (e) { events_().write(e); });
+        var next = c;
+        if (plan.due) {
+          next = Domain.apply(c, { type: 'setDue', dueAt: plan.due.dueAt, hasTime: plan.due.hasTime }, now);
+          next.updatedAt = stampAfter_(c.updatedAt);
+        }
+        var res = saveWithCalendar_(next, now);
+        if (res.warning) failed++;
+      } catch (err) {
+        failed++;
+        console.warn('つなげませんでした（' + c.name + '）：' + err);
+      }
+    });
+    bustCache_();
+    if (fix) markWrite_();
+    var parts = Object.keys(LINK_LABEL).filter(function (k) { return count[k]; })
+      .map(function (k) { return LINK_LABEL[k] + ' ' + count[k] + '社'; });
+    console.log((fix ? 'つなぎました。' : '見ただけです（まだ何も変えていません）。') +
+      (parts.length ? parts.join('、') : 'つなぐ会社はありません') + '。' +
+      (failed ? 'カレンダーなどで失敗した会社 ' + failed + '社。' : ''));
+    return count;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================================
 // 切り替えを戻す
 // ============================================================
 

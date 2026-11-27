@@ -1211,6 +1211,23 @@ test('findFormulaCells：もう数式になっているセルを、中身を出�
 
 function resetCacheAndRead(T) { for (const k of Object.keys(T.cache)) delete T.cache[k]; }
 
+test('前からある締切と予定をつなぐ（findLinkableDue は見るだけ、linkExistingDue でつなぐ）', () => {
+  const T = mk();
+  const c = addCo(T, { stage: '面接' });
+  T.api('addEvent', { companyId: c.id, kind: '面接', startAt: '2030-01-05T10:00', endAt: '2030-01-05T11:00' });
+  /* つながりを入れる前のデータにする */
+  const sh = T.sheet('events');
+  sh.d[1][sh.d[0].indexOf('link')] = '';
+  resetCacheAndRead(T);
+  assert.equal(JSON.stringify(T.ctx.findLinkableDue()), '{"link":1}');
+  assert.equal(T.rows('events')[0].link, '');
+  assert.equal(JSON.stringify(T.ctx.linkExistingDue()), '{"link":1}');
+  assert.equal(T.rows('events')[0].link, 'due');
+  assert.deepEqual(T.liveIn(DEV_CAL).map((e) => e.title), ['【面接】A社']);
+  assert.ok(T.log.some((l) => /A社（面接）：同じ日時の予定とつなぐ/.test(l)));
+  assert.equal(JSON.stringify(T.ctx.linkExistingDue()), '{}');
+});
+
 test('面接の予定を足すと、今の段階の締切にも入る。カレンダーには1つだけ入る', () => {
   const T = mk();
   const c = addCo(T, { stage: '面接' });
