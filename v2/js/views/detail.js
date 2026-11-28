@@ -119,6 +119,18 @@ function dueLinkNote(c) {
   return '';
 }
 
+/* 参加決定のインターンは、実施日をインターンの予定とつなぐ（Domain.dayEvent）。概要から直すと予定が動く */
+function dayLinkNote(c, ev) {
+  if (ev.link === 'due') return html`<div class="sub" style="margin-top:6px">予定タブの「${ev.kind}」とつながっています。ここで直すと、予定も変わります。</div>`;
+  if (Domain.canLinkDay(c, ev.kind)) return html`<div class="sub" style="margin-top:6px">実施日を保存すると、予定タブの「${ev.kind}」とつなぎます。</div>`;
+  return '';
+}
+
+function dayFields(ev) {
+  const lab = ev.allDay ? ['開始日', '終了日（任意）'] : ['開始日時', '終了日時（任意）'];
+  return html`<div class="ig-body"><div class="ilab">${lab[0]}</div>${dtField('dayAt', ev.startAt, '10:00', ev.allDay)}<div class="ilab" style="margin-top:14px">${lab[1]}</div>${dtField('dayEnd', ev.endAt, '17:00', ev.allDay)}</div><div class="ig-row ibtns"><button data-act="set-day" data-v="${ev.id}">実施日を保存</button></div>`;
+}
+
 function infoTab(c, now) {
   const st = Domain.viewStatus(c, new Date(now));
   const parts = [];
@@ -135,12 +147,13 @@ function infoTab(c, now) {
     parts.push(section('wait', 'var(--wait)', '結果待ち', html`<div class="ig-body"><div class="cd" style="margin-top:0;color:var(--wait)"><b style="font-size:50px">${d == null ? '—' : d}</b><s>日経過</s></div>${Domain.isAutoSent(c, new Date(now)) && html`<div class="sub" style="color:var(--wait)">締切経過で自動送り</div>`}${expectHtml(c)}<div style="display:flex;gap:10px;margin-top:16px"><button class="big" style="flex:1;margin:0;background:var(--go);color:#00220E" data-act="pass">${Domain.isFinalStep(c) ? goal : '通過'}</button><button class="big" style="flex:1;margin:0;background:rgba(255,255,255,.1);color:var(--text);font-weight:500" data-act="fail">落選</button></div></div>`));
   }
   if (st === 'joined') {
-    const ev = eventsOf(c.id).filter((e) => evActive(e, now))[0];
+    const ev = Domain.dayEvent(c, store.eventsOf(c.id), new Date(now));
     const rr = ev ? rem(ev.startAt, now) : null;
+    const big = (t) => html`<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:34px">${t}</b></div><div class="sub">${evWhen(ev)}</div>`;
     parts.push(section('day', 'var(--go)', '実施日まで', html`<div class="ig-body">${rr
       ? html`<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:50px">${rr.d}</b><s>日</s></div><div class="sub">${evWhen(ev)}${evDays(ev) > 1 ? '（' + evDays(ev) + '日間）' : ''}</div>`
-      : ev ? html`<div class="cd" style="margin-top:0;color:var(--go)"><b style="font-size:34px">開催中</b></div><div class="sub">${evWhen(ev)}</div>`
-        : html`<div style="font-size:14px;color:var(--muted);line-height:1.7">実施日が未登録です。「予定」タブで、種別「インターン」として日時を入れてください。</div>`}</div>`));
+      : ev ? big(evActive(ev, now) ? '開催中' : '終わりました')
+        : html`<div style="font-size:14px;color:var(--muted);line-height:1.7">実施日が未登録です。「予定」タブで、種別「インターン」として日時を入れてください。</div>`}${ev ? dayLinkNote(c, ev) : ''}</div>${ev ? dayFields(ev) : ''}`));
   }
 
   /* 開いてすぐ使うものを上に。スクロールせずに届く位置に置く */
@@ -207,7 +220,7 @@ function eventsTab(c, now) {
   const list = evs.length ? evs.map((ev) => {
     const r = rem(ev.startAt, now), live = evOngoing(ev, now);
     const span = spanText(ev);
-    return html`<div class="ig-row"><span class="evd" style="font-size:${r ? '26px' : '13px'};color:${r ? (r.days <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? (r.days === 0 ? '今日' : r.days) : (live ? '開催中' : '—')}</span><div class="evb"><div class="evk">${ev.kind}${span && html`<span>${span}</span>`}</div><div class="sub">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}${ev.link === 'due' ? '　締切とつながっています。' : ''}</div></div><button class="evx" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
+    return html`<div class="ig-row"><span class="evd" style="font-size:${r ? '26px' : '13px'};color:${r ? (r.days <= 2 ? 'var(--hot)' : 'var(--text)') : (live ? 'var(--go)' : 'var(--dim)')}">${r ? (r.days === 0 ? '今日' : r.days) : (live ? '開催中' : '—')}</span><div class="evb"><div class="evk">${ev.kind}${span && html`<span>${span}</span>`}</div><div class="sub">${evWhen(ev)}${ev.place ? ' ' + ev.place : ''}${ev.link === 'due' ? (c.status === 'joined' ? '　実施日とつながっています。' : '　締切とつながっています。') : ''}</div></div><button class="evx" data-act="delete-event" data-v="${ev.id}" aria-label="予定を削除">×</button></div>`;
   }) : html`<div class="ig-body inote">予定はまだありません。</div>`;
   /* 追加の欄。終日・連日は手本（iPhone の設定）と同じ切り替えスイッチにする */
   const add = html`<div class="ig-body"><select class="f" id="evKind" data-change="evkind-pick" style="margin:0">${eventKindPalette().map((k) => html`<option>${k}</option>`)}<option value="${KIND_OWN}">自分で入力…</option></select><div id="evKindOwnWrap" style="display:none"><input class="f" id="evKindOwn" placeholder="例：リクルーター面談"></div></div><label class="ig-row ichk"><span>終日（時刻を使わない）</span><input type="checkbox" class="sw" id="evAll" data-change="allday"></label><div class="ig-body"><div class="ilab" id="evAtLab">開始日時</div>${dtField('evAt', '', '10:00')}<div class="ilab" id="evEndLab" style="margin-top:14px">終了日時（任意）</div>${dtField('evEnd', '', '17:00')}</div><label class="ig-row ichk" id="evDailyWrap"><span>毎日この時間帯（連日）</span><input type="checkbox" class="sw" id="evDaily"></label><div class="ig-body"><input class="f" id="evPlace" placeholder="場所・オンラインURL" style="margin:0"></div>${rowBtn('add-event', '予定を追加する', 'blue strong')}`;
@@ -577,9 +590,26 @@ export const detailActions = {
   },
 
   'add-event': () => addEvent(),
+  'set-day': async (el) => {
+    const ev = store.events().find((e) => e.id === el.dataset.v);
+    const r = root();
+    if (!ev || !r) return;
+    let at, end;
+    try { at = dtValue('dayAt', r); end = dtValue('dayEnd', r); } catch (e) { toast(e.message); return; }
+    if (ev.allDay) { at = at && at.slice(0, 10) + 'T00:00'; end = end && end.slice(0, 10) + 'T00:00'; }
+    if (!at) { toast(ev.allDay ? '開始日を入れてください。' : '開始日時を入れてください。'); return; }
+    const endMs = end ? Domain.parseWall(end) : null, startMs = Domain.parseWall(at);
+    if (end && endMs != null && (ev.allDay ? endMs < startMs : endMs <= startMs)) {
+      toast(ev.allDay ? '終了日は開始日より後にしてください。' : '終了は開始より後にしてください。');
+      return;
+    }
+    const res = await runBusy('moveEvent', { id: ev.id, startAt: at, endAt: ev.allDay && end === at ? '' : end, allDay: ev.allDay }, '実施日を保存しました。');
+    if (res) renderDetail();
+  },
   'delete-event': async (el) => {
     const ev = store.events().find((e) => e.id === el.dataset.v);
-    const linked = ev && ev.link === 'due';
+    const c = current();
+    const linked = ev && ev.link === 'due' && c && c.status === 'todo';
     if (!window.confirm(linked ? 'この予定を削除します。つながっている締切も未定になります。カレンダーからも消えます。' : 'この予定を削除します。カレンダーからも消えます。')) return;
     const r = await runBusy('deleteEvent', { id: el.dataset.v }, '予定を削除しました。');
     if (r) renderDetail();

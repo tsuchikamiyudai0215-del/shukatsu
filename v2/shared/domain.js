@@ -697,6 +697,52 @@ var Domain = (function () {
     return null;
   }
 
+  /*
+   * 参加決定のインターンは締切が無いので、締切の代わりに「実施日」としてインターンの予定とつなぐ。
+   * 概要の「実施日まで」から日時を直すと、つないだ予定が動く
+   */
+  function isDayKind(kind) { return scheduleKind(kind) === 'インターン'; }
+  function canLinkDay(c, kind) { return !!c && c.status === 'joined' && isDayKind(kind); }
+
+  /* まだ終わっていない予定か。終日の終わりの日は、その日いっぱいまで含める */
+  function isAhead(e, t) {
+    var start = parseWall(e.startAt), end = parseWall(e.endAt);
+    if (start == null) return false;
+    var last = (end != null ? end : start) + (e.allDay ? DAY_MS : 0);
+    return last >= t;
+  }
+
+  /* 概要に出す実施日の予定。つないだ予定、無ければこれからのインターンの予定、それも無ければこれからの予定 */
+  function dayEvent(c, events, now) {
+    var ev = linkedEvent(c, events);
+    if (ev) return ev;
+    var t = wallNow(now);
+    var mine = (events || []).filter(function (e) { return e && e.companyId === c.id && isAhead(e, t); })
+      .sort(function (a, b) { return parseWall(a.startAt) - parseWall(b.startAt); });
+    for (var i = 0; i < mine.length; i++) if (isDayKind(mine[i].kind)) return mine[i];
+    return mine[0] || null;
+  }
+
+  /*
+   * 予定の日時を変える。種類・場所・つながりはそのまま。
+   * 締切とつないだ予定なら、締切に写す値（due）も返す（予定を動かしたら締切も同じだけ動く）
+   */
+  function moveEvent(c, e, f, events) {
+    var next = createEvent(e.id, e.companyId, {
+      kind: e.kind, place: e.place, startAt: f.startAt, endAt: f.endAt, allDay: f.allDay,
+      daily: has(f, 'daily') ? f.daily : e.daily
+    });
+    next.link = str(e.link);
+    /* 参加決定のインターンで、まだどれともつないでいなければ、直した予定を実施日としてつなぐ */
+    if (!next.link && canLinkDay(c, next.kind) && !linkedEvent(c, events)) next.link = 'due';
+    var due = null;
+    if (next.link === 'due' && c && c.status === 'todo') {
+      var d = dueOfEvent(next);
+      if (!sameDue(c, d)) due = d;
+    }
+    return { event: next, due: due };
+  }
+
   /* 予定の始まりを、締切の形にする。終日の予定は時刻なしの締切にする */
   function dueOfEvent(e) {
     return e.allDay ? { dueAt: str(e.startAt).slice(0, 10), hasTime: false } : { dueAt: str(e.startAt), hasTime: true };
@@ -715,7 +761,9 @@ var Domain = (function () {
   function linkOnAdd(c, e, events, opts) {
     var ev = copy(e);
     ev.link = '';
-    if (!canLinkDue(c, e.kind) || linkedEvent(c, events)) return { event: ev };
+    if (linkedEvent(c, events)) return { event: ev };
+    if (canLinkDay(c, e.kind)) { ev.link = 'due'; return { event: ev }; }
+    if (!canLinkDue(c, e.kind)) return { event: ev };
     var d = dueOfEvent(e);
     if (str(c.dueAt) && !sameDue(c, d) && !(opts && opts.replaceDue)) return { event: ev, conflict: true };
     ev.link = 'due';
@@ -736,7 +784,8 @@ var Domain = (function () {
 
   /*
    * 会社への操作（apply）のあとで、つないだ予定をどう直すか。{ write: 書く予定, remove: 消す予定の id } を返す。
-   * ・段階が変わった・対応中でなくなった … つながりだけ外す（終わった面接は記録として残す）
+   * ・段階が変わった・対応中でなくなった … つながりだけ外す（終わった面接は記録として残す）。
+   *   ただし参加決定になったインターンは、インターンの予定とのつながりを実施日として残す（無ければ1つだけのときにつなぐ）
    * ・締切が動いた … つないだ予定も同じだけ動かす（長さは保つ）
    * ・締切を未定にした … つないだ予定を消す
    * ・つないだ予定が無く、日程の決まる段階に締切を入れた … 同じ日時の予定があればつなぎ、無ければ作る。
@@ -748,10 +797,12 @@ var Domain = (function () {
     var stageChanged = position(before) !== position(after);
     var dueChanged = str(before.dueAt) !== str(after.dueAt) || !!before.dueHasTime !== !!after.dueHasTime;
     if (ev) {
-      if (after.status !== 'todo' || stageChanged) {
+      /* 参加決定になったインターンは、インターンの予定なら実施日としてつないだままにする */
+      var keep = after.status === 'todo' ? !stageChanged && canLinkDue(after, ev.kind) : canLinkDay(after, ev.kind);
+      if (!keep) {
         var off = copy(ev); off.link = '';
         out.write.push(off);
-      } else if (dueChanged) {
+      } else if (after.status === 'todo' && dueChanged) {
         if (!str(after.dueAt)) { out.remove.push(ev.id); return out; }
         var moved = copy(ev);
         var s0 = parseWall(ev.startAt), e0 = parseWall(ev.endAt);
@@ -768,6 +819,13 @@ var Domain = (function () {
         }
         out.write.push(moved);
       }
+      return out;
+    }
+    if (after.status === 'joined') {
+      /* 参加が決まったとき、インターンの予定が1つだけなら、それを実施日としてつなぐ */
+      if (before.status === 'joined') return out;
+      var days = (events || []).filter(function (e) { return e && e.companyId === after.id && isDayKind(e.kind); });
+      if (days.length === 1) { var d1 = copy(days[0]); d1.link = 'due'; out.write.push(d1); }
       return out;
     }
     var saved = dueChanged || (op && op.type === 'setDue');
@@ -793,12 +851,21 @@ var Domain = (function () {
    * ・締切はあるが、同じ種類の予定が別の日時にある … どちらが正しいか分からないので触らない（mismatch）
    * ・締切が未定で、これからの同じ種類の予定が1つだけ … つないで、その日時を締切に入れる（fromEvent）
    * ・締切が未定で、これからの予定が2つ以上 … どれか決められないので触らない（many）
+   * ・参加決定のインターンで、これからのインターンの予定が1つ … 実施日としてつなぐ（day）。2つ以上なら many
    */
   function linkExisting(c, events, newId, now) {
     var none = { result: '', write: [], due: null };
-    if (!c || c.kind === 'mgmt' || c.status !== 'todo' || !scheduleKind(position(c)) || linkedEvent(c, events)) return none;
-    var cands = (events || []).filter(function (e) { return e && e.companyId === c.id && canLinkDue(c, e.kind); });
+    if (!c || c.kind === 'mgmt' || linkedEvent(c, events)) return none;
     var on = function (e) { var x = copy(e); x.link = 'due'; return x; };
+    if (c.status === 'joined') {
+      /* 参加が決まったインターンは、これからのインターンの予定が1つならそれを実施日としてつなぐ */
+      var t0 = wallNow(now);
+      var days = (events || []).filter(function (e) { return e && e.companyId === c.id && isDayKind(e.kind) && isAhead(e, t0); });
+      if (days.length > 1) return { result: 'many', write: [], due: null };
+      return days.length ? { result: 'day', write: [on(days[0])], due: null } : none;
+    }
+    if (c.status !== 'todo' || !scheduleKind(position(c))) return none;
+    var cands = (events || []).filter(function (e) { return e && e.companyId === c.id && canLinkDue(c, e.kind); });
     if (str(c.dueAt)) {
       for (var i = 0; i < cands.length; i++) {
         if (sameDue(c, dueOfEvent(cands[i]))) return { result: 'link', write: [on(cands[i])], due: null };
@@ -809,9 +876,7 @@ var Domain = (function () {
     var t = wallNow(now);
     var ahead = cands.filter(function (e) {
       var end = parseWall(e.endAt), start = parseWall(e.startAt);
-      if (end == null && start == null) return false;
-      var last = end != null ? end : start + (e.allDay ? DAY_MS : 0);
-      return last >= t;
+      return isAhead(e, t);
     });
     if (ahead.length > 1) return { result: 'many', write: [], due: null };
     if (!ahead.length) return none;
@@ -1320,6 +1385,9 @@ var Domain = (function () {
     linkOnAdd: linkOnAdd,
     syncLinked: syncLinked,
     linkExisting: linkExisting,
+    canLinkDay: canLinkDay,
+    dayEvent: dayEvent,
+    moveEvent: moveEvent,
 
     routeOf: routeOf,
     defaultRoute: defaultRoute,

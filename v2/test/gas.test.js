@@ -1211,6 +1211,23 @@ test('findFormulaCells：もう数式になっているセルを、中身を出�
 
 function resetCacheAndRead(T) { for (const k of Object.keys(T.cache)) delete T.cache[k]; }
 
+test('参加決定のインターン：インターンの予定を実施日としてつなぎ、概要から日時を直せる（moveEvent）', () => {
+  const T = mk();
+  let c = addCo(T, { term: 'インターン', stage: 'ES' });
+  const j = mutate(T, c, 'join');
+  assert.equal(j.ok, true, j.error);
+  assert.equal(j.company.status, 'joined');
+  const a = T.api('addEvent', { companyId: c.id, kind: 'インターン', startAt: '2030-01-05', endAt: '2030-01-07', allDay: true });
+  assert.equal(a.events[0].link, 'due');
+  assert.equal(a.company.dueAt, '');
+  const m = T.api('moveEvent', { id: a.events[0].id, startAt: '2030-01-10T00:00', endAt: '2030-01-12T00:00', allDay: true });
+  assert.equal(m.ok, true, m.error);
+  assert.equal(m.events[0].startAt, '2030-01-10T00:00');
+  assert.equal(m.events[0].link, 'due');
+  assert.equal(T.liveIn(DEV_CAL).length, 1);
+  assert.match(T.api('moveEvent', { id: 'nope', startAt: '2030-01-10' }).error, /予定が見つかりません/);
+});
+
 test('前からある締切と予定をつなぐ（findLinkableDue は見るだけ、linkExistingDue でつなぐ）', () => {
   const T = mk();
   const c = addCo(T, { stage: '面接' });

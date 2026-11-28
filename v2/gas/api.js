@@ -25,6 +25,7 @@ var ACTIONS = {
   deleteCompany: { fn: deleteCompany_ },
   addEvent:      { fn: addEvent_ },
   deleteEvent:   { fn: deleteEvent_ },
+  moveEvent:     { fn: moveEvent_ },
   setPassword:   { fn: setPassword_ }
 };
 
@@ -305,6 +306,23 @@ function addEvent_(f) {
   var c = mustFind_(f.companyId);
   var now = new Date();
   var plan = Domain.linkOnAdd(c, Domain.createEvent(newId_('e'), c.id, f), eventsOf_(c.id), { replaceDue: !!f.replaceDue });
+  events_().write(plan.event);
+  if (plan.due) {
+    var next = Domain.apply(c, { type: 'setDue', dueAt: plan.due.dueAt, hasTime: plan.due.hasTime }, now);
+    next.updatedAt = stampAfter_(c.updatedAt);
+    c = next;
+  }
+  return saveWithCalendar_(c, now);
+}
+
+/* 予定の日時だけを変える（概要の「実施日まで」から）。締切とつないだ予定なら締切も合わせる */
+function moveEvent_(args) {
+  args = args || {};
+  var e = events_().find(str_(args.id));
+  if (!e) throw new Error('予定が見つかりません。');
+  var c = mustFind_(e.companyId);
+  var now = new Date();
+  var plan = Domain.moveEvent(c, e, args, eventsOf_(c.id));
   events_().write(plan.event);
   if (plan.due) {
     var next = Domain.apply(c, { type: 'setDue', dueAt: plan.due.dueAt, hasTime: plan.due.hasTime }, now);
